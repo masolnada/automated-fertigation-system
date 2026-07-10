@@ -7,11 +7,29 @@ Portable, solar-powered fertigation controller. Waters while injecting humic aci
 - KinCony KC868-A8 v1.7 — ESP32 (WROOM-32), 8 relays and 8 digital inputs via PCF8574 I2C expanders, DS18B20 on GPIO14
 - Vechline solar panel — 100Wp, 18.35V / 5.45A rated, 22.7V open circuit
 - Victron Energy MPPT 100|20 charge controller
-- LiFePO4 battery — 12V 8Ah (96Wh)
+- LiFePO4 battery — 12V 8Ah (96Wh), BMS limits 8A charge / 10A discharge, charge temperature 0–55°C, 3000+ cycles
 - Seaflo diaphragm pump SFDP1-030-055-42 — 12V, 11.3 LPM open flow, 3.5A (7.5A max), 3.8 bar pressure switch
 - 12V electrovalves
 
 Network is WiFi with a fallback AP (`kc868-a8`); MQTT broker and OTA are configured. The board also has LAN8720 Ethernet, unused — ESPHome does not allow `ethernet:` and `wifi:` in the same config.
+
+## Power budget
+
+> [!IMPORTANT]
+> The Victron MPPT 100|20 defaults to 20A charge current, but the battery accepts at most 8A — and the panel can briefly exceed its 100W rating (cold cells, edge-of-cloud). **Set the maximum charge current to 7A in VictronConnect before connecting the battery.**
+
+Consumption at 12.8V: board idle (WiFi + MQTT + web server) ~0.13A; each energized relay ~40mA; a held-open electrovalve ~0.5A; pump ~3.5–4A pumping, up to 7.5A near its 3.8 bar cutoff.
+
+- One default sequence (5/20/5 min): ~2.1Ah ≈ 27Wh — about a quarter of the battery.
+- Battery alone, no sun: ~3 sequences back-to-back, or ~1.7h of continuous pumping.
+- Standby: ~3Ah/day, so a full battery holds the idle electronics for ~2–2.5 days of zero sun.
+- With sun this is a non-issue: one sequence is recovered in ~20–40 min of decent sunlight. The battery is a night/cloud buffer, not the energy source. Prefer irrigating during or right after daylight.
+
+Operating limits:
+
+- **Discharge margin is thin.** Normal pumping totals ~4.5A, but near the pump's pressure cutoff the total reaches ~8.2A against a 10A BMS — with no headroom for restart inrush. Size the drip network open enough that the pump runs well below cutoff and does not pressure-cycle; supervise one full sequence before trusting it unattended. If the BMS ever trips, the fix is a battery with a 20A+ BMS.
+- **Never charge below 0°C** — LiFePO4 is damaged by sub-zero charging and it is unconfirmed whether this pack's BMS blocks it. A frosty night followed by dawn sun is exactly the failure case: insulate the battery enclosure or bring it in over winter.
+- Nothing disconnects the load at low battery yet. The MPPT 100|20 load output has a configurable low-voltage disconnect — wire the pump and controller through it. Firmware-side battery monitoring arrives with the planned INA226.
 
 ## Relay mapping
 
