@@ -10,6 +10,7 @@ Portable, solar-powered fertigation controller. Waters while injecting humic aci
 - LiFePO4 battery — 12V 8Ah (96Wh), BMS limits 8A charge / 10A discharge, charge temperature 0–55°C, 3000+ cycles
 - Seaflo diaphragm pump SFDP1-030-055-42 — 12V, 11.3 LPM open flow, 3.5A (7.5A max), 3.8 bar pressure switch
 - 12V electrovalves
+- Victron Energy SmartShunt — battery monitor, read over BLE (see Battery monitoring)
 
 Network is WiFi with a fallback AP (`kc868-a8`); MQTT broker and OTA are configured. The board also has LAN8720 Ethernet, unused — ESPHome does not allow `ethernet:` and `wifi:` in the same config.
 
@@ -29,7 +30,17 @@ Operating limits:
 
 - **Discharge margin is thin.** Normal pumping totals ~4.5A, but near the pump's pressure cutoff the total reaches ~8.2A against a 10A BMS — with no headroom for restart inrush. Size the drip network open enough that the pump runs well below cutoff and does not pressure-cycle; supervise one full sequence before trusting it unattended. If the BMS ever trips, the fix is a battery with a 20A+ BMS.
 - **Never charge below 0°C** — LiFePO4 is damaged by sub-zero charging and it is unconfirmed whether this pack's BMS blocks it. A frosty night followed by dawn sun is exactly the failure case: insulate the battery enclosure or bring it in over winter.
-- Nothing disconnects the load at low battery yet. The MPPT 100|20 load output has a configurable low-voltage disconnect — wire the pump and controller through it. Firmware-side battery monitoring arrives with the planned INA226.
+- Nothing disconnects the load at low battery yet. The MPPT 100|20 load output has a configurable low-voltage disconnect — wire the pump and controller through it. The SmartShunt provides monitoring only; no automation acts on it yet.
+
+## Battery monitoring
+
+A Victron SmartShunt broadcasts its measurements as AES-encrypted BLE advertisements ("instant readout"); the ESP32 listens passively — no pairing, no wiring, read-only, and VictronConnect on the phone keeps working in parallel. Decoding uses the [esphome-victron_ble](https://github.com/Fabian-Schmidt/esphome-victron_ble) external component, pinned to a tag so the trusted code cannot change silently.
+
+Exposed sensors: `Battery Voltage`, `Battery Current`, `Battery State of Charge`, `Battery Consumed Ah`, `Battery Time Remaining`.
+
+The shunt's MAC address and encryption key live in `secrets.yaml` (`smartshunt_mac`, `smartshunt_bindkey`). To obtain them: VictronConnect (v5.93+) → SmartShunt → Settings → Product info → enable *Instant readout via Bluetooth* → *Instant readout details* → SHOW. Replace the placeholders, re-encrypt `secrets.enc.yaml`, reflash.
+
+Power cost of listening: ~0.2–0.4W at the battery (shared WiFi/BLE radio, ~10% scan duty cycle), which trims zero-sun standby from ~2.5 to ~2.2 days. The shunt itself draws <1mA.
 
 ## Relay mapping
 

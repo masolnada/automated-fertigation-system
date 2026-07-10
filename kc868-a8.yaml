@@ -13,6 +13,20 @@ esp32:
   board: esp32dev  # required by ESPHome; the A8 v1.x uses an ESP32-WROOM-32
   variant: esp32
 
+# Pinned: audited/trusted code cannot change silently under a moving branch.
+external_components:
+  - source: github://Fabian-Schmidt/esphome-victron_ble@2024-12-27
+
+# Victron SmartShunt battery monitor, read over BLE instant readout —
+# passive listening, no pairing, no wiring to the board. MAC and AES
+# key come from VictronConnect (Product info > Instant readout details).
+esp32_ble_tracker:
+
+victron_ble:
+  - id: smartshunt
+    mac_address: !secret smartshunt_mac
+    bindkey: !secret smartshunt_bindkey
+
 i2c:
   sda: 4
   scl: 5
@@ -280,6 +294,26 @@ one_wire:
     pin: GPIO14
 
 sensor:
+  - platform: victron_ble
+    victron_ble_id: smartshunt
+    name: "Battery Voltage"
+    type: BATTERY_VOLTAGE
+  - platform: victron_ble
+    victron_ble_id: smartshunt
+    name: "Battery Current"
+    type: BATTERY_CURRENT
+  - platform: victron_ble
+    victron_ble_id: smartshunt
+    name: "Battery State of Charge"
+    type: STATE_OF_CHARGE
+  - platform: victron_ble
+    victron_ble_id: smartshunt
+    name: "Battery Consumed Ah"
+    type: CONSUMED_AH
+  - platform: victron_ble
+    victron_ble_id: smartshunt
+    name: "Battery Time Remaining"
+    type: TIME_TO_GO
   - platform: dallas_temp
     # Replace with your own sensor's address — it is printed in the
     # ESPHome logs on boot when a DS18B20 is connected to GPIO14.
