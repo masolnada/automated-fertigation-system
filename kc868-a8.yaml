@@ -1,8 +1,9 @@
-# KinCony KC868-A8 — default ESPHome configuration
-# Source: https://devices.esphome.io/devices/kincony-kc868-a8/
+# KinCony KC868-A8 — fertigation controller
+# Board reference: https://devices.esphome.io/devices/kincony-kc868-a8/
 #
 # 8 relay outputs + 8 digital inputs via PCF8574 I2C expanders,
-# LAN8720 Ethernet, S3/S4 onboard buttons, DS18B20 on 1-Wire.
+# S3/S4 onboard buttons, DS18B20 on 1-Wire.
+# Relay 1: pump, relay 2: fertigation valve, relay 3: clean water valve.
 
 esphome:
   name: kc868-a8
@@ -35,57 +36,70 @@ pcf8574:
     address: 0x22
 
 switch:
+  # After a power loss the pump and valves must come up OFF,
+  # never restore a previous ON state.
   - platform: gpio
-    name: "a8-light1"
+    name: "Pump"
+    id: pump
+    restore_mode: ALWAYS_OFF
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 0
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "a8-light2"
+    name: "Fertigation Valve"
+    id: fertigation_valve
+    restore_mode: ALWAYS_OFF
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 1
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "a8-light3"
+    name: "Clean Water Valve"
+    id: clean_water_valve
+    restore_mode: ALWAYS_OFF
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 2
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "a8-light4"
+    name: "Relay 4"
+    id: relay_4
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 3
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "a8-light5"
+    name: "Relay 5"
+    id: relay_5
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 4
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "a8-light6"
+    name: "Relay 6"
+    id: relay_6
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 5
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "a8-light7"
+    name: "Relay 7"
+    id: relay_7
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 6
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "a8-light8"
+    name: "Relay 8"
+    id: relay_8
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 7

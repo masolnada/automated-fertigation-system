@@ -1,8 +1,28 @@
 # automated-fertigation-system
 
-ESPHome configuration for a KinCony KC868-A8 used as a fertigation controller.
+Portable, solar-powered fertigation controller. Waters while injecting humic acid (e.g. potassium humate) and micro-organisms into the supply. Portable so it cannot be stolen.
 
-Hardware: ESP32 (WROOM-32), 8 relay outputs and 8 digital inputs via PCF8574 I2C expanders, DS18B20 on GPIO14. Network is WiFi with a fallback AP (`kc868-a8`); MQTT broker and OTA are configured. The board also has LAN8720 Ethernet, unused — ESPHome does not allow `ethernet:` and `wifi:` in the same config.
+## Hardware
+
+- KinCony KC868-A8 v1.7 — ESP32 (WROOM-32), 8 relays and 8 digital inputs via PCF8574 I2C expanders, DS18B20 on GPIO14
+- Vechline solar panel — 100Wp, 18.35V / 5.45A rated, 22.7V open circuit
+- Victron Energy MPPT 100|20 charge controller
+- LiFePO4 battery — 12V 8Ah (96Wh)
+- Seaflo diaphragm pump SFDP1-030-055-42 — 12V, 11.3 LPM open flow, 3.5A (7.5A max), 3.8 bar pressure switch
+- 12V electrovalves
+
+Network is WiFi with a fallback AP (`kc868-a8`); MQTT broker and OTA are configured. The board also has LAN8720 Ethernet, unused — ESPHome does not allow `ethernet:` and `wifi:` in the same config.
+
+## Relay mapping
+
+| Relay | Entity | Function |
+|---|---|---|
+| 1 | `Pump` | Seaflo diaphragm pump |
+| 2 | `Fertigation Valve` | Flow of water with the fertigation substance |
+| 3 | `Clean Water Valve` | Clean water supply, used to flush the system |
+| 4–8 | `Relay 4`–`Relay 8` | Spare |
+
+Pump and valve relays use `restore_mode: ALWAYS_OFF`: after a power loss everything comes up off.
 
 ## Layout
 
