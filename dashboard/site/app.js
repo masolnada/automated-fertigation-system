@@ -36,6 +36,16 @@
     el.textContent = isNaN(n) ? "–" : n.toFixed(NUMERIC[objectId] ?? 1);
   }
 
+  // Sequence bar: each phase segment grows with its configured minutes.
+  function setPhase(objectId, minutes) {
+    const seg = document.querySelector(`.phase[data-phase="${objectId}"]`);
+    if (!seg || isNaN(minutes)) return;
+    seg.style.flexGrow = Math.max(minutes, 0.4); // a sliver stays visible at 0
+    seg.querySelector("b").textContent = minutes;
+    seg.classList.toggle("narrow", minutes < 8);
+    seg.title = `${seg.querySelector("span").textContent} — ${minutes} min`;
+  }
+
   function setRelay(objectId, payload) {
     const li = document.querySelector(`#relay-list li[data-relay="${objectId}"]`);
     if (!li) return;
@@ -94,6 +104,7 @@
     if (kind === "number") {
       const input = $(`num-${objectId}`);
       if (input && document.activeElement !== input) input.value = parseFloat(payload);
+      setPhase(objectId, parseFloat(payload));
       return;
     }
     if (kind === "switch") {
@@ -104,6 +115,7 @@
     if (kind === "binary_sensor") {
       if (objectId === "irrigation_running") {
         setBadge($("irrigation-running"), payload === "ON", "running", "idle");
+        $("card-irrigation").classList.toggle("running", payload === "ON");
         log(`irrigation ${payload === "ON" ? "started" : "stopped"}`);
       } else if (objectId === "battery_charged") {
         $("battery-charged").classList.toggle("hidden", payload !== "ON");

@@ -3,25 +3,52 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Fertigation</title>
+  <title>Hort · Fertigation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600..800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="blob blob-moss" aria-hidden="true"></div>
+  <div class="blob blob-clay" aria-hidden="true"></div>
+
   <header>
-    <h1>Automated Fertigation System</h1>
-    <span id="device-status" class="badge offline">offline</span>
-    <span id="broker-status" class="badge offline">broker: connecting…</span>
+    <nav class="pill-nav">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
+      </span>
+      <div class="title">
+        <h1>Hort</h1>
+        <span class="subtitle">automated fertigation</span>
+      </div>
+      <span id="device-status" class="badge offline">offline</span>
+      <span id="broker-status" class="badge offline">broker: connecting…</span>
+    </nav>
   </header>
 
   <main>
-    <section class="card" id="card-irrigation">
-      <h2>Irrigation
+    <section class="card card-irrigation" id="card-irrigation">
+      <div class="card-blob" aria-hidden="true"></div>
+      <h2>
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16.3c2.2 0 4-1.8 4-4 0-1.5-.7-2.6-2-3.8-.9-.8-1.7-2-2-3.5-.3 1.5-1.1 2.7-2 3.5-1.3 1.2-2 2.3-2 3.8 0 2.2 1.8 4 4 4z"/><path d="M16.8 20c2.3 0 4.2-1.9 4.2-4.2 0-1.6-.8-2.8-2.1-4-.9-.9-1.8-2.1-2.1-3.8-.3 1.7-1.2 2.9-2.1 3.8-1.3 1.2-2.1 2.4-2.1 4 0 2.3 1.9 4.2 4.2 4.2z"/></svg>
+        </span>
+        Irrigation
         <span id="irrigation-running" class="badge off">idle</span>
       </h2>
+
       <div class="controls">
-        <button id="btn-start" class="primary">Start</button>
+        <button id="btn-start" class="primary">Start irrigation</button>
         <button id="btn-stop" class="danger">Stop</button>
       </div>
+
+      <div class="phases" id="phase-bar" title="Sequence phases, to scale">
+        <div class="phase phase-prewet" data-phase="pre-wet_minutes"><span>Pre-wet</span><b>–</b></div>
+        <div class="phase phase-fertigation" data-phase="fertigation_minutes"><span>Fertigation</span><b>–</b></div>
+        <div class="phase phase-flush" data-phase="flush_minutes"><span>Flush</span><b>–</b></div>
+      </div>
+
       <div class="durations">
         <label>Pre-wet <input type="number" id="num-pre-wet_minutes" min="0" max="60" step="1"> min</label>
         <label>Fertigation <input type="number" id="num-fertigation_minutes" min="0" max="120" step="1"> min</label>
@@ -29,21 +56,30 @@
       </div>
     </section>
 
-    <section class="card" id="card-battery">
-      <h2>Battery
+    <section class="card card-battery" id="card-battery">
+      <h2>
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="3"/><path d="M22 11v2"/><path d="m9 9-2 3h4l-2 3"/></svg>
+        </span>
+        Battery
         <span id="battery-charged" class="badge off hidden">charged</span>
       </h2>
       <dl>
-        <div><dt>Voltage</dt><dd><span id="val-battery_voltage">–</span> V</dd></div>
-        <div><dt>Current</dt><dd><span id="val-battery_current">–</span> A</dd></div>
-        <div><dt>State of charge</dt><dd><span id="val-battery_state_of_charge">–</span> %</dd></div>
-        <div><dt>Consumed</dt><dd><span id="val-battery_consumed_ah">–</span> Ah</dd></div>
-        <div><dt>Time remaining</dt><dd><span id="val-battery_time_remaining">–</span> min</dd></div>
+        <div><dt>Voltage</dt><dd><span id="val-battery_voltage">–</span><i>V</i></dd></div>
+        <div><dt>Current</dt><dd><span id="val-battery_current">–</span><i>A</i></dd></div>
+        <div><dt>State of charge</dt><dd><span id="val-battery_state_of_charge">–</span><i>%</i></dd></div>
+        <div><dt>Consumed</dt><dd><span id="val-battery_consumed_ah">–</span><i>Ah</i></dd></div>
+        <div><dt>Time remaining</dt><dd><span id="val-battery_time_remaining">–</span><i>min</i></dd></div>
       </dl>
     </section>
 
-    <section class="card" id="card-relays">
-      <h2>Relays</h2>
+    <section class="card card-relays" id="card-relays">
+      <h2>
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="6"/><path d="M8 2h8a10 10 0 0 1 0 20H8"/></svg>
+        </span>
+        Relays
+      </h2>
       <ul id="relay-list">
         <li data-relay="pump"><span class="dot"></span> Pump <button>toggle</button></li>
         <li data-relay="fertigation_valve"><span class="dot"></span> Fertigation Valve <button>toggle</button></li>
@@ -56,15 +92,25 @@
       </ul>
     </section>
 
-    <section class="card" id="card-env">
-      <h2>Environment</h2>
+    <section class="card card-env" id="card-env">
+      <h2>
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10.5a4 4 0 1 1-4 0V4a2 2 0 1 1 4 0z"/></svg>
+        </span>
+        Environment
+      </h2>
       <dl>
-        <div><dt>Temperature</dt><dd><span id="val-ds18b20-1">–</span> °C</dd></div>
+        <div><dt>Temperature</dt><dd><span id="val-ds18b20-1">–</span><i>°C</i></dd></div>
       </dl>
     </section>
 
-    <section class="card wide" id="card-log">
-      <h2>Events</h2>
+    <section class="card card-log" id="card-log">
+      <h2>
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </span>
+        Events
+      </h2>
       <ul id="event-log"></ul>
     </section>
   </main>
