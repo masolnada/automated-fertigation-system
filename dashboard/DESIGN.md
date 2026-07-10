@@ -31,178 +31,160 @@ Always aim to:
 </role>
 
 <design-system>
-# Design Philosophy
+# Design Style: Organic / Natural
 
-The Hand-Drawn design style celebrates authentic imperfection and human touch in a digital world. It rejects the clinical precision of modern UI design in favor of organic, playful irregularity that evokes sketches on paper, sticky notes on a wall, and napkin diagrams from a brainstorming session.
+## 1. Design Philosophy
+This style embraces **wabi-sabi**—the acceptance of transience and imperfection. It rejects the cold precision of digital interfaces in favor of **warmth, softness, and natural connection**. It feels **tactile, grounded, and calming**.
 
-**Core Principles:**
-- **No Straight Lines**: Every border, shape, and container uses irregular border-radius values to create wobbly, hand-drawn edges that reject geometric perfection
-- **Authentic Texture**: The design layer paper grain, dot patterns, and subtle background textures to simulate physical media (notebook paper, post-its, sketch pads)
-- **Playful Rotation**: Elements are deliberately tilted using small rotation transforms (-2deg to 2deg) to break rigid grid alignment and create casual energy
-- **Hard Offset Shadows**: Reject soft blur shadows entirely. Use solid, offset box-shadows (4px 4px 0px) to create a cut-paper, layered collage aesthetic
-- **Handwritten Typography**: Use exclusively handwritten or marker-style fonts (Kalam, Patrick Hand) that feel human and approachable, never corporate or sterile
-- **Scribbled Decoration**: Add visual flourishes like dashed lines, hand-drawn arrows, tape effects, thumbtacks, and irregular shapes to reinforce the sketched aesthetic
-- **Limited Color Palette**: Stick to pencil blacks, paper whites, correction marker red, and post-it yellow for bold but cohesive simplicity
-- **Intentional Messiness**: Embrace overlap, asymmetry, and visual "mistakes" that make the design feel spontaneous and creative rather than manufactured
+### Visual DNA
+*   **Core Signature**: Soft, amorphous blob shapes with varied organic border radii (using complex percentages like `60% 40% 30% 70% / 60% 30% 70% 40%`)
+*   **Texture is Essential**: Global grain/noise texture overlay at 3-4% opacity with multiply blend mode creates paper-like quality
+*   **Color Psychology**: Earth-drawn palette evokes forest floors, clay pottery, unbleached paper, dried grass, and river stones
+*   **Shadow Philosophy**: Soft, diffused shadows with natural color tints (moss green, clay orange) instead of pure black
+*   **Typography Emotion**: Fraunces serif brings old-world warmth with modern softness; Nunito's rounded terminals echo organic shapes
 
-**Emotional Intent:**
-This style should feel approachable, creative, human-centered, and fun. It lowers barriers and invites interaction by appearing unfinished and work-in-progress, making users feel like collaborators rather than consumers. Perfect for creative tools, brainstorming platforms, educational content, or any product that wants to emphasize human creativity over corporate polish.
+### Design Principles
+*   **Vibe**: Peaceful, sustainable, handcrafted, authentic, rooted, welcoming, human
+*   **Core Tenet**: "There are no straight lines in nature." Avoid sharp 90-degree angles. Everything should feel eroded by wind or water, or shaped by hand.
+*   **Rhythm**: Generous whitespace creates breathing room. Staggered grids and varied border radii prevent mechanical uniformity.
+*   **Interaction**: Gentle, natural motion—elements scale and lift on hover like picking up a river stone. No harsh snaps.
+*   **Asymmetry**: Intentional imperfection through rotated images, offset elements, and varied card shapes creates organic authenticity
+*   **Depth**: Multiple z-layers with blurred blobs, translucent overlays, and soft shadows create atmospheric depth without harsh contrast
 
-# Design Token System
+## 2. Design Token System (The DNA)
 
-## Colors (Single Palette - Light Mode)
-- **Background**: `#fdfbf7` (Warm Paper)
-- **Foreground**: `#2d2d2d` (Soft Pencil Black - never pure black)
-- **Muted**: `#e5e0d8` (Old Paper / Erased Pencil)
-- **Accent**: `#ff4d4d` (Red Correction Marker)
-- **Border**: `#2d2d2d` (Pencil Lead)
-- **Secondary Accent**: `#2d5da1` (Blue Ballpoint Pen)
+### Colors (Single Palette - Light Mode)
+A palette drawn from the forest floor, clay, and unbleached paper.
+*   `background`: `#FDFCF8` (Off-white, Rice Paper)
+*   `foreground`: `#2C2C24` (Deep Loam / Charcoal)
+*   `primary`: `#5D7052` (Moss Green)
+*   `primary-foreground`: `#F3F4F1` (Pale Mist)
+*   `secondary`: `#C18C5D` (Terracotta / Clay)
+*   `secondary-foreground`: `#FFFFFF` (White)
+*   `accent`: `#E6DCCD` (Sand / Beige)
+*   `accent-foreground`: `#4A4A40` (Bark)
+*   `muted`: `#F0EBE5` (Stone)
+*   `muted-foreground`: `#78786C` (Dried Grass)
+*   `border`: `#DED8CF` (Raw Timber)
+*   `destructive`: `#A85448` (Burnt Sienna)
 
-## Typography
-- **Headings**: `Kalam` (wght 700) - Looks like a thick felt-tip marker.
-- **Body**: `Patrick Hand` (wght 400) - Legible but distinctly handwritten.
-- **Scale**: Large and readable. Headings should vary in size dramatically to look like emphasized notes.
+### Typography
+Combining a characterful serif with a clean, rounded sans-serif.
+*   **Headings**: **'Fraunces'** (Google Font). A variable font with "soft" axes. It has a distinct, old-style warmth but feels modern. Use weights 600-800.
+*   **Body**: **'Nunito'** or **'Quicksand'**. Rounded terminals are essential to match the organic shapes.
+*   **Scale**: Moderate, not aggressive. 1.25 scale.
 
-## Radius & Border
-- **Wobbly Borders**: CRITICAL. Do NOT use standard `rounded-*` classes alone.
-- **Technique**: Use inline `style={{ borderRadius: ... }}` with multiple values to create irregular organic ellipses.
-  - Example: `border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;`
-  - Store reusable radius values in config as `wobbly` and `wobblyMd`
-- **Border Width**: Thick and variable. `border-2` is the minimum. Use `border-[3px]` or `border-4` for emphasis.
-- **Style**: `border-solid` is default for most elements. Use `border-dashed` for secondary elements, dividers, and sketchy overlays.
+### Radius & Shapes
+*   **Standard Radius**: `rounded-2xl` (16px) or `rounded-3xl` (24px).
+*   **Organic Shapes**: Use custom classes or inline styles for specific elements to create blob shapes.
+    *   Example: `border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;`
+*   **Borders**: Soft, sometimes slightly imperfect (simulated via double borders or slightly transparent thick borders).
 
-## Shadows/Effects
-- **Hard Offset Shadows**: No blur. Just a solid offset to create a cut-paper, layered collage aesthetic.
-  - Standard: `box-shadow: 4px 4px 0px 0px #2d2d2d;`
-  - Emphasized: `box-shadow: 8px 8px 0px 0px #2d2d2d;`
-  - Hover State: Reduce offset `2px 2px` or `6px 6px` to create "lifting" effect
-- **Paper Texture**: Use `radial-gradient` dot pattern on body background to simulate notebook paper grain
-  - `backgroundImage: radial-gradient(#e5e0d8 1px, transparent 1px)`
-  - `backgroundSize: 24px 24px`
-- **Subtle Animations**: Gentle bounce (3s duration) for decorative elements, rotation on hover for playful interaction
+### Shadows & Effects
+*   **Shadows**: Soft, diffused, colored shadows. Never pure black.
+    *   `shadow-soft`: `0 4px 20px -2px rgba(93, 112, 82, 0.15)` (Moss tinted)
+    *   `shadow-float`: `0 10px 40px -10px rgba(193, 140, 93, 0.2)` (Clay tinted)
+*   **Textures**: **CRITICAL**. The background should have a subtle noise or paper grain overlay.
+    *   Implementation: Use a fixed pseudo-element on the body or main container with a base64 noise pattern set to `mix-blend-mode: multiply` and very low opacity (3-5%).
 
-# Component Stylings
+## 3. Component Stylings
 
-## Buttons
-- **Shape**: Irregular wobbly oval using custom border-radius from config
-- **Normal State**:
-  - White background, `border-[3px]` black border, black text
-  - Hard offset shadow: `shadow-[4px_4px_0px_0px_#2d2d2d]`
-  - Font: Patrick Hand (body font)
-- **Hover State**:
-  - Background fills with Accent red `#ff4d4d`, text turns white
-  - Shadow reduces to `shadow-[2px_2px_0px_0px_#2d2d2d]`
-  - Subtle translate: `translate-x-[2px] translate-y-[2px]`
-- **Active State**:
-  - Shadow disappears completely (button "presses flat")
-  - Translate increases: `translate-x-[4px] translate-y-[4px]`
-- **Secondary Variant**: Uses muted background `#e5e0d8`, hovers to blue `#2d5da1`
+### Buttons
+*   **Shape**: Fully rounded pills (`rounded-full`) for all variants
+*   **Primary**: Moss Green (#5D7052) background with Pale Mist (#F3F4F1) text. Soft colored shadow: `shadow-[0_4px_20px_-2px_rgba(93,112,82,0.15)]`
+*   **Outline**: 2px Terracotta (#C18C5D) border, transparent background, Terracotta text
+*   **Ghost**: Transparent with Moss Green text, hover fills with Moss/10 background
+*   **Interaction**: `hover:scale-105` with deepened shadow `hover:shadow-[0_6px_24px_-4px_rgba(93,112,82,0.25)]`. Active state: `active:scale-95` for tactile feedback
+*   **Sizes**: Default h-12, sm h-10, lg h-14. Generous horizontal padding (px-8 to px-10)
+*   **Typography**: Bold weight, base to lg sizing
 
-## Cards/Containers
-- **Base Style**: White background (`#ffffff`) with wobbly black border (`border-2`)
-- **Border Radius**: Use `wobblyMd` radius from config for medium containers
-- **Shadow**: Subtle `3px 3px 0px 0px rgba(45, 45, 45, 0.1)` for depth
-- **Decoration Options**:
-  - `decoration="tape"`: Translucent gray bar positioned at top center with slight rotation
-  - `decoration="tack"`: Red circular thumbtack at top center
-  - No decoration for minimal aesthetic
-- **Special Treatments**:
-  - Post-it yellow background `#fff9c4` for feature cards
-  - Speech bubble style for testimonials with geometric tail using border-based triangle
-  - Sticky-note tags for section labels
+### Cards / Containers
+*   **Background**: Extremely light beige (#FEFEFA) over off-white page background
+*   **Border**: Soft timber border (#DED8CF) at 50% opacity: `border-[#DED8CF]/50`
+*   **Shape**: `rounded-[2rem]` base with asymmetric variations using custom values like `rounded-tl-[4rem]` on specific corners
+*   **Shadows**: Moss-tinted soft shadow: `shadow-[0_4px_20px_-2px_rgba(93,112,82,0.15)]`
+*   **Texture**: Fixed noise overlay layer at 3% opacity with multiply blend mode
+*   **Interaction**: Feature cards lift with `hover:-translate-y-1` and shadow deepens to `hover:shadow-[0_20px_40px_-10px_rgba(93,112,82,0.15)]`
 
-## Inputs
-- **Style**: Full box with wobbly borders (not just underline)
-- **Border**: `border-2` with wobbly radius matching button aesthetic
-- **Font**: Patrick Hand (body font) for authentic hand-written feel
-- **Background**: White with placeholder text in muted color `#2d2d2d/40`
-- **Focus State**:
-  - Border changes to blue `#2d5da1`
-  - Ring effect: `ring-2 ring-[#2d5da1]/20`
-  - No standard outline, maintains wobbly aesthetic
+### Inputs
+*   **Shape**: Pill-shaped with `rounded-full`
+*   **Border**: Timber border (#DED8CF)
+*   **Background**: `bg-white/50` (semi-transparent) revealing page grain texture beneath
+*   **Focus State**: `focus-visible:ring-2 ring-[#5D7052]/30` with `ring-offset-2` for soft, natural glow (not sharp outline)
+*   **Typography**: Sans-serif body font, text-sm
+*   **Height**: h-12 for comfortable touch target
 
-# Layout Strategy
-- **Grid System**: Use Tailwind's responsive grid (`md:grid-cols-2`, `md:grid-cols-3`) but add visual irregularity
-- **Rotation**: Apply small rotations (`rotate-1`, `-rotate-2`) to cards, images, and decorative elements
-- **Breaking Alignment**:
-  - Stats: Organic shapes with varied border-radius instead of perfect circles
-  - Cards: Slight rotation on hover (`hover:rotate-1` or `hover:-rotate-1`)
-  - Pricing: Scale up highlighted card slightly on desktop (`md:scale-105`)
-- **Overlap & Layering**:
-  - Overlapping avatar circles with negative margin (`-space-x-4`)
-  - Decorative elements positioned absolutely outside parent bounds
-  - Speech bubble tails extending beyond card borders
-- **Whitespace**:
-  - Consistent section padding (`py-20`) for rhythm
-  - Generous gap in grids (`gap-8`) to prevent crowding
-  - Max-width containers (`max-w-5xl`, `max-w-3xl`) for focused content
-- **Z-Index Layering**: Decorative SVG backgrounds at low z-index, step numbers elevated with `z-10`
+### Navigation
+*   **Style**: Sticky floating pill (`sticky top-4`) with glassmorphism
+*   **Background**: `bg-white/70` with `backdrop-blur-md` for frosted effect
+*   **Border**: Soft timber border at 50% opacity with subtle shadow
+*   **Shape**: `rounded-full`
+*   **Logo**: Circular moss green container with white icon
+*   **Mobile**: Full menu dropdown with organic rounded borders (`rounded-[2rem]`)
 
-# Non-Genericness (Bold Choices)
+## 4. Layout & Spacing
+*   **Container Widths**: Vary by section for visual rhythm
+    *   Primary content: `max-w-7xl` (hero, features, blog, pricing)
+    *   Focused content: `max-w-6xl` (how it works, FAQ)
+    *   Intimate content: `max-w-5xl` (final CTA)
+    *   Text-heavy sections: `max-w-4xl` (hero inner), `max-w-2xl` (product detail text)
+*   **Section Padding**: Consistent `py-32` vertical spacing with `px-4 sm:px-6 lg:px-8` horizontal
+*   **Grid Patterns**:
+    *   Stats: `grid-cols-2 md:grid-cols-4`
+    *   Features/Blog/Testimonials: `md:grid-cols-3` (or `md:grid-cols-2 lg:grid-cols-3`)
+    *   Two-column layouts: `lg:grid-cols-2`
+    *   Grid gaps: Consistent `gap-8` with optional `md:gap-12` for stats
+*   **Whitespace Philosophy**: Use generous gaps (gap-8, gap-12, gap-16) to let design breathe. Space is a design element, not empty canvas.
 
-**Unique Visual Signatures:**
-- **NO STRAIGHT LINES**: Every container, button, card, and frame uses irregular border-radius values—never standard Tailwind rounded classes
-- **Hand-Drawn SVG Decorations**:
-  - Arrow pointing to hero CTA with dashed path
-  - Squiggly connecting line between "How It Works" steps
-  - Corner frame marks on hero image placeholder
-- **Authentic Paper Effects**:
-  - Tape strips (translucent gray rectangles) on feature cards
-  - Thumbtack pins (colored circles) for card decoration
-  - Dashed circle overlay highlighting popular pricing tier
-  - Speech bubble geometric tails on testimonials
-- **Playful Typography Treatments**:
-  - Rotating exclamation mark in hero headline
-  - Wavy underline decoration on navigation links and footer headers
-  - Drop-cap first letter treatment in Product Detail section
-  - Post-it yellow sticky-note tag on Product Detail card
-- **Scribbled Accents**:
-  - Bouncing decorative circle near hero image (desktop only)
-  - Dashed borders on secondary elements and dividers
-  - Emoji sketches in blog post placeholders
-  - Line-through hover effect on footer links
-- **Interactive Personality**:
-  - Buttons "press flat" by eliminating shadow on active state
-  - Cards rotate slightly on hover
-  - Blog cards increase shadow offset on hover for "lift" effect
-  - Grayscale-to-color transition on blog images (removed in final implementation for simplicity)
+## 5. Non-Genericness (The Bold Factors)
+*   **Blob Backgrounds**: Large absolute-positioned blobs with `blur-3xl` create ambient color washes. Multiple shapes (via shapeIndex prop) with varied organic border radii. Used in Hero (2 blobs), Product Detail, Features, and Final CTA sections.
+*   **Rotated Image Frames**: Product detail image rotated `-2deg` with thick 4px white border creates handcrafted photo feel
+*   **Organic Image Masks**: Benefits section image uses complex blob border-radius: `rounded-[30%_70%_70%_30%_/_30%_30%_70%_70%]`
+*   **Asymmetric Card Radii**: Feature cards cycle through 6 different border-radius patterns, mixing large corner curves (4rem, 5rem) with standard (2rem)
+*   **Curved SVG Connectors**: How It Works uses hand-drawn looking curved dashed SVG path instead of straight lines
+*   **Hover Micro-rotations**: Testimonial cards subtly rotate on hover (`hover:rotate-1`) mimicking picking up a physical card
+*   **Varied Section Backgrounds**: Alternating between off-white, stone tint (#F0EBE5/30), sand (#E6DCCD/30), moss green (#5D7052), and terracotta (#C18C5D)
+*   **Dual Texture Layers**: Global grain texture PLUS section-specific noise overlays and blob backgrounds create rich depth
 
-# Effects & Animation
-- **Hover**: "Jiggle" effect. `hover:rotate-1` or `hover:-rotate-2`.
-- **Transition**: `transition-transform duration-100` (Fast and snappy).
+## 6. Effects & Animation
+*   **Transition Philosophy**: Natural, gentle motion. Use `transition-all duration-300` or `duration-500` for smooth changes
+*   **Hover Animations**:
+    *   Buttons: `hover:scale-105` with shadow increase
+    *   Cards: `hover:-translate-y-1` (lift) or `hover:rotate-1` (subtle tilt)
+    *   Stats: `group-hover:scale-110` on numbers
+    *   Images: `hover:scale-105` with 700ms duration for slow reveal
+    *   Icon containers: Background color fill transition
+*   **Active States**: `active:scale-95` on buttons for tactile press feedback
+*   **Entrance/Exit**: Details accordion uses native `open:` state with chevron rotation
+*   **Image Overlays**: Fade overlays on hover (blog cards) using `group-hover:bg-transparent`
+*   **No Harsh Snaps**: All transitions eased, duration 300-700ms range for organic feel
 
-# Spacing, Layout & Iconography
-- **Max Width**: `max-w-5xl` (Keep it contained like a sketchbook).
-- **Icons**: `lucide-react` icons with `stroke-width={2.5}` or `3`.
-- **Icon Style**: Enclose key icons in rough circles.
+## 7. Icons (Lucide React)
+*   **Style**: Default stroke width (2px)
+*   **Color**: Moss Green (#5D7052) as default, white on dark backgrounds
+*   **Containers**: Icons sit in `h-14 w-14` rounded-2xl containers with `bg-[#5D7052]/10` background
+*   **Hover Effect**: Container fills completely to solid moss green while icon switches to white
+*   **Sizing**: 28px (size={28}) for feature icons, 24px for benefit checkmarks, responsive sizing for navigation
+*   **Usage**: Social icons in footer, feature icons, benefit checkmarks, navigation menu toggle, arrows in CTAs
 
-# Responsive Strategy
+## 8. Accessibility
+*   **Contrast Ratios**:
+    *   Primary text (#2C2C24) on background (#FDFCF8): 14.5:1 (AAA)
+    *   Moss (#5D7052) on background: 6.2:1 (AA)
+    *   Muted text (#78786C) on background: 4.8:1 (AA)
+*   **Focus States**: `focus-visible:ring-2 ring-[#5D7052] ring-offset-2` provides clear, soft focus indicator
+*   **Touch Targets**: All interactive elements meet 44px minimum (buttons h-12 = 48px)
+*   **Semantic HTML**: Proper heading hierarchy, nav landmarks, alt text for images, aria-labels where needed
+*   **Keyboard Navigation**: All interactive elements keyboard accessible, details/summary for FAQ accordion
 
-**Mobile-First Approach:**
-- **Typography Scaling**:
-  - Headings: `text-4xl md:text-5xl` or `text-5xl md:text-6xl`
-  - Body text: `text-lg md:text-xl` or `text-base md:text-xl`
-  - Buttons: `text-lg md:text-2xl`
-- **Layout Stacking**:
-  - All grids collapse to single column on mobile, expand to 2-3 columns on `md:` breakpoint
-  - Hero switches from 2-column to stacked with `md:grid-cols-2`
-  - Stats: 2-column grid on mobile (`grid-cols-2`), 4-column on desktop (`md:grid-cols-4`)
-- **Hide Decorative Elements**:
-  - Hand-drawn arrow near CTA: `hidden md:block`
-  - Bouncing decorative circle: `hidden md:block`
-  - Squiggly connecting line in "How It Works": `hidden md:block`
-  - Dashed circle on pricing card: `hidden md:block`
-- **Maintain Core Aesthetic**:
-  - Keep wobbly borders and handwritten fonts on all screen sizes
-  - Reduce rotation slightly if needed (`-rotate-1` instead of `-rotate-2`)
-  - Maintain hard offset shadows (never add blur)
-  - Preserve playful personality and irregular shapes
-- **Touch-Friendly Targets**:
-  - Buttons use minimum `h-12` (48px) for accessibility
-  - Adequate spacing between interactive elements with `gap-8`
-- **Spacing Adjustments**:
-  - Section padding remains `py-20` for vertical rhythm
-  - Reduce horizontal padding when needed: `px-6`
-  - Stats scale down: `h-24 w-24 md:h-32 md:w-32`
-  - Pricing cards: `p-6 md:p-8` for better mobile fit
+## 9. Responsive Strategy
+*   **Mobile-First Approach**: Base styles mobile-optimized, enhanced at breakpoints
+*   **Breakpoint Usage**:
+    *   `sm:` (640px): Horizontal padding increases, some flex-row layouts
+    *   `md:` (768px): Major grid transitions (2-3 columns), nav reveals desktop version
+    *   `lg:` (1024px): 3-column grids, 2-column hero/benefits layouts
+*   **Typography Scaling**: Hero headline `text-5xl md:text-7xl`, sections `text-4xl md:text-5xl`
+*   **Stack Behavior**: All grids collapse to single column on mobile, flex layouts switch to `flex-col`
+*   **Navigation**: Mobile uses hamburger menu with slide-out panel, desktop inline nav
+*   **Blob Simplification**: Blobs remain but overflow hidden on mobile to prevent layout issues
 </design-system>
