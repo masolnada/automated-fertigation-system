@@ -1,4 +1,4 @@
-# automated-fertigation-system
+# Automated Fertigation System
 
 Portable, solar-powered fertigation controller. Waters while injecting humic acid (e.g. potassium humate) and micro-organisms into the supply. Portable so it cannot be stolen.
 
@@ -24,17 +24,27 @@ Network is WiFi with a fallback AP (`kc868-a8`); MQTT broker and OTA are configu
 
 Pump and valve relays use `restore_mode: ALWAYS_OFF`: after a power loss everything comes up off.
 
-## Irrigation sequence
+## Automation
 
-Started by button or MQTT, the sequence runs three phases. Valve handovers overlap 2s so the running pump always has an open source; the pump's 3.8 bar pressure switch is only the backstop.
+One automation exists: the irrigation sequence (`script: irrigation_sequence` in `kc868-a8.yaml`). Started by button or MQTT, it runs three phases and shuts everything down by itself — there is no state in which the sequence ends with the pump running.
 
-1. **Pre-wet** — clean water. Primes the lines; the biology lands on moist soil.
-2. **Fertigation** — water with the fertigation substance.
-3. **Flush** — clean water again, so no humate or micro-organism residue remains in the pump, lines, or emitters. The flush duration cannot be set below 1 minute.
+| Phase | Duration | Pump | Fertigation valve | Clean water valve | Purpose |
+|---|---|---|---|---|---|
+| 1. Pre-wet | `Pre-wet Minutes` (default 5) | on | off | on | Prime the lines; the biology lands on moist soil |
+| 2. Fertigation | `Fertigation Minutes` (default 20) | on | on | off | Water with the fertigation substance |
+| 3. Flush | `Flush Minutes` (default 5, min 1) | on | off | on | Clear humate/micro-organism residue from pump, lines, emitters |
+| Shutdown | — | off | off | off | |
 
-Phase durations are `number` entities (`Pre-wet Minutes` / `Fertigation Minutes` / `Flush Minutes`, defaults 5/20/5), adjustable at runtime from the web UI, Home Assistant, or MQTT; values survive reboots. A start while a sequence is running is ignored (`mode: single`).
+Rules built into the sequence:
 
-Stopping (empty tank, knocked-over line, any reason) always goes through one abort script: pump off first, then both valves. Automatic interrupts are not implemented yet; planned options are a tank float switch on input 1 and pump current sensing (INA226 + shunt on the I2C bus — pump on but under ~2A sustained means it is not moving water; also yields battery voltage). Either would just call `abort_irrigation`.
+- Valve handovers overlap 2s, and the pump stops before the last valve closes: the running pump always has an open source. The pump's 3.8 bar pressure switch is only the backstop.
+- The flush phase cannot be set below 1 minute — the residue-free guarantee is not optional.
+- A start while a sequence is running is ignored (`mode: single`).
+- A phase set to 0 minutes degenerates to a ~4s valve transient.
+
+Durations are `number` entities, adjustable at runtime from the web UI, Home Assistant, or MQTT; values survive reboots (`restore_value`).
+
+Stopping (empty tank, knocked-over line, any reason) always goes through a second script, `abort_irrigation`: stop the sequence, pump off, 2s, both valves off. The stop button and the MQTT stop topic both call it. Automatic interrupts are not implemented yet; planned options are a tank float switch on input 1 and pump current sensing (INA226 + shunt on the I2C bus — pump on but under ~2A sustained means it is not moving water; also yields battery voltage). Either would just call `abort_irrigation`.
 
 ## Control
 

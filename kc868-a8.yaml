@@ -7,6 +7,7 @@
 
 esphome:
   name: kc868-a8
+  friendly_name: Automated Fertigation System
 
 esp32:
   board: esp32dev  # required by ESPHome; the A8 v1.x uses an ESP32-WROOM-32
