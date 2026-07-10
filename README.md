@@ -1,6 +1,6 @@
-# automated-watering-system
+# automated-fertigation-system
 
-ESPHome configuration for a KinCony KC868-A8 used as an irrigation controller.
+ESPHome configuration for a KinCony KC868-A8 used as a fertigation controller.
 
 Hardware: ESP32 (WROOM-32), 8 relay outputs and 8 digital inputs via PCF8574 I2C expanders, DS18B20 on GPIO14. Network is WiFi with a fallback AP (`kc868-a8`); MQTT broker and OTA are configured. The board also has LAN8720 Ethernet, unused — ESPHome does not allow `ethernet:` and `wifi:` in the same config.
 
