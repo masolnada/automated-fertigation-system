@@ -3,8 +3,9 @@
 ## Design
 
 Any UI work on the dashboard (`dashboard/site/`) MUST follow the design system in
-[dashboard/DESIGN.md](dashboard/DESIGN.md) — an organic/natural (wabi-sabi) style
-with defined tokens, component stylings, and interaction rules. The design file is
+[dashboard/DESIGN.md](dashboard/DESIGN.md) — a hand-drawn/sketchbook style (wobbly
+borders, hard offset shadows, handwritten fonts, paper textures) with defined
+tokens, component stylings, and interaction rules. The design file is
 written for a Tailwind/React context; translate its tokens and rules to this
 project's plain HTML/CSS/JS (CSS custom properties, plain classes). Do not invent
 colors, radii, shadows, or typography outside that spec.
