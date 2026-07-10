@@ -12,6 +12,12 @@ esphome:
 esp32:
   board: esp32dev  # required by ESPHome; the A8 v1.x uses an ESP32-WROOM-32
   variant: esp32
+  # ESP-IDF, not Arduino: with the Arduino framework the BT controller's
+  # DRAM reservation overlaps another region and the boot asserts in
+  # s_prepare_reserved_regions (hard boot loop, no safe mode). IDF is
+  # also the future ESPHome default and builds a smaller binary.
+  framework:
+    type: esp-idf
 
 # Pinned: audited/trusted code cannot change silently under a moving branch.
 external_components:
