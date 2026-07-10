@@ -228,6 +228,23 @@ binary_sensor:
   - platform: template
     name: "Irrigation Running"
     lambda: "return id(irrigation_sequence).is_running();"
+  # Mirrors the SmartShunt's own charged detection (charged voltage
+  # 14.0V, tail current 4% of 8Ah, 3 min): ON when the charge cycle
+  # completes, OFF again once the MPPT drops to float.
+  - platform: template
+    name: "Battery Charged"
+    id: battery_charged
+    filters:
+      - delayed_on: 180s
+    lambda: |-
+      if (isnan(id(batt_voltage).state) || isnan(id(batt_current).state))
+        return {};
+      return id(batt_voltage).state >= 14.0 &&
+             fabs(id(batt_current).state) <= 0.32;
+    on_press:
+      - mqtt.publish:
+          topic: kc868-a8/battery/charged
+          payload: "ON"
   - platform: gpio
     name: "a8-input1"
     pin:
@@ -303,10 +320,12 @@ sensor:
   - platform: victron_ble
     victron_ble_id: smartshunt
     name: "Battery Voltage"
+    id: batt_voltage
     type: BATTERY_VOLTAGE
   - platform: victron_ble
     victron_ble_id: smartshunt
     name: "Battery Current"
+    id: batt_current
     type: BATTERY_CURRENT
   - platform: victron_ble
     victron_ble_id: smartshunt

@@ -42,6 +42,19 @@ The shunt's MAC address and encryption key live in `secrets.yaml` (`smartshunt_m
 
 Power cost of listening: ~0.2–0.4W at the battery (shared WiFi/BLE radio, ~10% scan duty cycle), which trims zero-sun standby from ~2.5 to ~2.2 days. The shunt itself draws <1mA.
 
+## Battery charging
+
+Charging is fully automatic; nothing needs to be done when the battery is full. The MPPT runs bulk (full current, voltage rising) → absorption (holds ~14.2V, current tapers) → float (~13.5V, maintenance). LiFePO4 sits in float indefinitely without harm.
+
+One-time configuration:
+
+- MPPT (VictronConnect): LiFePO4 preset, **maximum charge current 7A** (see the callout above).
+- SmartShunt (VictronConnect → Settings → Battery): capacity **8Ah**, charged voltage **14.0V**, tail current 4%, charged detection time 3 min, Peukert **1.05**, charge efficiency **99%**, discharge floor 20%. Defaults are for lead-acid; SoC is meaningless without these.
+
+How "charged" is detected: voltage above 14.0V with current under ~0.32A (4% of 8Ah) for 3 minutes. The shunt then syncs SoC to 100% and resets Consumed Ah to 0. Until the first such sync after power-up, the SoC percentage is not trustworthy — read voltage and current instead. Signatures on the dashboard: bulk = steady amps; near-full = current tapering despite good sun; float = ~13.5V, near 0A.
+
+The firmware mirrors the same detection in the `Battery Charged` binary sensor and publishes `ON` to `kc868-a8/battery/charged` each time a charge cycle completes. The sensor drops back to OFF when the MPPT falls to float; the MQTT event fires on the transition.
+
 ## Relay mapping
 
 | Relay | Entity | Function |
