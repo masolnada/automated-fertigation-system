@@ -317,28 +317,39 @@ one_wire:
     pin: GPIO14
 
 sensor:
+  # The shunt broadcasts ~1/s; throttle publishing to every 5s.
   - platform: victron_ble
     victron_ble_id: smartshunt
     name: "Battery Voltage"
     id: batt_voltage
     type: BATTERY_VOLTAGE
+    filters:
+      - throttle_average: 5s
   - platform: victron_ble
     victron_ble_id: smartshunt
     name: "Battery Current"
     id: batt_current
     type: BATTERY_CURRENT
+    filters:
+      - throttle_average: 5s
   - platform: victron_ble
     victron_ble_id: smartshunt
     name: "Battery State of Charge"
     type: STATE_OF_CHARGE
+    filters:
+      - throttle: 5s
   - platform: victron_ble
     victron_ble_id: smartshunt
     name: "Battery Consumed Ah"
     type: CONSUMED_AH
+    filters:
+      - throttle: 5s
   - platform: victron_ble
     victron_ble_id: smartshunt
     name: "Battery Time Remaining"
     type: TIME_TO_GO
+    filters:
+      - throttle: 5s
   - platform: dallas_temp
     # Replace with your own sensor's address — it is printed in the
     # ESPHome logs on boot when a DS18B20 is connected to GPIO14.
