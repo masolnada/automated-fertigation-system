@@ -1,0 +1,133 @@
+/* Simple placeholder design — to be replaced by the real design later. */
+:root {
+  --bg: #11161d;
+  --card: #1a222c;
+  --text: #e6edf3;
+  --muted: #8b98a5;
+  --accent: #3fb950;
+  --danger: #f85149;
+  --border: #2d3743;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+h1 { font-size: 1.15rem; margin: 0; flex: 1; }
+h2 {
+  font-size: 0.95rem;
+  margin: 0 0 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+main {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  padding: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+.card.wide { grid-column: 1 / -1; }
+.badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.badge.online, .badge.on { color: var(--accent); border-color: var(--accent); }
+.badge.offline { color: var(--danger); border-color: var(--danger); }
+.badge.hidden { display: none; }
+.controls { display: flex; gap: 0.6rem; margin-bottom: 0.9rem; }
+button {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.45rem 1.1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+button:hover { border-color: var(--muted); }
+button.primary { border-color: var(--accent); color: var(--accent); }
+button.danger { border-color: var(--danger); color: var(--danger); }
+.durations { display: grid; gap: 0.5rem; }
+.durations label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.durations input {
+  width: 4.5rem;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+  margin-left: auto;
+}
+dl { margin: 0; }
+dl div {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+dl div:last-child { border-bottom: none; }
+dt { color: var(--muted); }
+dd { margin: 0; font-variant-numeric: tabular-nums; }
+#relay-list { list-style: none; margin: 0; padding: 0; }
+#relay-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+  font-size: 0.9rem;
+}
+#relay-list button {
+  margin-left: auto;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.7rem;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+}
+.dot.on { background: var(--accent); }
+#event-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8rem;
+  font-family: ui-monospace, monospace;
+  color: var(--muted);
+  max-height: 240px;
+  overflow-y: auto;
+}
+#event-log li { padding: 0.15rem 0; }
+#event-log time { color: var(--text); margin-right: 0.6rem; }

@@ -1,0 +1,9 @@
+FROM docker.io/nginx:alpine
+
+COPY site/ /usr/share/nginx/html/
+
+# Renders config.js from config.js.template with the MQTT_* environment
+# variables at container start (nginx:alpine runs /docker-entrypoint.d/*).
+COPY entrypoint/40-render-config.sh /docker-entrypoint.d/40-render-config.sh
+RUN chmod +x /docker-entrypoint.d/40-render-config.sh \
+    && rm -f /usr/share/nginx/html/config.js

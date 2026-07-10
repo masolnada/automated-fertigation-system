@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fertigation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Automated Fertigation System</h1>
+    <span id="device-status" class="badge offline">offline</span>
+    <span id="broker-status" class="badge offline">broker: connecting…</span>
+  </header>
+
+  <main>
+    <section class="card" id="card-irrigation">
+      <h2>Irrigation
+        <span id="irrigation-running" class="badge off">idle</span>
+      </h2>
+      <div class="controls">
+        <button id="btn-start" class="primary">Start</button>
+        <button id="btn-stop" class="danger">Stop</button>
+      </div>
+      <div class="durations">
+        <label>Pre-wet <input type="number" id="num-pre-wet_minutes" min="0" max="60" step="1"> min</label>
+        <label>Fertigation <input type="number" id="num-fertigation_minutes" min="0" max="120" step="1"> min</label>
+        <label>Flush <input type="number" id="num-flush_minutes" min="1" max="60" step="1"> min</label>
+      </div>
+    </section>
+
+    <section class="card" id="card-battery">
+      <h2>Battery
+        <span id="battery-charged" class="badge off hidden">charged</span>
+      </h2>
+      <dl>
+        <div><dt>Voltage</dt><dd><span id="val-battery_voltage">–</span> V</dd></div>
+        <div><dt>Current</dt><dd><span id="val-battery_current">–</span> A</dd></div>
+        <div><dt>State of charge</dt><dd><span id="val-battery_state_of_charge">–</span> %</dd></div>
+        <div><dt>Consumed</dt><dd><span id="val-battery_consumed_ah">–</span> Ah</dd></div>
+        <div><dt>Time remaining</dt><dd><span id="val-battery_time_remaining">–</span> min</dd></div>
+      </dl>
+    </section>
+
+    <section class="card" id="card-relays">
+      <h2>Relays</h2>
+      <ul id="relay-list">
+        <li data-relay="pump"><span class="dot"></span> Pump <button>toggle</button></li>
+        <li data-relay="fertigation_valve"><span class="dot"></span> Fertigation Valve <button>toggle</button></li>
+        <li data-relay="clean_water_valve"><span class="dot"></span> Clean Water Valve <button>toggle</button></li>
+        <li data-relay="relay_4"><span class="dot"></span> Relay 4 <button>toggle</button></li>
+        <li data-relay="relay_5"><span class="dot"></span> Relay 5 <button>toggle</button></li>
+        <li data-relay="relay_6"><span class="dot"></span> Relay 6 <button>toggle</button></li>
+        <li data-relay="relay_7"><span class="dot"></span> Relay 7 <button>toggle</button></li>
+        <li data-relay="relay_8"><span class="dot"></span> Relay 8 <button>toggle</button></li>
+      </ul>
+    </section>
+
+    <section class="card" id="card-env">
+      <h2>Environment</h2>
+      <dl>
+        <div><dt>Temperature</dt><dd><span id="val-ds18b20-1">–</span> °C</dd></div>
+      </dl>
+    </section>
+
+    <section class="card wide" id="card-log">
+      <h2>Events</h2>
+      <ul id="event-log"></ul>
+    </section>
+  </main>
+
+  <script src="mqtt.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
