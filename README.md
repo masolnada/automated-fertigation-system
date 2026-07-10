@@ -24,6 +24,31 @@ Network is WiFi with a fallback AP (`kc868-a8`); MQTT broker and OTA are configu
 
 Pump and valve relays use `restore_mode: ALWAYS_OFF`: after a power loss everything comes up off.
 
+## Irrigation sequence
+
+Started by button or MQTT, the sequence runs three phases. Valve handovers overlap 2s so the running pump always has an open source; the pump's 3.8 bar pressure switch is only the backstop.
+
+1. **Pre-wet** — clean water. Primes the lines; the biology lands on moist soil.
+2. **Fertigation** — water with the fertigation substance.
+3. **Flush** — clean water again, so no humate or micro-organism residue remains in the pump, lines, or emitters. The flush duration cannot be set below 1 minute.
+
+Phase durations are `number` entities (`Pre-wet Minutes` / `Fertigation Minutes` / `Flush Minutes`, defaults 5/20/5), adjustable at runtime from the web UI, Home Assistant, or MQTT; values survive reboots. A start while a sequence is running is ignored (`mode: single`).
+
+Stopping (empty tank, knocked-over line, any reason) always goes through one abort script: pump off first, then both valves. Automatic interrupts are not implemented yet; planned options are a tank float switch on input 1 and pump current sensing (INA226 + shunt on the I2C bus — pump on but under ~2A sustained means it is not moving water; also yields battery voltage). Either would just call `abort_irrigation`.
+
+## Control
+
+Web UI: `http://kc868-a8.local` (auth: `web_server_user` / `web_server_password` secrets). Works in the field through the fallback AP. Buttons: `Start Irrigation`, `Stop Irrigation`.
+
+MQTT (any payload):
+
+```bash
+mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/irrigation/start -m ON
+mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/irrigation/stop -m ON
+```
+
+`Irrigation Running` (binary sensor) reports whether a sequence is active.
+
 ## Layout
 
 ```

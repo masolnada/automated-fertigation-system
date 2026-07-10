@@ -29,6 +29,15 @@ wifi:
 
 captive_portal:
 
+web_server:
+  port: 80
+  version: 3
+  include_internal: true
+  auth:
+    username: !secret web_server_user
+    password: !secret web_server_password
+  local: true
+
 pcf8574:
   - id: "pcf8574_hub_out_1"
     address: 0x24
@@ -106,7 +115,98 @@ switch:
       mode: OUTPUT
       inverted: true
 
+# Phase durations, adjustable at runtime from the web UI, HA, or MQTT.
+number:
+  - platform: template
+    name: "Pre-wet Minutes"
+    id: prewet_minutes
+    min_value: 0
+    max_value: 60
+    step: 1
+    initial_value: 5
+    optimistic: true
+    restore_value: true
+    unit_of_measurement: min
+    mode: box
+  - platform: template
+    name: "Fertigation Minutes"
+    id: fertigation_minutes
+    min_value: 0
+    max_value: 120
+    step: 1
+    initial_value: 20
+    optimistic: true
+    restore_value: true
+    unit_of_measurement: min
+    mode: box
+  # Minimum 1: the flush is what guarantees no residues, so it cannot
+  # be zeroed.
+  - platform: template
+    name: "Flush Minutes"
+    id: flush_minutes
+    min_value: 1
+    max_value: 60
+    step: 1
+    initial_value: 5
+    optimistic: true
+    restore_value: true
+    unit_of_measurement: min
+    mode: box
+
+script:
+  # Valve handovers overlap 2s so the running pump always has an open
+  # source; the pump's 3.8 bar pressure switch is only the backstop.
+  - id: irrigation_sequence
+    mode: single
+    then:
+      # Phase 1: pre-wet with clean water — prime lines, moisten soil
+      - switch.turn_on: clean_water_valve
+      - delay: 2s
+      - switch.turn_on: pump
+      - delay: !lambda "return (uint32_t)(id(prewet_minutes).state * 60000);"
+      # Phase 2: fertigation
+      - switch.turn_on: fertigation_valve
+      - delay: 2s
+      - switch.turn_off: clean_water_valve
+      - delay: !lambda "return (uint32_t)(id(fertigation_minutes).state * 60000);"
+      # Phase 3: flush with clean water so no residues remain
+      - switch.turn_on: clean_water_valve
+      - delay: 2s
+      - switch.turn_off: fertigation_valve
+      - delay: !lambda "return (uint32_t)(id(flush_minutes).state * 60000);"
+      # Shutdown
+      - switch.turn_off: pump
+      - delay: 2s
+      - switch.turn_off: clean_water_valve
+
+  # Single shared interrupt path: the stop button, the MQTT stop topic,
+  # and any future sensor (tank float switch, pump current) all execute
+  # this. Pump goes off first so it never runs against closed valves.
+  - id: abort_irrigation
+    mode: single
+    then:
+      - script.stop: irrigation_sequence
+      - switch.turn_off: pump
+      - delay: 2s
+      - switch.turn_off: fertigation_valve
+      - switch.turn_off: clean_water_valve
+
+button:
+  - platform: template
+    name: "Start Irrigation"
+    id: start_irrigation
+    on_press:
+      - script.execute: irrigation_sequence
+  - platform: template
+    name: "Stop Irrigation"
+    id: stop_irrigation
+    on_press:
+      - script.execute: abort_irrigation
+
 binary_sensor:
+  - platform: template
+    name: "Irrigation Running"
+    lambda: "return id(irrigation_sequence).is_running();"
   - platform: gpio
     name: "a8-input1"
     pin:
@@ -200,3 +300,10 @@ mqtt:
   password: !secret mqtt_broker_password
   client_id: kc868-a8
   reboot_timeout: 0s
+  on_message:
+    - topic: kc868-a8/irrigation/start
+      then:
+        - script.execute: irrigation_sequence
+    - topic: kc868-a8/irrigation/stop
+      then:
+        - script.execute: abort_irrigation
