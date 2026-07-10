@@ -1,0 +1,7 @@
+# Plaintext secrets — only the age-encrypted secrets.enc.yaml is committed
+/secrets.yaml
+
+# ESPHome build files
+/.esphome/
+
+/.vscode
