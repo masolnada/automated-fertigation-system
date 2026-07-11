@@ -350,6 +350,10 @@ sensor:
     type: TIME_TO_GO
     filters:
       - throttle: 5s
+  # Part of the reboot diagnosis: uptime resetting proves a reboot.
+  - platform: uptime
+    name: "Uptime"
+    update_interval: 30s
   - platform: dallas_temp
     # Replace with your own sensor's address — it is printed in the
     # ESPHome logs on boot when a DS18B20 is connected to GPIO14.
@@ -357,6 +361,16 @@ sensor:
     name: "ds18b20-1"
 
 logger:
+
+# Diagnosing the reboot-on-relay-switch issue: reset_reason distinguishes
+# a brownout (power path) from a firmware panic. Remove once resolved.
+debug:
+  update_interval: 30s
+
+text_sensor:
+  - platform: debug
+    reset_reason:
+      name: "Reset Reason"
 
 api:
 
