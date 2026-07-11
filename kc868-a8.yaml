@@ -3,7 +3,7 @@
 #
 # 8 relay outputs + 8 digital inputs via PCF8574 I2C expanders,
 # S3/S4 onboard buttons, DS18B20 on 1-Wire.
-# Relay 1: pump, relay 2: fertigation valve, relay 3: clean water valve.
+# Relay 8: pump, relay 7: fertigation valve, relay 6: clean water valve.
 
 esphome:
   name: kc868-a8
@@ -74,7 +74,7 @@ switch:
     restore_mode: ALWAYS_OFF
     pin:
       pcf8574: pcf8574_hub_out_1
-      number: 0
+      number: 7
       mode: OUTPUT
       inverted: true
   - platform: gpio
@@ -83,7 +83,7 @@ switch:
     restore_mode: ALWAYS_OFF
     pin:
       pcf8574: pcf8574_hub_out_1
-      number: 1
+      number: 6
       mode: OUTPUT
       inverted: true
   - platform: gpio
@@ -92,7 +92,7 @@ switch:
     restore_mode: ALWAYS_OFF
     pin:
       pcf8574: pcf8574_hub_out_1
-      number: 2
+      number: 5
       mode: OUTPUT
       inverted: true
   - platform: gpio
@@ -112,27 +112,27 @@ switch:
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "Relay 6"
-    id: relay_6
+    name: "Relay 1"
+    id: relay_1
     pin:
       pcf8574: pcf8574_hub_out_1
-      number: 5
+      number: 0
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "Relay 7"
-    id: relay_7
+    name: "Relay 2"
+    id: relay_2
     pin:
       pcf8574: pcf8574_hub_out_1
-      number: 6
+      number: 1
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "Relay 8"
-    id: relay_8
+    name: "Relay 3"
+    id: relay_3
     pin:
       pcf8574: pcf8574_hub_out_1
-      number: 7
+      number: 2
       mode: OUTPUT
       inverted: true
 
