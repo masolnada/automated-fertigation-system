@@ -3,11 +3,11 @@
 ## Design
 
 Any UI work on the dashboard (`dashboard/site/`) MUST follow the design system in
-[dashboard/DESIGN.md](dashboard/DESIGN.md) — an organic/natural (wabi-sabi) style
-with defined tokens, component stylings, and interaction rules. The design file is
-written for a Tailwind/React context; translate its tokens and rules to this
-project's plain HTML/CSS/JS (CSS custom properties, plain classes). Do not invent
-colors, radii, shadows, or typography outside that spec.
+[dashboard/DESIGN.md](dashboard/DESIGN.md) — a minimalist e-ink style: strict
+black-and-white monochrome, zero animation/transitions, sharp 90° corners, thick
+black borders and dashed dividers. Translate its rules to this project's plain
+HTML/CSS/JS (CSS custom properties, plain classes). No colors, rounded corners,
+shadows, or gradients — ever.
 
 ## Repo notes
 

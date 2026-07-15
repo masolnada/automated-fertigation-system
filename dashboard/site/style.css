@@ -1,290 +1,210 @@
-/* Organic / Natural design system — see dashboard/DESIGN.md.
-   Tokens translated from the spec into custom properties. */
+/* Minimalist e-ink design system — see dashboard/DESIGN.md.
+   Pure black on pure white, zero animation, sharp corners, thick borders.
+   The single permitted mid-gray is used only for secondary dividers. */
 
 :root {
-  --bg: #FDFCF8;            /* rice paper */
-  --card: #FEFEFA;
-  --fg: #2C2C24;            /* deep loam */
-  --moss: #5D7052;
-  --mist: #F3F4F1;
-  --clay: #C18C5D;
-  --sand: #E6DCCD;
-  --stone: #F0EBE5;
-  --grass: #78786C;         /* muted text */
-  --timber: #DED8CF;        /* borders */
-  --sienna: #A85448;        /* destructive */
-  --bark: #4A4A40;
+  --ink: #000000;
+  --paper: #ffffff;
+  --gray: #808080; /* secondary borders / dividing lines only */
 
-  --shadow-soft: 0 4px 20px -2px rgba(93, 112, 82, 0.15);
-  --shadow-soft-deep: 0 6px 24px -4px rgba(93, 112, 82, 0.25);
-  --shadow-float: 0 10px 40px -10px rgba(193, 140, 93, 0.2);
-  --shadow-lift: 0 20px 40px -10px rgba(93, 112, 82, 0.15);
+  --font-ui: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-num: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
-  --font-display: "Fraunces", Georgia, serif;
-  --font-body: "Nunito", "Quicksand", system-ui, sans-serif;
+  --border-heavy: 3px solid var(--ink);
+  --border-light: 2px solid var(--ink);
+  --divider: 2px dashed var(--gray);
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+  animation: none !important;
+  transition: none !important;
+}
+
+html { scroll-behavior: auto; }
 
 body {
   margin: 0;
-  font-family: var(--font-body);
-  background: var(--bg);
-  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.6;
+  background: var(--paper);
+  color: var(--ink);
   min-height: 100vh;
-  overflow-x: hidden;
 }
 
-/* Paper grain over everything — the essential texture layer. */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  pointer-events: none;
-  opacity: 0.04;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-/* Ambient blurred blobs behind the page. */
-.blob {
-  position: fixed;
-  z-index: -1;
-  filter: blur(80px);
-  animation: drift 26s ease-in-out infinite alternate;
-}
-.blob-moss {
-  top: -10%; right: -8%;
-  width: 45vw; height: 45vw;
-  background: rgba(93, 112, 82, 0.12);
-  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-}
-.blob-clay {
-  bottom: -14%; left: -10%;
-  width: 40vw; height: 40vw;
-  background: rgba(193, 140, 93, 0.10);
-  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
-  animation-delay: -12s;
-}
-@keyframes drift {
-  from { transform: translate(0, 0) rotate(0deg); }
-  to   { transform: translate(3vw, 2vw) rotate(6deg); }
-}
-
-/* ---- Floating pill navigation ---------------------------------------- */
+/* ---- Header: bordered masthead ----------------------------------------- */
 header {
-  position: sticky;
-  top: 1rem;
-  z-index: 40;
-  padding: 0 1rem;
+  max-width: 1100px;
+  margin: 2rem auto 0;
+  padding: 0 1.5rem;
 }
+
 .pill-nav {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 0.6rem 1.4rem 0.6rem 0.7rem;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(222, 216, 207, 0.5);
-  border-radius: 999px;
-  box-shadow: var(--shadow-soft);
+  gap: 1.25rem;
+  padding: 1rem 1.25rem;
+  border: var(--border-heavy);
+  background: var(--paper);
 }
+
 .logo {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
-  color: var(--mist);
-  background: var(--moss);
-  border-radius: 55% 45% 48% 52% / 50% 55% 45% 50%;
+  color: var(--ink);
+  border: var(--border-light);
 }
-.logo svg { width: 22px; height: 22px; }
+.logo svg { width: 26px; height: 26px; }
+
 .title { flex: 1; min-width: 0; }
 h1 {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.4rem;
-  line-height: 1.1;
+  font-size: 1.5rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
   margin: 0;
 }
 .subtitle {
   display: block;
-  font-size: 0.72rem;
-  color: var(--grass);
-  letter-spacing: 0.06em;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
 }
 
-/* ---- Badges (river-stone pills) --------------------------------------- */
+/* ---- Badges: rectangular state chips ------------------------------------ */
+/* Filled black = active state; dashed border = disconnected. */
 .badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 0.3rem 0.75rem;
-  border-radius: 999px;
-  letter-spacing: 0.03em;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0.35rem 0.7rem;
   white-space: nowrap;
-  border: 1.5px solid var(--timber);
-  color: var(--grass);
-  background: rgba(255, 255, 255, 0.5);
-  transition: all 0.3s ease;
+  border: var(--border-light);
+  color: var(--ink);
+  background: var(--paper);
 }
 .badge.online, .badge.on {
-  color: var(--mist);
-  background: var(--moss);
-  border-color: var(--moss);
-  box-shadow: var(--shadow-soft);
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
 }
-.badge.offline {
-  color: var(--sienna);
-  border-color: rgba(168, 84, 72, 0.4);
-  background: rgba(168, 84, 72, 0.06);
-}
+.badge.offline { border-style: dashed; }
 .badge.hidden { display: none; }
 
-/* ---- Layout ------------------------------------------------------------ */
+/* ---- Layout: rigid grid, wide gaps -------------------------------------- */
 main {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-  padding: 2.5rem 1.5rem 4rem;
+  gap: 2rem;
+  padding: 2rem 1.5rem 4rem;
   max-width: 1100px;
   margin: 0 auto;
 }
 
-/* ---- Cards: soft paper, asymmetric corners ------------------------------ */
+/* ---- Cards: thick black frames, no fills, no shadows --------------------- */
 .card {
-  position: relative;
-  background: var(--card);
-  border: 1px solid rgba(222, 216, 207, 0.5);
-  border-radius: 2rem;
-  padding: 1.6rem;
-  box-shadow: var(--shadow-soft);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  overflow: hidden;
+  background: var(--paper);
+  border: var(--border-heavy);
+  padding: 1.5rem;
 }
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lift);
-}
-.card-irrigation { border-top-left-radius: 4rem; grid-row: span 2; }
-.card-battery    { border-bottom-right-radius: 4rem; }
-.card-relays     { border-top-right-radius: 3.5rem; grid-row: span 2; }
-.card-env        { border-bottom-left-radius: 3.5rem; }
-.card-env:hover  { transform: translateY(-4px) rotate(0.6deg); }
-.card-log        { grid-column: 1 / -1; border-top-right-radius: 4rem; }
+.card-irrigation { grid-row: span 2; }
+.card-relays     { grid-row: span 2; }
+.card-log        { grid-column: 1 / -1; }
 
-/* Breathing blob inside the irrigation card — still when idle,
-   alive while a sequence runs. */
-.card-blob {
-  position: absolute;
-  top: -30%; right: -25%;
-  width: 75%; height: 90%;
-  background: rgba(93, 112, 82, 0.08);
-  border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-  filter: blur(30px);
-  pointer-events: none;
-  transition: background 0.7s ease;
-}
-.card-irrigation.running .card-blob {
-  background: rgba(93, 112, 82, 0.2);
-  animation: breathe 6s ease-in-out infinite;
-}
-@keyframes breathe {
-  0%, 100% { transform: scale(1);    border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
-  50%      { transform: scale(1.15); border-radius: 40% 60% 55% 45% / 45% 55% 40% 60%; }
-}
-
-/* ---- Card headings with icon containers -------------------------------- */
+/* ---- Card headers: small, bold, uppercase, wide tracking ----------------- */
 h2 {
   display: flex;
   align-items: center;
   gap: 0.7rem;
-  margin: 0 0 1.1rem;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.25rem;
+  margin: 0 0 1.25rem;
+  padding-bottom: 0.9rem;
+  border-bottom: var(--divider);
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
 }
 h2 .badge { margin-left: auto; }
 .icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
-  border-radius: 1rem;
-  color: var(--moss);
-  background: rgba(93, 112, 82, 0.1);
-  transition: all 0.3s ease;
+  color: var(--ink);
+  border: var(--border-light);
 }
-.icon svg { width: 22px; height: 22px; }
-.card:hover .icon { background: var(--moss); color: #fff; }
+.icon svg { width: 20px; height: 20px; stroke-width: 2.25; }
 
-/* ---- Buttons: pills with tactile press --------------------------------- */
+/* ---- Buttons: sharp, heavy, inverted when primary ------------------------- */
 button {
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 1rem;
-  height: 48px;
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  height: 52px;
   padding: 0 1.5rem;
-  border-radius: 999px;
   cursor: pointer;
-  border: none;
-  transition: all 0.3s ease;
+  border: var(--border-heavy);
+  background: var(--paper);
+  color: var(--ink);
 }
-.controls button { flex: 1 1 auto; }
-button:hover  { transform: scale(1.05); }
-button:active { transform: scale(0.95); }
+button:active {
+  background: var(--ink);
+  color: var(--paper);
+}
 button.primary {
-  background: var(--moss);
-  color: var(--mist);
-  box-shadow: var(--shadow-soft);
+  background: var(--ink);
+  color: var(--paper);
 }
-button.primary:hover { box-shadow: var(--shadow-soft-deep); }
-button.danger {
-  background: transparent;
-  color: var(--sienna);
-  border: 2px solid var(--sienna);
+button.primary:active {
+  background: var(--paper);
+  color: var(--ink);
 }
-button.danger:hover { background: rgba(168, 84, 72, 0.08); }
 :focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px rgba(93, 112, 82, 0.6);
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
 }
 
 .controls {
-  position: relative;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.7rem;
-  margin-bottom: 1.4rem;
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
 }
+.controls button { flex: 1 1 auto; }
 
-/* ---- Sequence bar: the three phases, to scale --------------------------- */
+/* ---- Sequence bar: proportional block segments ---------------------------- */
+/* Solid-black fill marks the fertigation phase; the others stay outlined. */
 .phases {
-  position: relative;
   display: flex;
-  gap: 4px;
-  margin-bottom: 1.4rem;
-  min-height: 56px;
+  gap: 6px;
+  margin-bottom: 1.5rem;
+  min-height: 64px;
 }
 .phase {
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 0.4rem 0.9rem;
+  padding: 0.5rem 0.8rem;
   min-width: 0;
-  border-radius: 1.2rem;
-  transition: flex-grow 0.5s ease;
+  border: var(--border-light);
+  background: var(--paper);
+  color: var(--ink);
 }
 .phase span {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -294,124 +214,107 @@ button.danger:hover { background: rgba(168, 84, 72, 0.08); }
 .phase.narrow span { display: none; }
 .phase.narrow { text-align: center; }
 .phase b {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.3rem;
+  font-family: var(--font-num);
+  font-weight: 800;
+  font-size: 1.4rem;
+  line-height: 1.3;
 }
 .phase b::after {
   content: " min";
-  font-family: var(--font-body);
+  font-family: var(--font-ui);
   font-size: 0.65rem;
-  font-weight: 700;
-  opacity: 0.7;
+  font-weight: 800;
+  letter-spacing: 0.06em;
 }
-.phase-prewet      { background: var(--sand);  color: var(--bark); border-radius: 2rem 1.2rem 1.2rem 2.4rem; }
-.phase-fertigation { background: var(--clay);  color: #fff; }
-.phase-flush       { background: var(--moss);  color: var(--mist); border-radius: 1.2rem 2.4rem 2rem 1.2rem; }
+.phase-fertigation {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
 
-/* ---- Duration inputs: pill fields --------------------------------------- */
-.durations { position: relative; display: grid; gap: 0.6rem; }
+/* ---- Duration inputs: sharp bordered fields -------------------------------- */
+.durations { display: grid; gap: 0.8rem; }
 .durations label {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--grass);
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 .durations input {
   width: 5.2rem;
-  height: 44px;
+  height: 46px;
   margin-left: auto;
-  padding: 0 1rem;
-  font-family: var(--font-body);
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--fg);
+  padding: 0 0.6rem;
+  font-family: var(--font-num);
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--ink);
   text-align: center;
-  background: rgba(255, 255, 255, 0.5);
-  border: 1.5px solid var(--timber);
-  border-radius: 999px;
-  transition: all 0.3s ease;
-}
-.durations input:focus-visible {
-  border-color: var(--moss);
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px rgba(93, 112, 82, 0.3);
+  background: var(--paper);
+  border: var(--border-light);
 }
 
-/* ---- Value lists (battery, environment) --------------------------------- */
+/* ---- Value lists (battery, environment) ------------------------------------ */
 dl { margin: 0; }
 dl div {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 0.55rem 0;
-  border-bottom: 1px dashed rgba(222, 216, 207, 0.7);
+  padding: 0.6rem 0;
+  border-bottom: var(--divider);
 }
 dl div:last-child { border-bottom: none; }
-dt { font-size: 0.85rem; font-weight: 600; color: var(--grass); }
+dt { font-size: 0.9rem; font-weight: 700; }
 dd { margin: 0; }
 dd span {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.55rem;
+  font-family: var(--font-num);
+  font-weight: 800;
+  font-size: 1.7rem;
   font-variant-numeric: tabular-nums;
 }
 dd i {
   font-style: normal;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--grass);
-  margin-left: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  margin-left: 0.35rem;
 }
 
-/* ---- Relays: pebbles ------------------------------------------------------ */
+/* ---- Relays: square state marks --------------------------------------------- */
 #relay-list { list-style: none; margin: 0; padding: 0; }
 #relay-list li {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.45rem 0;
-  font-size: 0.92rem;
-  font-weight: 600;
-  border-bottom: 1px dashed rgba(222, 216, 207, 0.7);
+  gap: 0.8rem;
+  padding: 0.6rem 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-bottom: var(--divider);
 }
 #relay-list li:last-child { border-bottom: none; }
 #relay-list button {
   margin-left: auto;
-  height: 34px;
+  height: 38px;
   padding: 0 1rem;
-  font-size: 0.75rem;
-  color: var(--moss);
-  background: transparent;
-  border: 1.5px solid var(--timber);
+  font-size: 0.72rem;
+  border: var(--border-light);
 }
-#relay-list button:hover {
-  background: rgba(93, 112, 82, 0.1);
-  border-color: var(--moss);
-}
+/* Solid-filled square = relay ON (active toggle state). */
 .dot {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
-  background: var(--stone);
-  border: 1px solid var(--timber);
-  border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%;
-  transition: all 0.3s ease;
+  background: var(--paper);
+  border: var(--border-light);
 }
-.dot.on {
-  background: var(--moss);
-  border-color: var(--moss);
-  box-shadow: 0 0 10px rgba(93, 112, 82, 0.5);
-}
+.dot.on { background: var(--ink); }
 
-/* ---- Event log: field journal --------------------------------------------- */
+/* ---- Event log: timestamped ledger -------------------------------------------- */
 #event-log {
   list-style: none;
   margin: 0;
   padding: 0;
-  font-size: 0.85rem;
-  color: var(--grass);
+  font-size: 0.9rem;
   max-height: 240px;
   overflow-y: auto;
 }
@@ -422,35 +325,24 @@ dd i {
   font-style: italic;
 }
 #event-log li {
-  padding: 0.3rem 0;
-  border-bottom: 1px dashed rgba(222, 216, 207, 0.5);
+  padding: 0.4rem 0;
+  border-bottom: var(--divider);
 }
-#event-log li:first-child { color: var(--fg); }
 #event-log time {
+  font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  color: var(--clay);
-  margin-right: 0.7rem;
+  font-weight: 800;
+  margin-right: 0.8rem;
 }
 
 /* ---- Responsive ------------------------------------------------------------ */
 @media (max-width: 640px) {
-  header { padding: 0 0.6rem; }
-  .pill-nav { gap: 0.6rem; padding-right: 0.8rem; }
+  header { padding: 0 1rem; margin-top: 1rem; }
+  .pill-nav { gap: 0.8rem; padding: 0.8rem 1rem; }
   .subtitle { display: none; }
   #broker-status { display: none; }
-  main { padding: 1.5rem 1rem 3rem; gap: 1rem; }
+  main { padding: 1.5rem 1rem 3rem; gap: 1.25rem; }
   .card { padding: 1.25rem; }
-  .card-irrigation { border-top-left-radius: 3rem; }
-  .phase { padding: 0.35rem 0.6rem; }
-  .phase b { font-size: 1.05rem; }
-}
-
-/* ---- Reduced motion ---------------------------------------------------------- */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation: none !important;
-    transition: none !important;
-  }
-  .card:hover, button:hover, button:active { transform: none; }
+  .phase { padding: 0.4rem 0.6rem; }
+  .phase b { font-size: 1.1rem; }
 }
