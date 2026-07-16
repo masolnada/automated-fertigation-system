@@ -60,10 +60,16 @@
   }
 
   // ---- MQTT ------------------------------------------------------------
+  // keepalive 30s, not the 60s default: mqtt.js only gives up on a silent
+  // socket after keepalive + pingTimeout (1.5x keepalive), so the default
+  // leaves a dead connection undetected for up to 150s.
+  const KEEPALIVE = 30;
+
   const client = mqtt.connect(cfg.brokerUrl, {
     username: cfg.username,
     password: cfg.password,
     reconnectPeriod: 3000,
+    keepalive: KEEPALIVE,
   });
 
   client.on("connect", () => {
@@ -79,6 +85,23 @@
   });
 
   client.on("error", (e) => log(`broker error: ${e.message}`));
+
+  // A backgrounded tab has its timers frozen, so the keepalive stops and the
+  // broker drops us; a laptop sleep can also leave the socket half-open, with
+  // the client still reporting "connected" while nothing arrives. Neither is
+  // visible from here, so after the page has been hidden long enough for
+  // either to have happened, force a fresh connection rather than trust the
+  // one we have. Reconnecting resubscribes, and every state topic is
+  // published retained, so the UI resyncs itself without a page reload.
+  let hiddenSince = 0;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      hiddenSince = Date.now();
+      return;
+    }
+    if (client.connected && Date.now() - hiddenSince < KEEPALIVE * 1000) return;
+    client.end(true, () => client.reconnect());
+  });
 
   client.on("message", (topic, buf) => {
     const payload = buf.toString();
@@ -142,13 +165,18 @@
       publish(`${P}/number/${id}/command`, e.target.value));
   }
 
+  // TOGGLE rather than an ON/OFF computed from dataset.state: the device
+  // flips from the state it actually holds, so the button stays correct even
+  // if this page missed an update and thinks the relay is the other way round.
+  // The trade-off is that the direction is no longer ours to predict, so the
+  // pump has to be confirmed in both directions — Stop is the unprompted way
+  // to shut it off.
   document.querySelectorAll("#relay-list li").forEach((li) => {
     li.querySelector("button").addEventListener("click", () => {
-      const target = li.dataset.state === "ON" ? "OFF" : "ON";
-      if (li.dataset.relay === "pump" && target === "ON" &&
-          !confirm("Manually run the pump? Make sure a valve is open."))
+      if (li.dataset.relay === "pump" &&
+          !confirm("Toggle the pump? If it starts, make sure a valve is open."))
         return;
-      publish(`${P}/switch/${li.dataset.relay}/command`, target);
+      publish(`${P}/switch/${li.dataset.relay}/command`, "TOGGLE");
     });
   });
 })();
