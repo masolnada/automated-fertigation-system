@@ -77,10 +77,18 @@ switch:
       number: 7
       mode: OUTPUT
       inverted: true
+  # The two valves are mutually exclusive: never both open, either one or
+  # neither. The interlock enforces it at the pin-write level, so it holds
+  # for every caller — MQTT command, script, or web UI. Turning one on first
+  # turns the other off; interlock_wait_time then delays energising the
+  # incoming valve, giving the outgoing relay time to physically release so
+  # the two are never open at once even mid-swap.
   - platform: gpio
     name: "Fertigation Valve"
     id: fertigation_valve
     restore_mode: ALWAYS_OFF
+    interlock: [clean_water_valve]
+    interlock_wait_time: 500ms
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 6
@@ -90,6 +98,8 @@ switch:
     name: "Clean Water Valve"
     id: clean_water_valve
     restore_mode: ALWAYS_OFF
+    interlock: [fertigation_valve]
+    interlock_wait_time: 500ms
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 5
@@ -175,8 +185,12 @@ number:
     mode: box
 
 script:
-  # Valve handovers overlap 2s so the running pump always has an open
-  # source; the pump's 3.8 bar pressure switch is only the backstop.
+  # Handovers cannot overlap the valves any more — they are mutually
+  # exclusive — so the pump pauses across each one instead: stop, swap the
+  # valve, start again. The pump never runs against closed valves, and its
+  # 3.8 bar pressure switch stays the backstop rather than the plan.
+  # Each valve is turned off explicitly before the next is turned on, so the
+  # sequence is correct on its own and the interlock is only a safety net.
   - id: irrigation_sequence
     mode: single
     then:
@@ -186,14 +200,20 @@ script:
       - switch.turn_on: pump
       - delay: !lambda "return (uint32_t)(id(prewet_minutes).state * 60000);"
       # Phase 2: fertigation
-      - switch.turn_on: fertigation_valve
+      - switch.turn_off: pump
       - delay: 2s
       - switch.turn_off: clean_water_valve
+      - switch.turn_on: fertigation_valve
+      - delay: 2s
+      - switch.turn_on: pump
       - delay: !lambda "return (uint32_t)(id(fertigation_minutes).state * 60000);"
       # Phase 3: flush with clean water so no residues remain
-      - switch.turn_on: clean_water_valve
+      - switch.turn_off: pump
       - delay: 2s
       - switch.turn_off: fertigation_valve
+      - switch.turn_on: clean_water_valve
+      - delay: 2s
+      - switch.turn_on: pump
       - delay: !lambda "return (uint32_t)(id(flush_minutes).state * 60000);"
       # Shutdown
       - switch.turn_off: pump

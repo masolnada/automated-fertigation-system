@@ -280,6 +280,35 @@ dd i {
   margin-left: 0.35rem;
 }
 
+/* ---- Valve selector: exclusive three-state segmented control ---------------- */
+/* The valves are mutually exclusive on the device, so they read as one control
+   with one active segment rather than two independent toggles. Solid-filled
+   segment = active, the same idiom as .badge.on and .dot.on. */
+.sub-heading {
+  margin: 0 0 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.valve-select {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 1.5rem;
+}
+.valve-select button {
+  height: 46px;
+  padding: 0 0.4rem;
+  font-size: 0.7rem;
+  border: var(--border-light);
+}
+.valve-select button.active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
 /* ---- Relays: square state marks --------------------------------------------- */
 #relay-list { list-style: none; margin: 0; padding: 0; }
 #relay-list li {

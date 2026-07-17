@@ -73,10 +73,16 @@
         </span>
         Relays
       </h2>
+
+      <h3 class="sub-heading">Valves</h3>
+      <div class="valve-select" id="valve-select" role="group" aria-label="Valve selection">
+        <button type="button" data-valve="clean_water_valve">Clean</button>
+        <button type="button" data-valve="">Closed</button>
+        <button type="button" data-valve="fertigation_valve">Fertigation</button>
+      </div>
+
       <ul id="relay-list">
         <li data-relay="pump"><span class="dot"></span> Pump <button>toggle</button></li>
-        <li data-relay="fertigation_valve"><span class="dot"></span> Fertigation Valve <button>toggle</button></li>
-        <li data-relay="clean_water_valve"><span class="dot"></span> Clean Water Valve <button>toggle</button></li>
       </ul>
     </section>
 

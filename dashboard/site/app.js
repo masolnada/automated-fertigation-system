@@ -53,6 +53,21 @@
     li.dataset.state = payload;
   }
 
+  // The valves are mutually exclusive on the device (a gpio interlock), so the
+  // UI shows one selector with a single active segment instead of two toggles
+  // that could imply an impossible both-open state.
+  const valves = { clean_water_valve: false, fertigation_valve: false };
+
+  function renderValves() {
+    const active = valves.fertigation_valve
+      ? "fertigation_valve"
+      : valves.clean_water_valve
+        ? "clean_water_valve"
+        : ""; // neither open — the "Closed" segment
+    for (const btn of document.querySelectorAll("#valve-select button"))
+      btn.classList.toggle("active", btn.dataset.valve === active);
+  }
+
   function setBadge(el, on, onText, offText) {
     el.classList.toggle("on", on);
     el.classList.toggle("off", !on);
@@ -131,7 +146,12 @@
       return;
     }
     if (kind === "switch") {
-      setRelay(objectId, payload);
+      if (objectId in valves) {
+        valves[objectId] = payload === "ON";
+        renderValves();
+      } else {
+        setRelay(objectId, payload);
+      }
       log(`${objectId} → ${payload}`);
       return;
     }
@@ -163,6 +183,23 @@
   for (const id of ["pre-wet_minutes", "fertigation_minutes", "flush_minutes"]) {
     $(`num-${id}`).addEventListener("change", (e) =>
       publish(`${P}/number/${id}/command`, e.target.value));
+  }
+
+  // Absolute targets rather than TOGGLE: a segment names where to go, so a
+  // stale view cannot invert the intent, and re-picking the active one is a
+  // harmless no-op. Opening a valve takes a single ON — the device's interlock
+  // closes the other one, which also avoids racing two commands whose order
+  // the broker and device need not preserve.
+  for (const btn of document.querySelectorAll("#valve-select button")) {
+    btn.addEventListener("click", () => {
+      const target = btn.dataset.valve;
+      if (target) {
+        publish(`${P}/switch/${target}/command`, "ON");
+        return;
+      }
+      for (const valve of Object.keys(valves))
+        publish(`${P}/switch/${valve}/command`, "OFF");
+    });
   }
 
   // TOGGLE rather than an ON/OFF computed from dataset.state: the device
