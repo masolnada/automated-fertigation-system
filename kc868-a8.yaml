@@ -372,7 +372,11 @@ text_sensor:
     reset_reason:
       name: "Reset Reason"
 
+# No API client ever connects (control is MQTT + web dashboard), so the
+# API's own no-client watchdog must be off — its default reboots the
+# device every 15 minutes. Same reason mqtt has reboot_timeout: 0s.
 api:
+  reboot_timeout: 0s
 
 ota:
   - platform: esphome
