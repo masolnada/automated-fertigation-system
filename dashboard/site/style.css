@@ -295,7 +295,7 @@ dd i {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
 }
 .valve-select button {
   height: 46px;
@@ -307,6 +307,22 @@ dd i {
   background: var(--ink);
   color: var(--paper);
   border-color: var(--ink);
+}
+/* Asked for but not settled yet — dashed is the same "not committed" signal
+   .badge.offline uses. A swap passes through Closed, so the user sees where
+   the valves actually are while the interlock waits. */
+.valve-select button.pending { border-style: dashed; }
+
+/* The line keeps its height while empty: it fills mid-swap, and the grid must
+   not shift under the pointer as it does. */
+.valve-status {
+  margin: 0 0 1.5rem;
+  min-height: 2.4em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /* ---- Relays: square state marks --------------------------------------------- */

@@ -57,15 +57,55 @@
   // UI shows one selector with a single active segment instead of two toggles
   // that could imply an impossible both-open state.
   const valves = { clean_water_valve: false, fertigation_valve: false };
+  const valveStatus = $("valve-status");
 
-  function renderValves() {
-    const active = valves.fertigation_valve
+  // A swap is not instant: the device closes the open valve, waits out the
+  // interlock, then opens the other — passing through both-closed, which stops
+  // the pump. `pending` holds the segment asked for until the device confirms,
+  // so the wait is visible rather than looking like a dropped click.
+  let pending = null;
+  let pendingTimer = 0;
+
+  const pumpOn = () =>
+    document.querySelector('#relay-list li[data-relay="pump"]').dataset.state === "ON";
+
+  function openValve() {
+    return valves.fertigation_valve
       ? "fertigation_valve"
       : valves.clean_water_valve
         ? "clean_water_valve"
         : ""; // neither open — the "Closed" segment
-    for (const btn of document.querySelectorAll("#valve-select button"))
+  }
+
+  function setPending(target) {
+    pending = target;
+    clearTimeout(pendingTimer);
+    // A command can be lost; never strand the notice waiting for a confirm
+    // that is not coming. The device normally answers well inside this.
+    pendingTimer = setTimeout(() => {
+      pending = null;
+      renderValves();
+    }, 5000);
+    renderValves();
+  }
+
+  function renderValves() {
+    const active = openValve();
+    if (pending === active) {
+      pending = null; // the device arrived where we asked
+      clearTimeout(pendingTimer);
+    }
+    for (const btn of document.querySelectorAll("#valve-select button")) {
       btn.classList.toggle("active", btn.dataset.valve === active);
+      // Dashed = asked for but not settled, the same signal .badge.offline uses.
+      btn.classList.toggle("pending", pending !== null && btn.dataset.valve === pending);
+    }
+    valveStatus.textContent =
+      pending === null
+        ? ""
+        : pumpOn()
+          ? "Switching… both valves close for a moment, so the pump stops"
+          : "Switching… both valves close for a moment";
   }
 
   function setBadge(el, on, onText, offText) {
@@ -146,12 +186,9 @@
       return;
     }
     if (kind === "switch") {
-      if (objectId in valves) {
-        valves[objectId] = payload === "ON";
-        renderValves();
-      } else {
-        setRelay(objectId, payload);
-      }
+      if (objectId in valves) valves[objectId] = payload === "ON";
+      else setRelay(objectId, payload);
+      renderValves(); // pump state feeds the switching notice, so render on both
       log(`${objectId} → ${payload}`);
       return;
     }
@@ -193,6 +230,7 @@
   for (const btn of document.querySelectorAll("#valve-select button")) {
     btn.addEventListener("click", () => {
       const target = btn.dataset.valve;
+      setPending(target);
       if (target) {
         publish(`${P}/switch/${target}/command`, "ON");
         return;
