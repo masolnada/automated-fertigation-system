@@ -1,0 +1,12 @@
+homelab := "../../homelab/automation"
+
+# Copy Telegraf + Grafana artifacts into the homelab repo.
+deploy: deploy-telegraf deploy-grafana
+
+deploy-telegraf:
+    mkdir -p {{homelab}}/telegraf/telegraf.d
+    cp telegraf/fertigation.conf {{homelab}}/telegraf/telegraf.d/fertigation.conf
+
+deploy-grafana:
+    mkdir -p {{homelab}}/grafana/dashboards-hort
+    cp grafana/fertigation.json {{homelab}}/grafana/dashboards-hort/fertigation.json

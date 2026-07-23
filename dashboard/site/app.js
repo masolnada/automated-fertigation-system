@@ -27,6 +27,8 @@
     battery_consumed_ah: 1,
     battery_time_remaining: 0,
     "ds18b20-1": 1,
+    flow_rate: 1,
+    total_water: 0,
   };
 
   function setSensor(objectId, payload) {

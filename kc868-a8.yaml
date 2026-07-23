@@ -77,6 +77,10 @@ switch:
       number: 7
       mode: OUTPUT
       inverted: true
+    on_turn_on:
+      - lambda: |-
+          id(pump_on_since_ms) = millis();
+          id(low_flow_secs) = 0;
   # The two valves are mutually exclusive: never both open, either one or
   # neither. The interlock enforces it at the pin-write level, so it holds
   # for every caller — MQTT command, script, or web UI. Turning one on first
@@ -89,6 +93,8 @@ switch:
     restore_mode: ALWAYS_OFF
     interlock: [clean_water_valve]
     interlock_wait_time: 500ms
+    on_turn_off:
+      - script.execute: stop_pump_without_path
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 6
@@ -100,6 +106,8 @@ switch:
     restore_mode: ALWAYS_OFF
     interlock: [fertigation_valve]
     interlock_wait_time: 500ms
+    on_turn_off:
+      - script.execute: stop_pump_without_path
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 5
@@ -184,7 +192,46 @@ number:
     unit_of_measurement: min
     mode: box
 
+globals:
+  # Persisted lifetime odometer, in liters. Survives the solar/night reboots.
+  - id: water_total_l
+    type: double
+    restore_value: yes
+    initial_value: "0"
+  # millis() at the last pump turn-on; drives the 15 s priming grace.
+  - id: pump_on_since_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+  # Consecutive seconds of low flow while armed; the 3 s confirm window.
+  - id: low_flow_secs
+    type: int
+    restore_value: no
+    initial_value: "0"
+  # Last observed cumulative pulse count, to compute per-cycle deltas.
+  - id: last_total_pulses
+    type: double
+    restore_value: no
+    initial_value: "0"
+
 script:
+  # The pump must never run without an open path, so closing the last valve
+  # stops it — whichever caller closed it: dashboard, sequence, or the
+  # interlock closing one valve on the way to opening the other. Both valves
+  # are closed for interlock_wait_time mid-swap, so swapping valves by hand
+  # while the pump runs does stop it; starting it again is a deliberate act,
+  # never automatic. Guarded on the pump already running so the sequence's
+  # own valve closes (pump already off) don't republish OFF each time.
+  - id: stop_pump_without_path
+    then:
+      - if:
+          condition:
+            - switch.is_on: pump
+            - switch.is_off: clean_water_valve
+            - switch.is_off: fertigation_valve
+          then:
+            - switch.turn_off: pump
+
   # Handovers cannot overlap the valves any more — they are mutually
   # exclusive — so the pump pauses across each one instead: stop, swap the
   # valve, start again. The pump never runs against closed valves, and its
@@ -231,6 +278,12 @@ script:
       - delay: 2s
       - switch.turn_off: fertigation_valve
       - switch.turn_off: clean_water_valve
+
+  - id: dry_run_publish
+    then:
+      - mqtt.publish:
+          topic: kc868-a8/flow/dry_run
+          payload: "ON"
 
 button:
   - platform: template
@@ -379,6 +432,64 @@ sensor:
     # ESPHome logs on boot when a DS18B20 is connected to GPIO14.
     address: 0x1c0000031edd2a28
     name: "ds18b20-1"
+
+  # YF-B5 flow sensor on GPIO13 via a 1k/2k divider. 396 pulses per liter.
+  - platform: pulse_counter
+    pin:
+      number: GPIO13
+      mode:
+        input: true
+        pullup: true
+    id: flow_pulses
+    name: "Flow Rate"
+    unit_of_measurement: "L/min"
+    accuracy_decimals: 2
+    update_interval: 1s
+    # pulse_counter reports pulses/min; 396 pulses = 1 L.
+    filters:
+      - lambda: return x / 396.0;
+    total:
+      id: flow_total_pulses
+      internal: true
+      # Accumulate the delta since the last update into the persisted total.
+      on_value:
+        - lambda: |-
+            double delta = x - id(last_total_pulses);
+            if (delta < 0) delta = x;      // counter reset (reboot) → treat x as delta
+            id(last_total_pulses) = x;
+            id(water_total_l) += delta / 396.0;
+
+  # Persisted lifetime odometer exposed as its own sensor.
+  - platform: template
+    name: "Total Water"
+    id: total_water
+    unit_of_measurement: "L"
+    accuracy_decimals: 1
+    update_interval: 5s
+    lambda: return id(water_total_l);
+
+interval:
+  # Dry-run protection: with the pump running past its priming grace, sustained
+  # no-flow means the pump is not moving water — stop everything via the shared
+  # abort path. 0.5 L/min is well under the sensor's 1 L/min floor, so real
+  # irrigation never trips it.
+  - interval: 1s
+    then:
+      - lambda: |-
+          if (!id(pump).state) { id(low_flow_secs) = 0; return; }
+          if (millis() - id(pump_on_since_ms) < 15000) { id(low_flow_secs) = 0; return; }
+          if (isnan(id(flow_pulses).state)) return;
+          if (id(flow_pulses).state < 0.5) {
+            id(low_flow_secs)++;
+          } else {
+            id(low_flow_secs) = 0;
+          }
+          if (id(low_flow_secs) >= 3) {
+            id(low_flow_secs) = 0;
+            id(abort_irrigation)->execute();
+            ESP_LOGW("flow", "dry-run detected: no flow with pump on, aborting");
+            id(dry_run_publish)->execute();
+          }
 
 logger:
 
