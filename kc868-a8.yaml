@@ -40,8 +40,13 @@ i2c:
   id: bus_a
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
+  # Tried in order: home IoT network first, phone hotspot as fallback so the
+  # controller reconnects when taken out of home wifi range.
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+    - ssid: !secret wifi_fallback_ssid
+      password: !secret wifi_fallback_password
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
@@ -81,18 +86,14 @@ switch:
       - lambda: |-
           id(pump_on_since_ms) = millis();
           id(low_flow_secs) = 0;
-  # The two valves are mutually exclusive: never both open, either one or
-  # neither. The interlock enforces it at the pin-write level, so it holds
-  # for every caller — MQTT command, script, or web UI. Turning one on first
-  # turns the other off; interlock_wait_time then delays energising the
-  # incoming valve, giving the outgoing relay time to physically release so
-  # the two are never open at once even mid-swap.
+  # Both valves may be open at once: the manual button opens both so a
+  # downstream mechanical valve selects the source. The mutual-exclusion
+  # interlock is therefore removed; the irrigation_sequence still opens only
+  # one valve at a time on its own.
   - platform: gpio
     name: "Fertigation Valve"
     id: fertigation_valve
     restore_mode: ALWAYS_OFF
-    interlock: [clean_water_valve]
-    interlock_wait_time: 500ms
     on_turn_off:
       - script.execute: stop_pump_without_path
     pin:
@@ -104,8 +105,6 @@ switch:
     name: "Clean Water Valve"
     id: clean_water_valve
     restore_mode: ALWAYS_OFF
-    interlock: [fertigation_valve]
-    interlock_wait_time: 500ms
     on_turn_off:
       - script.execute: stop_pump_without_path
     pin:
@@ -216,12 +215,9 @@ globals:
 
 script:
   # The pump must never run without an open path, so closing the last valve
-  # stops it — whichever caller closed it: dashboard, sequence, or the
-  # interlock closing one valve on the way to opening the other. Both valves
-  # are closed for interlock_wait_time mid-swap, so swapping valves by hand
-  # while the pump runs does stop it; starting it again is a deliberate act,
-  # never automatic. Guarded on the pump already running so the sequence's
-  # own valve closes (pump already off) don't republish OFF each time.
+  # stops it — whichever caller closed it: dashboard, sequence, or the manual
+  # button. Guarded on the pump already running so the sequence's own valve
+  # closes (pump already off) don't republish OFF each time.
   - id: stop_pump_without_path
     then:
       - if:
@@ -232,12 +228,11 @@ script:
           then:
             - switch.turn_off: pump
 
-  # Handovers cannot overlap the valves any more — they are mutually
-  # exclusive — so the pump pauses across each one instead: stop, swap the
-  # valve, start again. The pump never runs against closed valves, and its
-  # 3.8 bar pressure switch stays the backstop rather than the plan.
-  # Each valve is turned off explicitly before the next is turned on, so the
-  # sequence is correct on its own and the interlock is only a safety net.
+  # The pump pauses across each valve handover — stop, swap the valve, start
+  # again — so it never runs against closed valves, with its 3.8 bar pressure
+  # switch as the backstop rather than the plan. Each valve is turned off
+  # explicitly before the next is turned on, so the sequence opens only one at
+  # a time on its own even though the interlock no longer enforces it.
   - id: irrigation_sequence
     mode: single
     then:
@@ -278,6 +273,26 @@ script:
       - delay: 2s
       - switch.turn_off: fertigation_valve
       - switch.turn_off: clean_water_valve
+
+  # Manual start/stop from the onboard button, no wifi needed. Opens both
+  # valves so the downstream mechanical valve selects the source, then runs
+  # the pump; pressing again stops the pump first, then closes both valves.
+  - id: manual_pump_toggle
+    mode: single
+    then:
+      - if:
+          condition:
+            - switch.is_on: pump
+          then:
+            - switch.turn_off: pump
+            - delay: 2s
+            - switch.turn_off: clean_water_valve
+            - switch.turn_off: fertigation_valve
+          else:
+            - switch.turn_on: clean_water_valve
+            - switch.turn_on: fertigation_valve
+            - delay: 2s
+            - switch.turn_on: pump
 
   - id: dry_run_publish
     then:
@@ -374,11 +389,19 @@ binary_sensor:
       number: 7
       mode: INPUT
       inverted: true
+  # Onboard S3 button: manual irrigation start/stop at the board, independent
+  # of wifi/MQTT. Opens both valves and starts the pump; pressing again stops
+  # the pump and closes both valves.
   - platform: gpio
-    name: "a8-s3"
+    name: "Pump Button"
+    id: pump_button
     pin:
       number: 32
       inverted: true
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      - script.execute: manual_pump_toggle
   - platform: gpio
     name: "a8-s4"
     pin:
