@@ -1,0 +1,65 @@
+# Flow sensor
+
+A YF-B5 hall-effect flow sensor measures water flow and totalises lifetime
+water use, and backs the dry-run protection that stops the pump when it is not
+moving water.
+
+## Sensor and pin
+
+YF-B5 on **GPIO13**, read with `pulse_counter`. The sensor emits a pulse train
+whose *rate* is proportional to flow — **396 pulses = 1 litre** — so it belongs
+on a digital counting pin, not an ADC input. GPIO13 is one of the board's
+1-Wire / sensor-header pins (the DS18B20 uses the neighbouring GPIO14).
+
+## Wiring
+
+The sensor is powered at **12V** but its output is a stiff **~5V logic signal**
+(it regulates and drives its own output). A resistor divider drops that 5V to a
+~3V ESP32-safe level; no MCU pull-up is used because the sensor drives the line
+itself.
+
+| YF-B5 wire | Connect to |
+|---|---|
+| Red — VCC | **12V** (board DC-input `+`) |
+| Black — GND | **GND** |
+| Yellow — signal | **GPIO13**, via the divider below |
+
+```
+Yellow (~5V) ──[ 2.2kΩ ]──┬── GPIO13
+                          │
+                       [ 3.3kΩ ]
+                          │
+                         GND
+```
+
+`5V × 3.3/(2.2+3.3) ≈ 3.0V` — safe, with margin under 3.3V.
+
+> [!IMPORTANT]
+> Before connecting GPIO13, measure the divider junction: idle ~3.0V, dropping
+> toward 0V when you spin/blow through the sensor, never above 3.3V. Only then
+> wire it to the pin. The exact idle voltage depends on your sensor unit — some
+> YF-B5 output ~5V regardless of the 12V supply, which is what these values
+> assume.
+
+## Firmware
+
+- **Flow Rate** (`id: flow_pulses`, L/min) — `pulse_counter` reports pulses/min;
+  a `/ 396.0` lambda converts to L/min. Internal pull-up is **disabled**.
+- **Total Water** (`id: total_water`, L) — persisted lifetime odometer. The
+  pulse total's `on_value` accumulates the per-update delta into the
+  `water_total_l` global (`restore_value: yes`), so it survives the solar/night
+  reboots. A negative delta (counter reset on reboot) is treated as the new
+  reading.
+
+## Dry-run protection
+
+A 1s `interval` stops everything when the pump runs but no water moves — a
+knocked-off line, empty tank, or air-locked pump:
+
+- Only armed while the pump is on and **past its 15s priming grace**
+  (`pump_on_since_ms`).
+- If flow stays **below 0.5 L/min for 3 consecutive seconds**, it calls the
+  shared `abort_irrigation` (pump off, both valves off), logs a warning, and
+  publishes `ON` to `kc868-a8/flow/dry_run`.
+- 0.5 L/min is well under the sensor's ~1 L/min floor, so genuine irrigation
+  never trips it.
