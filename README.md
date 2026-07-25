@@ -86,7 +86,7 @@ Rules built into the sequence:
 
 Durations are `number` entities, adjustable at runtime from the web UI, Home Assistant, or MQTT; values survive reboots (`restore_value`).
 
-Stopping (empty tank, knocked-over line, any reason) always goes through a second script, `abort_irrigation`: stop the sequence, pump off, 2s, both valves off. The stop button and the MQTT stop topic both call it. Automatic interrupts are not implemented yet; planned options are a tank float switch on input 1 and pump current sensing (INA226 + shunt on the I2C bus — pump on but under ~2A sustained means it is not moving water; also yields battery voltage). Either would just call `abort_irrigation`.
+Stopping (empty tank, knocked-over line, any reason) always goes through a second script, `abort_irrigation`: stop the sequence, pump off, 2s, both valves off. The stop button and the MQTT stop topic both call it. One automatic interrupt is live — the flow sensor's dry-run watchdog aborts when the pump runs but no water moves; see [docs/flow-sensor.md](docs/flow-sensor.md). Further planned options are a tank float switch and pump current sensing (INA226 + shunt on the I2C bus — pump on but under ~2A sustained means it is not moving water; also yields battery voltage). Either would just call `abort_irrigation`.
 
 ## Control
 
@@ -100,6 +100,8 @@ mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/irrigation/st
 ```
 
 `Irrigation Running` (binary sensor) reports whether a sequence is active.
+
+A physical button on the board also starts/stops irrigation with no WiFi or MQTT; see [docs/manual-pump-button.md](docs/manual-pump-button.md).
 
 ## Layout
 
