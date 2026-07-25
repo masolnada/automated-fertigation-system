@@ -76,10 +76,30 @@ Water is ~1.000 kg/L, so a kitchen/luggage scale beats jug markings.
 5. `new_factor = current_factor × (T1 − T0) / actual_L`.
 6. Enter `new_factor` in **Pulses Per Liter**. Repeat 2–3× and average.
 
+### Worked example
+
+Current factor 396. You collect and weigh **10.00 L**, and Total Water rose
+from `T0 = 812.4` to `T1 = 823.1` → reported `10.7 L`.
+
+```
+new_factor = 396 × (823.1 − 812.4) / 10.00
+           = 396 × 10.7 / 10.00
+           = 423.7 pulses/L
+```
+
+The device over-reported (10.7 vs 10.0), so the factor goes **up** to 423.7,
+which scales future readings back down.
+
+### Verify
+
+Run a second known volume with the new factor set. Total Water should now track
+the measured volume within ~1–2%. If it is still off, average a couple more
+runs — pulse counting has run-to-run scatter, especially on short pours.
+
 Calibrate at the flow rate you actually irrigate at — the K-factor drifts at
 very low or very high flow. The factor `restore_value`s across reboots; the
 lifetime **Total Water** odometer uses whatever factor is set at the time each
-delta is accumulated.
+delta is accumulated, so calibrate before trusting the odometer long-term.
 
 ## Dry-run protection
 
