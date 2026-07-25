@@ -6,10 +6,10 @@ moving water.
 
 ## Sensor and pin
 
-YF-B5 on **GPIO13**, read with `pulse_counter`. The sensor emits a pulse train
+YF-B5 on **GPIO14** (sensor-header terminal **S1**), read with `pulse_counter`. The sensor emits a pulse train
 whose *rate* is proportional to flow — **396 pulses = 1 litre** — so it belongs
-on a digital counting pin, not an ADC input. GPIO13 is one of the board's
-1-Wire / sensor-header pins (the DS18B20 uses the neighbouring GPIO14).
+on a digital counting pin, not an ADC input. GPIO14/S1 is one of the board's
+1-Wire / sensor-header pins (the DS18B20 moved to the neighbouring GPIO13/S2).
 
 ## Wiring
 
@@ -22,10 +22,10 @@ itself.
 |---|---|
 | Red — VCC | **12V** (board DC-input `+`) |
 | Black — GND | **GND** |
-| Yellow — signal | **GPIO13**, via the divider below |
+| Yellow — signal | **S1** (GPIO14), via the divider below |
 
 ```
-Yellow (~5V) ──[ 2.2kΩ ]──┬── GPIO13
+Yellow (~5V) ──[ 2.2kΩ ]──┬── S1 (GPIO14)
                           │
                        [ 3.3kΩ ]
                           │
@@ -35,7 +35,7 @@ Yellow (~5V) ──[ 2.2kΩ ]──┬── GPIO13
 `5V × 3.3/(2.2+3.3) ≈ 3.0V` — safe, with margin under 3.3V.
 
 > [!IMPORTANT]
-> Before connecting GPIO13, measure the divider junction: idle ~3.0V, dropping
+> Before connecting S1, measure the divider junction: idle ~3.0V, dropping
 > toward 0V when you spin/blow through the sensor, never above 3.3V. Only then
 > wire it to the pin. The exact idle voltage depends on your sensor unit — some
 > YF-B5 output ~5V regardless of the 12V supply, which is what these values

@@ -411,7 +411,7 @@ binary_sensor:
 
 one_wire:
   - platform: gpio
-    pin: GPIO14
+    pin: GPIO13
 
 sensor:
   # The shunt broadcasts ~1/s; throttle publishing to every 5s.
@@ -453,17 +453,17 @@ sensor:
     update_interval: 30s
   - platform: dallas_temp
     # Replace with your own sensor's address — it is printed in the
-    # ESPHome logs on boot when a DS18B20 is connected to GPIO14.
+    # ESPHome logs on boot when a DS18B20 is connected to GPIO13 (S2).
     address: 0x1c0000031edd2a28
     name: "ds18b20-1"
 
-  # YF-B5 flow sensor on GPIO13. 396 pulses per liter. Powered at 12V but its
-  # output is a stiff ~5V logic signal, dropped to ~3V by a 2.2k series /
-  # 3.3k-to-GND divider; the sensor drives its own output, so no internal
-  # pullup.
+  # YF-B5 flow sensor on GPIO14 (sensor header S1). 396 pulses per liter.
+  # Powered at 12V but its output is a stiff ~5V logic signal, dropped to ~3V
+  # by a 2.2k series / 3.3k-to-GND divider; the sensor drives its own output,
+  # so no internal pullup.
   - platform: pulse_counter
     pin:
-      number: GPIO13
+      number: GPIO14
       mode:
         input: true
     id: flow_pulses
