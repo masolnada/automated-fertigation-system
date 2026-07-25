@@ -190,6 +190,21 @@ number:
     restore_value: true
     unit_of_measurement: min
     mode: box
+  # Flow-sensor calibration factor (pulses per litre). The YF-B5's nominal
+  # K-factor is 396; adjust it against a measured volume (see
+  # docs/flow-sensor.md) without reflashing. Applied to both the live rate and
+  # the lifetime total.
+  - platform: template
+    name: "Pulses Per Liter"
+    id: pulses_per_liter
+    min_value: 100
+    max_value: 2000
+    step: 0.1
+    initial_value: 396
+    optimistic: true
+    restore_value: true
+    unit_of_measurement: "pulses/L"
+    mode: box
 
 globals:
   # Persisted lifetime odometer, in liters. Survives the solar/night reboots.
@@ -473,7 +488,9 @@ sensor:
     update_interval: 1s
     # pulse_counter reports pulses/min; 396 pulses = 1 L.
     filters:
-      - lambda: return x / 396.0;
+      - lambda: |-
+          float k = id(pulses_per_liter).state;
+          return x / (k > 0 ? k : 396.0);
     total:
       id: flow_total_pulses
       internal: true
@@ -483,7 +500,8 @@ sensor:
             double delta = x - id(last_total_pulses);
             if (delta < 0) delta = x;      // counter reset (reboot) → treat x as delta
             id(last_total_pulses) = x;
-            id(water_total_l) += delta / 396.0;
+            float k = id(pulses_per_liter).state;
+            id(water_total_l) += delta / (k > 0 ? k : 396.0);
 
   # Persisted lifetime odometer exposed as its own sensor.
   - platform: template

@@ -58,6 +58,29 @@ Yellow (~5V) ──[ 2.2kΩ ]──┬── S1 (GPIO14)
 > placeholder: connect the sensor, read its real address from the boot logs,
 > and swap it in.
 
+## Calibration
+
+The `396` pulses/L default is the YF-B5's nominal K-factor; real accuracy
+depends on your sensor, plumbing, and flow rate. Calibrate against a known
+volume — no reflash needed, the factor is the runtime **Pulses Per Liter**
+number entity (`id: pulses_per_liter`, default 396).
+
+Water is ~1.000 kg/L, so a kitchen/luggage scale beats jug markings.
+
+1. Route the outlet into a container.
+2. Read **Total Water** on `kc868-a8.local` → `T0`.
+3. Run water at your **normal irrigation flow** until you've passed a good
+   amount (**≥10 L**; more = better resolution).
+4. Read **Total Water** → `T1`, and measure what you actually collected →
+   `actual_L`.
+5. `new_factor = current_factor × (T1 − T0) / actual_L`.
+6. Enter `new_factor` in **Pulses Per Liter**. Repeat 2–3× and average.
+
+Calibrate at the flow rate you actually irrigate at — the K-factor drifts at
+very low or very high flow. The factor `restore_value`s across reboots; the
+lifetime **Total Water** odometer uses whatever factor is set at the time each
+delta is accumulated.
+
 ## Dry-run protection
 
 A 1s `interval` stops everything when the pump runs but no water moves — a
