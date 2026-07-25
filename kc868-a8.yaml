@@ -334,21 +334,12 @@ binary_sensor:
           topic: kc868-a8/battery/charged
           payload: "ON"
   - platform: gpio
-  # External button wired to input terminal IN1 (opto-isolated dry contact):
-  # manual irrigation start/stop at the board, independent of wifi/MQTT. Opens
-  # both valves and starts the pump; pressing again stops the pump and closes
-  # both valves.
-    name: "Pump Button"
-    id: pump_button
+    name: "a8-input1"
     pin:
       pcf8574: pcf8574_hub_in_1
       number: 0
       mode: INPUT
       inverted: true
-    filters:
-      - delayed_on: 50ms
-    on_press:
-      - script.execute: manual_pump_toggle
   - platform: gpio
     name: "a8-input2"
     pin:
@@ -392,12 +383,21 @@ binary_sensor:
       mode: INPUT
       inverted: true
   - platform: gpio
-    name: "a8-input8"
+  # External button wired to input terminal D8 (opto-isolated dry contact):
+  # manual irrigation start/stop at the board, independent of wifi/MQTT. Opens
+  # both valves and starts the pump; pressing again stops the pump and closes
+  # both valves.
+    name: "Pump Button"
+    id: pump_button
     pin:
       pcf8574: pcf8574_hub_in_1
       number: 7
       mode: INPUT
       inverted: true
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      - script.execute: manual_pump_toggle
   - platform: gpio
     name: "a8-s3"
     pin:

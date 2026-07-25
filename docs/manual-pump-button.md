@@ -26,19 +26,19 @@ with no flow, `abort_irrigation` shuts everything down (see
 
 ## Wiring
 
-The button uses digital input **IN1** — one of the KC868-A8's 8 opto-isolated
+The button uses digital input **D8** — one of the KC868-A8's 8 opto-isolated
 "dry contact" inputs (EL357 optocouplers via the PCF8574 at `0x22`). A dry
 contact needs no power or resistor: pressing simply closes the input to GND.
 
 ```
-Button ─┬── IN1
+Button ─┬── D8
         └── GND   (input-block common)
 ```
 
 - Use a **normally-open momentary** push-button.
-- Do **not** feed any voltage into IN1 — it only wants the contact to close.
-- Any of IN1–IN8 works the same way; the firmware is set to IN1
-  (`pcf8574_hub_in_1`, number 0). Change the pin number to move it.
+- Do **not** feed any voltage into D8 — it only wants the contact to close.
+- Any of D1–D8 works the same way; the firmware is set to D8
+  (`pcf8574_hub_in_1`, number 7). Change the pin number to move it.
 
 ## Firmware
 
