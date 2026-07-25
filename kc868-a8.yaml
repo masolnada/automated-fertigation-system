@@ -334,12 +334,21 @@ binary_sensor:
           topic: kc868-a8/battery/charged
           payload: "ON"
   - platform: gpio
-    name: "a8-input1"
+  # External button wired to input terminal IN1 (opto-isolated dry contact):
+  # manual irrigation start/stop at the board, independent of wifi/MQTT. Opens
+  # both valves and starts the pump; pressing again stops the pump and closes
+  # both valves.
+    name: "Pump Button"
+    id: pump_button
     pin:
       pcf8574: pcf8574_hub_in_1
       number: 0
       mode: INPUT
       inverted: true
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      - script.execute: manual_pump_toggle
   - platform: gpio
     name: "a8-input2"
     pin:
@@ -389,19 +398,11 @@ binary_sensor:
       number: 7
       mode: INPUT
       inverted: true
-  # Onboard S3 button: manual irrigation start/stop at the board, independent
-  # of wifi/MQTT. Opens both valves and starts the pump; pressing again stops
-  # the pump and closes both valves.
   - platform: gpio
-    name: "Pump Button"
-    id: pump_button
+    name: "a8-s3"
     pin:
       number: 32
       inverted: true
-    filters:
-      - delayed_on: 50ms
-    on_press:
-      - script.execute: manual_pump_toggle
   - platform: gpio
     name: "a8-s4"
     pin:
@@ -456,13 +457,15 @@ sensor:
     address: 0x1c0000031edd2a28
     name: "ds18b20-1"
 
-  # YF-B5 flow sensor on GPIO13 via a 1k/2k divider. 396 pulses per liter.
+  # YF-B5 flow sensor on GPIO13. 396 pulses per liter. Powered at 12V but its
+  # output is a stiff ~5V logic signal, dropped to ~3V by a 2.2k series /
+  # 3.3k-to-GND divider; the sensor drives its own output, so no internal
+  # pullup.
   - platform: pulse_counter
     pin:
       number: GPIO13
       mode:
         input: true
-        pullup: true
     id: flow_pulses
     name: "Flow Rate"
     unit_of_measurement: "L/min"
