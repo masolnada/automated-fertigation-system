@@ -193,7 +193,7 @@ number:
   # Flow-sensor calibration factor (pulses per litre). The YF-B5's nominal
   # K-factor is 396; adjust it against a measured volume (see
   # docs/flow-sensor.md) without reflashing. Applied to both the live rate and
-  # the lifetime total.
+  # the total since reset.
   - platform: template
     name: "Pulses Per Liter"
     id: pulses_per_liter
@@ -207,7 +207,7 @@ number:
     mode: box
 
 globals:
-  # Persisted lifetime odometer, in liters. Survives the solar/night reboots.
+  # Persisted cumulative water since the last reset, in liters. Survives normal reboots.
   - id: water_total_l
     type: double
     restore_value: yes
@@ -227,6 +227,11 @@ globals:
     type: double
     restore_value: no
     initial_value: "0"
+  # Carries the explicit preference-sync result between reset actions.
+  - id: reset_persistence_ok
+    type: bool
+    restore_value: no
+    initial_value: "false"
 
 script:
   # The pump must never run without an open path, so closing the last valve
@@ -315,6 +320,77 @@ script:
           topic: kc868-a8/flow/dry_run
           payload: "ON"
 
+  # Shared native-web/MQTT reset path. The short delay after assignment gives
+  # the restoring global's component loop time to stage zero before sync.
+  - id: reset_total_water
+    mode: single
+    then:
+      - if:
+          condition:
+            - switch.is_on: pump
+          then:
+            - lambda: 'ESP_LOGW("flow", "total-water reset rejected: pump running");'
+            - mqtt.publish:
+                topic: kc868-a8/flow/reset_total/result
+                payload: rejected_pump_running
+                retain: false
+          else:
+            - if:
+                condition:
+                  lambda: 'return isnan(id(flow_pulses).state);'
+                then:
+                  - lambda: 'ESP_LOGW("flow", "total-water reset rejected: flow unknown");'
+                  - mqtt.publish:
+                      topic: kc868-a8/flow/reset_total/result
+                      payload: rejected_flow_unknown
+                      retain: false
+                else:
+                  - if:
+                      condition:
+                        lambda: 'return id(flow_pulses).state >= 0.1f;'
+                      then:
+                        - lambda: 'ESP_LOGW("flow", "total-water reset rejected: flow active");'
+                        - mqtt.publish:
+                            topic: kc868-a8/flow/reset_total/result
+                            payload: rejected_flow_active
+                            retain: false
+                      else:
+                        - if:
+                            condition:
+                              lambda: 'return fabs(id(water_total_l)) < 0.000001;'
+                            then:
+                              - lambda: 'ESP_LOGI("flow", "total-water reset skipped: already zero");'
+                              - mqtt.publish:
+                                  topic: kc868-a8/flow/reset_total/result
+                                  payload: already_zero
+                                  retain: false
+                            else:
+                              - lambda: 'id(water_total_l) = 0.0;'
+                              - delay: 1s
+                              - lambda: |-
+                                  id(reset_persistence_ok) = global_preferences->sync();
+                                  if (id(reset_persistence_ok)) {
+                                    id(total_water).publish_state(0.0);
+                                    ESP_LOGI("flow", "total-water reset persisted successfully");
+                                  } else {
+                                    // RAM is zero, but it may not survive reboot after this error.
+                                    id(total_water).publish_state(id(water_total_l));
+                                    ESP_LOGE("flow", "total-water reset persistence failed");
+                                  }
+                              - if:
+                                  condition:
+                                    lambda: 'return id(reset_persistence_ok);'
+                                  then:
+                                    - mqtt.publish:
+                                        topic: kc868-a8/flow/reset_total/result
+                                        payload: success
+                                        retain: false
+                                  else:
+                                    - mqtt.publish:
+                                        topic: kc868-a8/flow/reset_total/result
+                                        payload: error_persistence
+                                        retain: false
+
 button:
   - platform: template
     name: "Start Irrigation"
@@ -326,6 +402,11 @@ button:
     id: stop_irrigation
     on_press:
       - script.execute: abort_irrigation
+  - platform: template
+    name: "Reset Total Water"
+    id: reset_total_water_button
+    on_press:
+      - script.execute: reset_total_water
 
 binary_sensor:
   - platform: template
@@ -503,7 +584,7 @@ sensor:
             float k = id(pulses_per_liter).state;
             id(water_total_l) += delta / (k > 0 ? k : 396.0);
 
-  # Persisted lifetime odometer exposed as its own sensor.
+  # Persisted cumulative water since the last reset, exposed as its own sensor.
   - platform: template
     name: "Total Water"
     id: total_water
@@ -571,3 +652,6 @@ mqtt:
     - topic: kc868-a8/irrigation/stop
       then:
         - script.execute: abort_irrigation
+    - topic: kc868-a8/flow/reset_total/request
+      then:
+        - script.execute: reset_total_water

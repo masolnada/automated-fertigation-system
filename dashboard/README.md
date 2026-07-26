@@ -69,4 +69,16 @@ cp site/config.js.template site/config.js   # fill in real values (gitignored)
 python3 -m http.server -d site 8080
 ```
 
+## Controls and events
+
+The Flow card's three-dot menu contains **Reset total water**. It is enabled only
+when the broker and device are online, the received pump state is off, flow is
+known below 0.1 L/min, and Total Water is above zero. The confirmation dialog
+sends a non-retained `kc868-a8/flow/reset_total/request`; the transient result
+comes from `kc868-a8/flow/reset_total/result`. Firmware is authoritative if the
+received UI state is stale.
+
+The local event log also shows device dry-run, device offline, broker, and reset
+results. Browser-side events stay in the browser and are never sent to Grafana.
+
 Note the MQTT credentials end up readable in the served `config.js` — fine for a LAN/Tailscale-only deployment, but treat the dashboard URL with the same trust as the broker itself.

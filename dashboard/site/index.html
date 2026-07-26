@@ -93,6 +93,13 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"/><path d="M4 12c0-4 3-7 8-7s8 3 8 7"/><path d="M4 12c0 4 3 7 8 7s8-3 8-7"/><circle cx="12" cy="12" r="1"/></svg>
         </span>
         Flow
+        <span class="card-menu-wrap">
+          <button id="flow-menu-trigger" class="menu-trigger" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="flow-menu" aria-label="Flow actions">•••</button>
+          <div id="flow-menu" class="card-menu" role="menu" aria-label="Flow actions" hidden>
+            <button id="btn-reset-total" type="button" role="menuitem" aria-describedby="reset-menu-reason" aria-disabled="true" disabled>Reset total water</button>
+            <p id="reset-menu-reason" class="menu-reason"></p>
+          </div>
+        </span>
       </h2>
       <dl>
         <div><dt>Flow rate</dt><dd><span id="val-flow_rate">–</span><i>L/min</i></dd></div>
@@ -122,6 +129,18 @@
       <ul id="event-log"></ul>
     </section>
   </main>
+
+  <div id="confirm-dialog" class="dialog-backdrop" hidden>
+    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-message">
+      <h2 id="dialog-title"></h2>
+      <p id="dialog-message"></p>
+      <p id="dialog-status" class="dialog-status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button id="dialog-cancel" type="button">Cancel</button>
+        <button id="dialog-confirm" type="button">Confirm</button>
+      </div>
+    </section>
+  </div>
 
   <script src="mqtt.min.js"></script>
   <script src="config.js"></script>

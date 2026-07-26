@@ -1,8 +1,8 @@
 # Flow sensor
 
-A YF-B5 hall-effect flow sensor measures water flow and totalises lifetime
-water use, and backs the dry-run protection that stops the pump when it is not
-moving water.
+A YF-B5 hall-effect flow sensor measures water flow and cumulative water use
+since the last reset, and backs the dry-run protection that stops the pump when
+it is not moving water.
 
 ## Sensor and pin
 
@@ -45,11 +45,18 @@ Yellow (~5V) ──[ 2.2kΩ ]──┬── S1 (GPIO14)
 
 - **Flow Rate** (`id: flow_pulses`, L/min) — `pulse_counter` reports pulses/min;
   a `/ 396.0` lambda converts to L/min. Internal pull-up is **disabled**.
-- **Total Water** (`id: total_water`, L) — persisted lifetime odometer. The
-  pulse total's `on_value` accumulates the per-update delta into the
-  `water_total_l` global (`restore_value: yes`), so it survives the solar/night
+- **Total Water** (`id: total_water`, L) — persisted cumulative litres since
+  the last reset. The pulse total's `on_value` accumulates the per-update delta
+  into the `water_total_l` global (`restore_value: yes`), so it survives normal
   reboots. A negative delta (counter reset on reboot) is treated as the new
   reading.
+- **Reset Total Water** — the native ESPHome button acts immediately when the
+  pump is off and flow is known below 0.1 L/min. It explicitly persists zero
+  before publishing success. MQTT requests use
+  `kc868-a8/flow/reset_total/request`; non-retained results appear on
+  `kc868-a8/flow/reset_total/result` as `success`, `already_zero`,
+  `rejected_pump_running`, `rejected_flow_active`,
+  `rejected_flow_unknown`, or `error_persistence`.
 
 > [!NOTE]
 > **If you later add a DS18B20 temperature sensor, wire it to S2 (GPIO13), not
@@ -98,8 +105,8 @@ runs — pulse counting has run-to-run scatter, especially on short pours.
 
 Calibrate at the flow rate you actually irrigate at — the K-factor drifts at
 very low or very high flow. The factor `restore_value`s across reboots; the
-lifetime **Total Water** odometer uses whatever factor is set at the time each
-delta is accumulated, so calibrate before trusting the odometer long-term.
+**Total Water** counter uses whatever factor is set at the time each delta is
+accumulated, so calibrate before trusting the counter long-term.
 
 ## Dry-run protection
 

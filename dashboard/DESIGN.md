@@ -10,12 +10,16 @@ The goal is absolute high-contrast legibility, zero layout shift, and minimal sc
 
 | Principle | Guideline | Why? |
 | :--- | :--- | :--- |
-| **Strict Monochrome** | Only pure black and pure white. A single mid-tone gray is allowed only for secondary borders or dividing lines. | E-ink screens have limited grayscale levels. Gradients look muddy and pixelated. |
+| **Strict Monochrome** | Only pure black and pure white. A single mid-tone gray is allowed only for secondary borders or dividing lines. **Danger Red (`#B00020`) is the sole semantic colour exception.** | E-ink screens have limited grayscale levels. Gradients look muddy and pixelated. |
 | **Zero Animation** | Disable all transitions, transforms, scrolling effects, and animations. | Screen refresh rates are too slow. Moving elements cause severe flickering and screen ghosting. |
 | **Sharp Geometry** | Use sharp, 90-degree corners for all containers. Avoid rounded corners. | Round, anti-aliased edges look fuzzy on low-DPI paper displays. |
 | **Negative Space** | Maintain generous, consistent padding around the screen edges and wide gaps between content blocks. | Prevents visual clutter, making the physical screen look like structured paper. |
 
 ---
+
+### Danger semantics
+
+`#B00020` may be used only for warnings and errors, offline states, destructive controls/actions, danger-dialog messages, and danger event rows. Pair it with a clear text label and an appropriate border or fill; colour alone must never convey the state. White text is permitted on a filled danger control for contrast. Do not add other colours or use red decoratively.
 
 ## 2. Typography Rules
 

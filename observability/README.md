@@ -60,9 +60,10 @@ In `docker-compose.yml`, on the `telegraf` service:
      --config-directory /etc/telegraf/telegraf.d
    ```
 
-The fragment (`fertigation.conf`) defines only an `[[inputs.mqtt_consumer]]`
-block. It inherits the `[[outputs.influxdb_v2]]` already present in
-`telegraf.conf` — no output duplication needed.
+The fragment (`fertigation.conf`) defines two `[[inputs.mqtt_consumer]]`
+blocks: numeric sensors and MQTT-originated device events/status. It inherits
+the `[[outputs.influxdb_v2]]` already present in `telegraf.conf` — no output
+duplication needed.
 
 ### 2. Grafana — mount the hort dashboards directory
 
@@ -101,8 +102,23 @@ them up.
 |---|---|---|
 | `kc868-a8/sensor/flow_rate/state` | `esphome_sensor` | `device=kc868-a8`, `entity=flow_rate` |
 | `kc868-a8/sensor/total_water/state` | `esphome_sensor` | `device=kc868-a8`, `entity=total_water` |
+| `kc868-a8/flow/dry_run` | `esphome_event` | `topic=kc868-a8/flow/dry_run` |
+| `kc868-a8/flow/reset_total/result` | `esphome_event` | `topic=kc868-a8/flow/reset_total/result` |
+| `kc868-a8/status` | `esphome_event` | `topic=kc868-a8/status` |
 
-Field name: `value` (float). Payload is a bare number (ESPHome default).
+`esphome_sensor.value` is a float. `esphome_event.value` is the source string
+payload. Total Water is cumulative litres since the last reset and persists
+across normal reboots.
 
-The Grafana dashboard uses datasource uid `influxdb-zigbee` and Flux queries
-against `v.defaultBucket`.
+Grafana's **Water used per interval** calculates non-negative differences from
+raw Total Water samples before summing them, so reset drops do not create
+negative usage or hide subsequent use. Its interval selector defaults to Auto.
+The **Errors and warnings** table only displays MQTT-originated events:
+
+- error: dry-run shutdown, reset `error_persistence`, and device `offline`;
+- warning: reset `rejected_pump_running`, `rejected_flow_active`, and
+  `rejected_flow_unknown`.
+
+Successful/already-zero resets and online recovery are excluded. The Grafana
+dashboard uses datasource uid `influxdb-zigbee` and Flux queries against
+`v.defaultBucket`.

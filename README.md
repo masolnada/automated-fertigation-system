@@ -90,14 +90,19 @@ Stopping (empty tank, knocked-over line, any reason) always goes through a secon
 
 ## Control
 
-Web UI: `http://kc868-a8.local` (auth: `web_server_user` / `web_server_password` secrets). Works in the field through the fallback AP. Buttons: `Start Irrigation`, `Stop Irrigation`.
+Web UI: `http://kc868-a8.local` (auth: `web_server_user` / `web_server_password` secrets). Works in the field through the fallback AP. Buttons: `Start Irrigation`, `Stop Irrigation`, and `Reset Total Water`. Native reset acts immediately only when the pump is off and flow is known below 0.1 L/min.
+
+**Total Water** is cumulative litres since the last reset. It persists across normal reboots. Resetting it is irreversible and is explicitly written to preferences before success is reported.
 
 MQTT (any payload):
 
 ```bash
 mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/irrigation/start -m ON
 mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/irrigation/stop -m ON
+mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/flow/reset_total/request -m ON
 ```
+
+A reset request publishes one non-retained result on `kc868-a8/flow/reset_total/result`: `success`, `already_zero`, `rejected_pump_running`, `rejected_flow_active`, `rejected_flow_unknown`, or `error_persistence`. The last result means the RAM value is zero but it may not survive reboot.
 
 `Irrigation Running` (binary sensor) reports whether a sequence is active.
 
