@@ -191,16 +191,16 @@ number:
     unit_of_measurement: min
     mode: box
   # Flow-sensor calibration factor (pulses per litre). The YF-B5's nominal
-  # K-factor is 396; adjust it against a measured volume (see
-  # docs/flow-sensor.md) without reflashing. Applied to both the live rate and
-  # the total since reset.
+  # K-factor is 396; this unit measured 387.0 (see docs/flow-sensor.md).
+  # Adjust it against a measured volume without reflashing. Applied to both the
+  # live rate and the total since reset.
   - platform: template
     name: "Pulses Per Liter"
     id: pulses_per_liter
     min_value: 100
     max_value: 2000
     step: 0.1
-    initial_value: 396
+    initial_value: 387.0
     optimistic: true
     restore_value: true
     unit_of_measurement: "pulses/L"
@@ -553,7 +553,8 @@ sensor:
     address: 0x1c0000031edd2a28
     name: "ds18b20-1"
 
-  # YF-B5 flow sensor on GPIO14 (sensor header S1). 396 pulses per liter.
+  # YF-B5 flow sensor on GPIO14 (sensor header S1). 387.0 pulses per liter measured
+  # (396 pulses per liter nominal).
   # Powered at 12V but its output is a stiff ~5V logic signal, dropped to ~3V
   # by a 2.2k series / 3.3k-to-GND divider; the sensor drives its own output,
   # so no internal pullup.
@@ -567,11 +568,11 @@ sensor:
     unit_of_measurement: "L/min"
     accuracy_decimals: 2
     update_interval: 1s
-    # pulse_counter reports pulses/min; 396 pulses = 1 L.
+    # pulse_counter reports pulses/min; 387.0 pulses = 1 L measured (396 nominal).
     filters:
       - lambda: |-
           float k = id(pulses_per_liter).state;
-          return x / (k > 0 ? k : 396.0);
+          return x / (k > 0 ? k : 387.0);
     total:
       id: flow_total_pulses
       internal: true
@@ -582,7 +583,7 @@ sensor:
             if (delta < 0) delta = x;      // counter reset (reboot) → treat x as delta
             id(last_total_pulses) = x;
             float k = id(pulses_per_liter).state;
-            id(water_total_l) += delta / (k > 0 ? k : 396.0);
+            id(water_total_l) += delta / (k > 0 ? k : 387.0);
 
   # Persisted cumulative water since the last reset, exposed as its own sensor.
   - platform: template

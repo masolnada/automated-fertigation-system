@@ -7,7 +7,8 @@ it is not moving water.
 ## Sensor and pin
 
 YF-B5 on **GPIO14** (sensor-header terminal **S1**), read with `pulse_counter`. The sensor emits a pulse train
-whose *rate* is proportional to flow — **396 pulses = 1 litre** — so it belongs
+whose *rate* is proportional to flow — **396 pulses = 1 litre** (the datasheet
+nominal figure) — so it belongs
 on a digital counting pin, not an ADC input. GPIO14/S1 is one of the board's
 1-Wire / sensor-header pins (the DS18B20 moved to the neighbouring GPIO13/S2).
 
@@ -44,7 +45,7 @@ Yellow (~5V) ──[ 2.2kΩ ]──┬── S1 (GPIO14)
 ## Firmware
 
 - **Flow Rate** (`id: flow_pulses`, L/min) — `pulse_counter` reports pulses/min;
-  a `/ 396.0` lambda converts to L/min. Internal pull-up is **disabled**.
+  a `/ 387.0` lambda converts to L/min. Internal pull-up is **disabled**.
 - **Total Water** (`id: total_water`, L) — persisted cumulative litres since
   the last reset. The pulse total's `on_value` accumulates the per-update delta
   into the `water_total_l` global (`restore_value: yes`), so it survives normal
@@ -67,12 +68,31 @@ Yellow (~5V) ──[ 2.2kΩ ]──┬── S1 (GPIO14)
 
 ## Calibration
 
-The `396` pulses/L default is the YF-B5's nominal K-factor; real accuracy
-depends on your sensor, plumbing, and flow rate. Calibrate against a known
-volume — no reflash needed, the factor is the runtime **Pulses Per Liter**
-number entity (`id: pulses_per_liter`, default 396).
+The `387.0` pulses/L default is this unit's measured K-factor. The YF-B5's
+datasheet nominal K-factor is 396; real accuracy depends on your sensor,
+plumbing, and flow rate. Calibrate against a known volume — no reflash needed,
+the factor is the runtime **Pulses Per Liter** number entity
+(`id: pulses_per_liter`, default 387.0).
 
-Water is ~1.000 kg/L, so a kitchen/luggage scale beats jug markings.
+Water is ~1.000 kg/L, so a kitchen/luggage scale beats jug markings. This unit
+was calibrated against four weighed volumes, with a 0.3 kg bucket tare:
+
+| Run | Reported L | Actual L | Error | Implied factor (pulses/L) |
+|---|---:|---:|---:|---:|
+| 1 | 10.87 | 11.1 | -2.07% | 387.8 |
+| 2 | 11.4 | 11.7 | -2.56% | 385.8 |
+| 3 | 11.5 | 11.8 | -2.54% | 385.9 |
+| 4 | 10.7 | 10.9 | -1.83% | 388.7 |
+
+The pooled result was 44.47 L reported versus 45.50 L actual: **387.0
+pulses/L** (mean 387.1, stdev 1.4, range 385.8–388.7). All runs started from
+Total Water = 0 with factor 396; 387.0 is the calibrated default.
+
+A separate verification run was then made with 387.0 already applied; it is not
+part of the four-run calibration set. It reported 11.07752 L (11.1 L displayed)
+versus 11.1 L actual, an error of -0.20%. That residual is within the scale's
++/-0.45% resolution, confirming the factor at this measurement precision. With
+the old 396 factor, the same 11.1 L run would have reported 10.85 L.
 
 1. Route the outlet into a container.
 2. Read **Total Water** on `kc868-a8.local` → `T0`.
@@ -101,7 +121,9 @@ which scales future readings back down.
 
 Run a second known volume with the new factor set. Total Water should now track
 the measured volume within ~1–2%. If it is still off, average a couple more
-runs — pulse counting has run-to-run scatter, especially on short pours.
+runs — pulse counting has run-to-run scatter, especially on short pours. This
+unit's 387.0 factor has been independently verified, with its residual error
+inside the scale's resolution.
 
 Calibrate at the flow rate you actually irrigate at — the K-factor drifts at
 very low or very high flow. The factor `restore_value`s across reboots; the
