@@ -105,17 +105,21 @@ the old 396 factor, the same 11.1 L run would have reported 10.85 L.
 
 ### Worked example
 
-Current factor 396. You collect and weigh **10.00 L**, and Total Water rose
-from `T0 = 812.4` to `T1 = 823.1` → reported `10.7 L`.
+Calibration run 1 started at factor 396, the nominal starting point that this
+unit was calibrated away from. Total Water was reset (`T0 = 0`) and reached
+`T1 = 10.87 L`; the collected water weighed 11.4 kg gross minus the 0.3 kg
+bucket tare, or 11.1 L actual.
 
 ```
-new_factor = 396 × (823.1 − 812.4) / 10.00
-           = 396 × 10.7 / 10.00
-           = 423.7 pulses/L
+actual_L = 11.4 − 0.3 = 11.1 L
+new_factor = 396 × (10.87 − 0) / 11.1
+           = 396 × 10.87 / 11.1
+           = 387.8 pulses/L
 ```
 
-The device over-reported (10.7 vs 10.0), so the factor goes **up** to 423.7,
-which scales future readings back down.
+The device under-reported (10.87 vs 11.1), so the factor goes **down** to
+387.8, which scales future readings up. Run 1 alone gives 387.8; pooling all
+four runs in the table above gives the 387.0 factor that was adopted.
 
 ### Verify
 
