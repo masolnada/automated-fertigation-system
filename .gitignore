@@ -6,3 +6,9 @@
 /.esphome/
 
 /.vscode
+
+# Bun dashboard workspace
+/web/node_modules/
+/web/**/node_modules/
+/web/**/dist/
+/web/.env

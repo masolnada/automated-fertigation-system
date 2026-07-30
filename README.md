@@ -2,6 +2,8 @@
 
 Portable, solar-powered fertigation controller. Waters while injecting humic acid (e.g. potassium humate) and micro-organisms into the supply. Portable so it cannot be stolen.
 
+The current browser dashboard is in [`web/`](web/); the legacy [`dashboard/`](dashboard/) artifact is deprecated pending homelab cutover.
+
 ## Hardware
 
 - KinCony KC868-A8 v1.7 — ESP32 (WROOM-32), 8 relays and 8 digital inputs via PCF8574 I2C expanders, YF-B5 flow sensor on GPIO14 (sensor header S1), DS18B20 temperature on GPIO13 (S2)

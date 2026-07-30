@@ -2,9 +2,9 @@
 
 ## Design
 
-Any UI work on the dashboard (`dashboard/site/`) MUST follow the design system in
-[dashboard/DESIGN.md](dashboard/DESIGN.md). Translate its rules to this project's
-plain HTML/CSS/JS (CSS custom properties, plain classes).
+Any UI work on the dashboard (`web/apps/dashboard/`) MUST follow the design system in
+[web/packages/ui/DESIGN.md](web/packages/ui/DESIGN.md). Translate its rules to this project's
+React/TypeScript and Tailwind/CSS custom properties.
 
 ## Repo notes
 
@@ -13,4 +13,4 @@ plain HTML/CSS/JS (CSS custom properties, plain classes).
 - Secrets: plaintext `secrets.yaml` is gitignored; committed artifact is the
   age-encrypted `secrets.enc.yaml` (recipient in `.age-recipients`).
 - The dashboard ships as a generic nginx build artifact; compose/vhost/env wiring
-  lives in the separate homelab repo (snippets in `dashboard/README.md`).
+  lives in the separate homelab repo (snippets in `web/README.md`).

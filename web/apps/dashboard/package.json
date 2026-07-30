@@ -1,0 +1,1 @@
+{"name":"@hort/dashboard","version":"0.0.0","private":true,"type":"module","scripts":{"dev":"bun dev.ts","build":"bun build.ts"},"dependencies":{"@hort/mqtt":"workspace:*","@hort/ui":"workspace:*"}}

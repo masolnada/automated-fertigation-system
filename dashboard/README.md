@@ -1,5 +1,7 @@
 # Fertigation dashboard
 
+> **Deprecated pending homelab cutover.** The current dashboard is the Bun/React workspace in [`../web/`](../web/). This directory remains until the homelab deployment has moved.
+
 Static HTML+CSS+JS page (no framework, no backend) served by nginx. Talks MQTT over WebSockets directly to the broker: live state from the topics the device publishes, control by publishing to the command topics it subscribes to. MQTT.js 5.10.4 is vendored in `site/mqtt.min.js`.
 
 This directory is a generic build artifact: no compose file, no domain, no credentials. All wiring lives in the homelab repo.
@@ -22,7 +24,7 @@ Compose service — builds straight from this public repo:
 ```yaml
 services:
   hort:
-    build: https://github.com/masolnada/automated-fertigation-system.git#main:dashboard
+    build: https://github.com/masolnada/automated-fertigation-system.git#main:web
     container_name: hort
     restart: unless-stopped
     environment:

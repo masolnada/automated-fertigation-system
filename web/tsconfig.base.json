@@ -1,0 +1,1 @@
+{"compilerOptions":{"strict":true,"target":"ES2022","lib":["ES2022","DOM","DOM.Iterable"],"moduleResolution":"bundler","module":"ESNext","jsx":"react-jsx","noEmit":true,"skipLibCheck":true,"types":["bun"],"noUncheckedIndexedAccess":true,"allowImportingTsExtensions":true}}

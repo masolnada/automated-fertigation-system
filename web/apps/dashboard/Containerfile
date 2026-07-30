@@ -1,0 +1,9 @@
+FROM oven/bun:1 AS build
+WORKDIR /app
+COPY . .
+RUN bun install --frozen-lockfile && cd apps/dashboard && bun run build.ts
+FROM nginx:alpine
+COPY --from=build /app/apps/dashboard/dist/ /usr/share/nginx/html/
+COPY apps/dashboard/config.json.template /usr/share/nginx/html/config.json.template
+COPY apps/dashboard/entrypoint/40-render-config.sh /docker-entrypoint.d/40-render-config.sh
+RUN chmod +x /docker-entrypoint.d/40-render-config.sh && rm -f /usr/share/nginx/html/config.json
