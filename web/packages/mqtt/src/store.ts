@@ -22,11 +22,12 @@ export class DashboardStore {
     const parsed = parseStateTopic(prefix, topic);
     if (parsed.type === "status") { if (payload !== "online") this.invalidateAll(); else this.update({ deviceOnline: true }); this.log(`device ${payload}`, payload === "online" ? "normal" : "danger"); return; }
     if (parsed.type === "dryRun") { this.log("dry-run shutdown reported by device", "danger"); return; }
+    if (parsed.type === "recoveryFlush") { this.log("fertigation cut short: recovery flush started", "danger"); return; }
     if (parsed.type === "resetResult") { this.handleResetResult(payload); return; }
     if (parsed.type !== "state") return;
     if (parsed.kind === "switch" && (parsed.objectId === "clean_water_valve" || parsed.objectId === "fertigation_valve")) { this.update({ valves: { ...this.snapshot.valves, [parsed.objectId]: payload === "ON" } }); this.log(`${parsed.objectId} → ${payload}`); return; }
     if (parsed.kind === "binary_sensor") { this.update({ entities: { ...this.snapshot.entities, [parsed.objectId]: { value: payload, known: true } } }); if (parsed.objectId === "irrigation_running") this.log(`irrigation ${payload === "ON" ? "started" : "stopped"}`); if (parsed.objectId === "battery_charged" && payload === "ON") this.log("battery charge complete"); return; }
-    const value = parsed.kind === "switch" ? payload : Number.parseFloat(payload);
+    const value = parsed.kind === "switch" || parsed.kind === "select" ? payload : Number.parseFloat(payload);
     this.update({ entities: { ...this.snapshot.entities, [parsed.objectId]: { value, known: true } } });
   }
   handleResetResult(payload: string) { const mapped: Record<string, [string, Severity]> = { success: ["total water reset", "normal"], already_zero: ["total water already zero", "normal"], rejected_pump_running: ["Device rejected reset: pump is running.", "danger"], rejected_flow_active: ["Device rejected reset: flow is active.", "danger"], rejected_flow_unknown: ["Device rejected reset: flow is unavailable.", "danger"], error_persistence: ["Device could not persist zero. The reset may not survive reboot.", "danger"] }; const result = mapped[payload] ?? [`Unexpected reset response: ${payload}.`, "danger"]; this.log(result[0], result[1]); this.setResetPending(false); }

@@ -153,29 +153,62 @@ switch:
       mode: OUTPUT
       inverted: true
 
-# Phase durations, adjustable at runtime from the web UI, HA, or MQTT.
+# Cycle settings, adjustable at runtime from the web UI, HA, or MQTT.
+select:
+  - platform: template
+    name: "Cycle Mode"
+    id: cycle_mode
+    options:
+      - Time
+      - Volume
+    initial_option: Time
+    optimistic: true
+    restore_value: true
+
 number:
   - platform: template
-    name: "Pre-wet Minutes"
-    id: prewet_minutes
+    name: "Cycle Minutes"
+    id: cycle_minutes
     min_value: 0
-    max_value: 60
+    max_value: 180
     step: 1
-    initial_value: 5
+    initial_value: 25
     optimistic: true
     restore_value: true
     unit_of_measurement: min
     mode: box
   - platform: template
-    name: "Fertigation Minutes"
-    id: fertigation_minutes
+    name: "Cycle Liters"
+    id: cycle_liters
     min_value: 0
-    max_value: 120
-    step: 1
+    max_value: 500
+    step: 0.5
+    initial_value: 100
+    optimistic: true
+    restore_value: true
+    unit_of_measurement: L
+    mode: box
+  - platform: template
+    name: "Pre-wet Percent"
+    id: prewet_percent
+    min_value: 0
+    max_value: 100
+    step: 5
     initial_value: 20
     optimistic: true
     restore_value: true
-    unit_of_measurement: min
+    unit_of_measurement: "%"
+    mode: slider
+  - platform: template
+    name: "Min Flow"
+    id: min_flow_lpm
+    min_value: 0
+    max_value: 10
+    step: 0.1
+    initial_value: 0.5
+    optimistic: true
+    restore_value: true
+    unit_of_measurement: "L/min"
     mode: box
   # Minimum 1: the flush is what guarantees no residues, so it cannot
   # be zeroed.
@@ -232,6 +265,18 @@ globals:
     type: bool
     restore_value: no
     initial_value: "false"
+  # Which phase the sequence is in: 0 idle, 1 pre-wet, 2 fertigation, 3 flush.
+  # Drives the phase-aware watchdog escape.
+  - id: current_phase
+    type: int
+    restore_value: no
+    initial_value: "0"
+  # water_total_l snapshot at the start of a volume phase, so the phase can
+  # measure its own delta against the persisted cumulative counter.
+  - id: phase_start_l
+    type: double
+    restore_value: no
+    initial_value: "0"
 
 script:
   # The pump must never run without an open path, so closing the last valve
@@ -256,20 +301,55 @@ script:
   - id: irrigation_sequence
     mode: single
     then:
-      # Phase 1: pre-wet with clean water — prime lines, moisten soil
-      - switch.turn_on: clean_water_valve
-      - delay: 2s
-      - switch.turn_on: pump
-      - delay: !lambda "return (uint32_t)(id(prewet_minutes).state * 60000);"
-      # Phase 2: fertigation
-      - switch.turn_off: pump
-      - delay: 2s
-      - switch.turn_off: clean_water_valve
-      - switch.turn_on: fertigation_valve
-      - delay: 2s
-      - switch.turn_on: pump
-      - delay: !lambda "return (uint32_t)(id(fertigation_minutes).state * 60000);"
-      # Phase 3: flush with clean water so no residues remain
+      # Phase 1: pre-wet with clean water — prime lines, moisten soil.
+      - if:
+          condition:
+            lambda: 'return (id(cycle_mode).state == "Time" ? id(cycle_minutes).state : id(cycle_liters).state) * id(prewet_percent).state / 100.0 > 0;'
+          then:
+            - lambda: 'id(current_phase) = 1;'
+            - if:
+                condition:
+                  lambda: 'return id(cycle_mode).state == "Volume";'
+                then:
+                  - lambda: 'id(phase_start_l) = id(water_total_l);'
+            - switch.turn_on: clean_water_valve
+            - delay: 2s
+            - switch.turn_on: pump
+            - if:
+                condition:
+                  lambda: 'return id(cycle_mode).state == "Time";'
+                then:
+                  - delay: !lambda 'return (uint32_t)(id(cycle_minutes).state * id(prewet_percent).state / 100.0 * 60000);'
+                else:
+                  - wait_until:
+                      lambda: 'return id(water_total_l) - id(phase_start_l) >= id(cycle_liters).state * id(prewet_percent).state / 100.0;'
+      # Phase 2: fertigation.
+      - if:
+          condition:
+            lambda: 'return (id(cycle_mode).state == "Time" ? id(cycle_minutes).state : id(cycle_liters).state) * (1.0 - id(prewet_percent).state / 100.0) > 0;'
+          then:
+            - lambda: 'id(current_phase) = 2;'
+            - switch.turn_off: pump
+            - delay: 2s
+            - switch.turn_off: clean_water_valve
+            - switch.turn_on: fertigation_valve
+            - delay: 2s
+            - if:
+                condition:
+                  lambda: 'return id(cycle_mode).state == "Volume";'
+                then:
+                  - lambda: 'id(phase_start_l) = id(water_total_l);'
+            - switch.turn_on: pump
+            - if:
+                condition:
+                  lambda: 'return id(cycle_mode).state == "Time";'
+                then:
+                  - delay: !lambda 'return (uint32_t)(id(cycle_minutes).state * (1.0 - id(prewet_percent).state / 100.0) * 60000);'
+                else:
+                  - wait_until:
+                      lambda: 'return id(water_total_l) - id(phase_start_l) >= id(cycle_liters).state * (1.0 - id(prewet_percent).state / 100.0);'
+      # Phase 3: flush with clean water so no residues remain.
+      - lambda: 'id(current_phase) = 3;'
       - switch.turn_off: pump
       - delay: 2s
       - switch.turn_off: fertigation_valve
@@ -279,6 +359,26 @@ script:
       - delay: !lambda "return (uint32_t)(id(flush_minutes).state * 60000);"
       # Shutdown
       - switch.turn_off: pump
+      - lambda: 'id(current_phase) = 0;'
+      - delay: 2s
+      - switch.turn_off: clean_water_valve
+
+  # Watchdog recovery for an empty fertigation tank. This deliberately does
+  # not use abort_irrigation: it preserves the required full safety flush.
+  - id: recovery_flush
+    mode: single
+    then:
+      - script.stop: irrigation_sequence
+      - switch.turn_off: pump
+      - delay: 2s
+      - switch.turn_off: fertigation_valve
+      - switch.turn_on: clean_water_valve
+      - delay: 2s
+      - lambda: 'id(current_phase) = 3;'
+      - switch.turn_on: pump
+      - delay: !lambda "return (uint32_t)(id(flush_minutes).state * 60000);"
+      - switch.turn_off: pump
+      - lambda: 'id(current_phase) = 0;'
       - delay: 2s
       - switch.turn_off: clean_water_valve
 
@@ -289,6 +389,8 @@ script:
     mode: single
     then:
       - script.stop: irrigation_sequence
+      - script.stop: recovery_flush
+      - lambda: 'id(current_phase) = 0;'
       - switch.turn_off: pump
       - delay: 2s
       - switch.turn_off: fertigation_valve
@@ -318,6 +420,12 @@ script:
     then:
       - mqtt.publish:
           topic: kc868-a8/flow/dry_run
+          payload: "ON"
+
+  - id: recovery_flush_publish
+    then:
+      - mqtt.publish:
+          topic: kc868-a8/irrigation/recovery_flush
           payload: "ON"
 
   # Shared native-web/MQTT reset path. The short delay after assignment gives
@@ -411,7 +519,7 @@ button:
 binary_sensor:
   - platform: template
     name: "Irrigation Running"
-    lambda: "return id(irrigation_sequence).is_running();"
+    lambda: "return id(irrigation_sequence).is_running() || id(recovery_flush).is_running();"
   # Mirrors the SmartShunt's own charged detection (charged voltage
   # 14.0V, tail current 4% of 8Ah, 3 min): ON when the charge cycle
   # completes, OFF again once the MPPT drops to float.
@@ -596,24 +704,28 @@ sensor:
 
 interval:
   # Dry-run protection: with the pump running past its priming grace, sustained
-  # no-flow means the pump is not moving water — stop everything via the shared
-  # abort path. 0.5 L/min is well under the sensor's 1 L/min floor, so real
-  # irrigation never trips it.
+  # low flow invokes a fertigation recovery flush or the shared abort path.
   - interval: 1s
     then:
       - lambda: |-
           if (!id(pump).state) { id(low_flow_secs) = 0; return; }
           if (millis() - id(pump_on_since_ms) < 15000) { id(low_flow_secs) = 0; return; }
           if (isnan(id(flow_pulses).state)) return;
-          if (id(flow_pulses).state < 0.5) {
+          if (id(flow_pulses).state < id(min_flow_lpm).state) {
             id(low_flow_secs)++;
           } else {
             id(low_flow_secs) = 0;
           }
           if (id(low_flow_secs) >= 3) {
             id(low_flow_secs) = 0;
-            id(abort_irrigation)->execute();
-            ESP_LOGW("flow", "dry-run detected: no flow with pump on, aborting");
+            if (id(current_phase) == 2) {
+              id(recovery_flush)->execute();
+              ESP_LOGW("flow", "dry-run detected during fertigation; recovery flush starting");
+              id(recovery_flush_publish)->execute();
+            } else {
+              id(abort_irrigation)->execute();
+              ESP_LOGW("flow", "dry-run detected: no flow with pump on, aborting");
+            }
             id(dry_run_publish)->execute();
           }
 

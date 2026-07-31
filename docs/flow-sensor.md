@@ -1,8 +1,9 @@
 # Flow sensor
 
 A YF-B5 hall-effect flow sensor measures water flow and cumulative water use
-since the last reset, and backs the dry-run protection that stops the pump when
-it is not moving water.
+since the last reset, and backs dry-run protection when the pump is not moving
+water. It sits after the pump on the common line, so it measures both the clean-water
+and fertigation paths; this is what makes volume mode possible for both phases.
 
 ## Sensor and pin
 
@@ -136,13 +137,20 @@ accumulated, so calibrate before trusting the counter long-term.
 
 ## Dry-run protection
 
-A 1s `interval` stops everything when the pump runs but no water moves — a
-knocked-off line, empty tank, or air-locked pump:
+A 1s `interval` protects against a knocked-off line, empty tank, or air-locked
+pump:
 
 - Only armed while the pump is on and **past its 15s priming grace**
   (`pump_on_since_ms`).
-- If flow stays **below 0.5 L/min for 3 consecutive seconds**, it calls the
-  shared `abort_irrigation` (pump off, both valves off), logs a warning, and
-  publishes `ON` to `kc868-a8/flow/dry_run`.
-- 0.5 L/min is well under the sensor's ~1 L/min floor, so genuine irrigation
-  never trips it.
+- If flow stays below the runtime **Min Flow** number entity (default **0.5
+  L/min**) for 3 consecutive seconds, it publishes `ON` to
+  `kc868-a8/flow/dry_run`.
+- Low flow during fertigation means the fertigation tank is empty: the pump
+  stops, the clean-water path opens with the normal 2s handover, and a full
+  `Flush Minutes` recovery flush runs. The device also publishes `ON` to
+  `kc868-a8/irrigation/recovery_flush`.
+- Low flow during pre-wet, normal flush, manual pumping, or the recovery flush
+  calls the shared `abort_irrigation` (pump off, both valves off). Thus a second
+  low-flow trip during recovery stops dead rather than attempting another escape.
+- The default 0.5 L/min is well under the sensor's ~1 L/min floor, so genuine
+  irrigation never trips it.

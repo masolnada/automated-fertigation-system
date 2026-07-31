@@ -74,21 +74,23 @@ One automation exists: the irrigation sequence (`script: irrigation_sequence` in
 
 | Phase | Duration | Pump | Fertigation valve | Clean water valve | Purpose |
 |---|---|---|---|---|---|
-| 1. Pre-wet | `Pre-wet Minutes` (default 5) | on | off | on | Prime the lines; the biology lands on moist soil |
-| 2. Fertigation | `Fertigation Minutes` (default 20) | on | on | off | Water with the fertigation substance |
+| 1. Pre-wet | `Cycle Minutes` or `Cycle Liters` × `Pre-wet Percent` (default 5 min) | on | off | on | Prime the lines; the biology lands on moist soil |
+| 2. Fertigation | Remaining cycle total (default 20 min) | on | on | off | Water with the fertigation substance |
 | 3. Flush | `Flush Minutes` (default 5, min 1) | on | off | on | Clear humate/micro-organism residue from pump, lines, emitters |
 | Shutdown | — | off | off | off | |
+
+`Cycle Mode` chooses Time or Volume. The independent `Cycle Minutes` (default 25) and `Cycle Liters` (default 100) totals are retained when switching modes; `Pre-wet Percent` (default 20%, in 5% steps) allocates the pre-wet portion and fertigation always receives the remainder. The flush is deliberately outside that split and always time-based.
 
 Rules built into the sequence:
 
 - Valve handovers overlap 2s, and the pump stops before the last valve closes: the running pump always has an open source. The pump's 3.8 bar pressure switch is only the backstop.
 - The flush phase cannot be set below 1 minute — the residue-free guarantee is not optional.
 - A start while a sequence is running is ignored (`mode: single`).
-- A phase set to 0 minutes degenerates to a ~4s valve transient.
+- A zero cycle total or zero-percent phase is skipped without opening its valves.
 
-Durations are `number` entities, adjustable at runtime from the web UI, Home Assistant, or MQTT; values survive reboots (`restore_value`).
+Cycle settings are `select`/`number` entities, adjustable at runtime from the web UI, Home Assistant, or MQTT; values survive reboots (`restore_value`).
 
-Stopping (empty tank, knocked-over line, any reason) always goes through a second script, `abort_irrigation`: stop the sequence, pump off, 2s, both valves off. The stop button and the MQTT stop topic both call it. One automatic interrupt is live — the flow sensor's dry-run watchdog aborts when the pump runs but no water moves; see [docs/flow-sensor.md](docs/flow-sensor.md). Further planned options are a tank float switch and pump current sensing (INA226 + shunt on the I2C bus — pump on but under ~2A sustained means it is not moving water; also yields battery voltage). Either would just call `abort_irrigation`.
+Stopping (empty tank, knocked-over line, any reason) normally goes through `abort_irrigation`: stop the sequence, pump off, 2s, both valves off. The stop button and MQTT stop topic both use that immediate stop. The flow sensor's `Min Flow` watchdog is phase-aware: low flow during fertigation switches to clean water and completes a full recovery flush; low flow during pre-wet, flush, manual operation, or that recovery flush stops dead through `abort_irrigation`. See [docs/flow-sensor.md](docs/flow-sensor.md). Further planned options are a tank float switch and pump current sensing (INA226 + shunt on the I2C bus — pump on but under ~2A sustained means it is not moving water; also yields battery voltage). Either would just call `abort_irrigation`.
 
 ## Control
 
