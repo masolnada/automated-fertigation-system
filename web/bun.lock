@@ -47,10 +47,6 @@
       "name": "@hort/contracts",
       "version": "0.0.0",
     },
-    "packages/mqtt": {
-      "name": "@hort/mqtt",
-      "version": "0.0.0",
-    },
     "packages/ui": {
       "name": "@hort/ui",
       "version": "0.0.0",
@@ -68,8 +64,6 @@
     "@hort/contracts": ["@hort/contracts@workspace:packages/contracts"],
 
     "@hort/dashboard": ["@hort/dashboard@workspace:apps/dashboard"],
-
-    "@hort/mqtt": ["@hort/mqtt@workspace:packages/mqtt"],
 
     "@hort/server": ["@hort/server@workspace:apps/server"],
 
