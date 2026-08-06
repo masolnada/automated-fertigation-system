@@ -1,1 +1,0 @@
-{"brokerUrl":"${MQTT_URL}","username":"${MQTT_USERNAME}","password":"${MQTT_PASSWORD}","prefix":"${MQTT_PREFIX}"}

@@ -1,2 +1,2 @@
-import { useSyncExternalStore } from "react"; import type { DashboardStore } from "@hort/mqtt";
-export const useStore = (store: DashboardStore) => useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+import { useSyncExternalStore } from "react"; import type { SnapshotStore } from "./store";
+export const useStore = (store: SnapshotStore) => useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);

@@ -1,4 +1,5 @@
 import type { Snapshot } from "./store";
+// Kept client-side for affordance only (dimming controls); the server is the enforcing authority.
 const entity = (snapshot: Snapshot, id: string) => snapshot.entities[id];
 export function resetIneligibleReason(snapshot: Snapshot): string {
   if (!snapshot.brokerConnected || !snapshot.deviceOnline) return "Device or broker offline";

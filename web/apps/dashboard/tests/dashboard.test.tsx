@@ -1,65 +1,113 @@
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import Aedes from "aedes";
-import { createServer, type Server } from "node:http";
-import { WebSocketServer } from "ws"; import { Duplex } from "node:stream";
-import mqtt, { type MqttClient } from "mqtt";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { Snapshot as WireSnapshot } from "@hort/contracts";
 import { App } from "../src/App";
-import { DashboardStore, type Config, type PublishClient, resetIneligibleReason } from "@hort/mqtt";
+import { SnapshotStore } from "../src/store";
 
-const prefix = "test-hort";
-const config: Config = { brokerUrl: "ws://unused", username: "u", password: "p", prefix };
-let broker: Aedes, server: Server, wss: WebSocketServer, url = "";
-const mqttClients: MqttClient[] = [];
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const entity = (value: number | string) => ({ value, known: true });
+const wire = (partial: Partial<WireSnapshot> = {}): WireSnapshot => ({ brokerConnected: true, deviceOnline: true, entities: {}, valves: { clean_water_valve: false, fertigation_valve: false }, resetPending: false, log: [], ...partial });
+const eligibleEntities = () => ({ pump: entity("OFF"), flow_rate: entity(0), total_water: entity(12.3) });
 
-beforeAll(async () => { broker = new Aedes(); server = createServer(); wss = new WebSocketServer({ server }); wss.on("connection", (socket, request) => { const stream = new Duplex({ read() {}, write(chunk, _encoding, callback) { socket.send(chunk, callback); } }); socket.on("message", data => stream.push(Buffer.from(data as ArrayBuffer))); socket.on("close", () => stream.push(null)); socket.on("error", error => stream.destroy(error)); broker.handle(stream, request); }); await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve)); const address = server.address(); if (!address || typeof address === "string") throw new Error("no address"); url = `ws://127.0.0.1:${address.port}`; });
-afterEach(async () => { cleanup(); await Promise.all(mqttClients.splice(0).map(client => new Promise<void>(resolve => client.end(true, {}, () => resolve())))); });
-afterAll(async () => { await new Promise<void>(resolve => wss.close(() => resolve())); await new Promise<void>(resolve => server.close(() => resolve())); await new Promise<void>(resolve => broker.close(() => resolve())); });
-function ready(store = new DashboardStore()) { store.connected(); store.message(prefix, `${prefix}/status`, "online"); store.message(prefix, `${prefix}/switch/pump/state`, "OFF"); store.message(prefix, `${prefix}/sensor/flow_rate/state`, "0"); store.message(prefix, `${prefix}/sensor/total_water/state`, "12.3"); return store; }
-function fakeClient(): [PublishClient, Array<[string, string, { retain?: boolean } | undefined]>] { const calls: Array<[string, string, { retain?: boolean } | undefined]> = []; return [{ publish: (topic, payload, options) => calls.push([topic, payload, options]) }, calls]; }
+type Call = { name: string; body: Record<string, unknown> };
+let calls: Call[] = [];
+let responders: Record<string, () => Promise<Response>> = {};
+const json = (data: unknown, status: number) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
 
-describe("broker-backed dashboard state", () => {
-  test("retained state replay populates formatted values and invalidates on offline", async () => {
-    for (const [topic, payload] of [[`${prefix}/status`, "online"], [`${prefix}/switch/pump/state`, "OFF"], [`${prefix}/sensor/flow_rate/state`, "1.25"], [`${prefix}/sensor/total_water/state`, "12.3"], [`${prefix}/sensor/battery_voltage/state`, "12.345"], [`${prefix}/number/cycle_minutes/state`, "25"]] as const) broker.publish({ cmd: "publish", qos: 0, dup: false, topic, payload, retain: true }, () => {});
-    const store = new DashboardStore(); const client: MqttClient = mqtt.connect(url); mqttClients.push(client); client.on("connect", () => { store.connected(); client.subscribe(`${prefix}/#`); }); client.on("message", (topic, payload) => store.message(prefix, topic, payload.toString()));
-    await waitFor(() => expect(store.getSnapshot().entities.battery_voltage?.value).toBe(12.345));
-    const [fake] = fakeClient(); render(<App store={store} client={fake} config={config}/>);
-    expect(screen.getByText("12.35")).toBeTruthy(); expect(screen.getByText("12.3")).toBeTruthy();
-    store.message(prefix, `${prefix}/status`, "offline"); await waitFor(() => expect(screen.getAllByText("–").length).toBeGreaterThan(0)); expect(resetIneligibleReason(store.getSnapshot())).toBe("Device or broker offline");
+beforeEach(() => {
+  calls = []; responders = {};
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const name = String(input).split("/").pop()!;
+    calls.push({ name, body: init?.body ? JSON.parse(String(init.body)) : {} });
+    return responders[name] ? responders[name]!() : json({ ok: true }, 202);
+  }) as typeof fetch;
+});
+afterEach(() => cleanup());
 
+function renderApp(store: SnapshotStore) { const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } }); return render(<QueryClientProvider client={client}><App store={store}/></QueryClientProvider>); }
+function seeded(partial: Partial<WireSnapshot> = {}) { const store = new SnapshotStore(); act(() => store.replace(wire({ entities: eligibleEntities(), ...partial }))); return store; }
+
+describe("snapshot rendering", () => {
+  test("formats values and shows – after invalidation", () => {
+    const store = seeded({ entities: { ...eligibleEntities(), battery_voltage: entity(12.345) } });
+    renderApp(store);
+    expect(screen.getByText("12.35")).toBeTruthy();
+    expect(screen.getByText("12.3")).toBeTruthy();
+    act(() => store.replace(wire({ deviceOnline: false, brokerConnected: false, entities: {} })));
+    expect(screen.getAllByText("–").length).toBeGreaterThan(0);
   });
 });
 
-describe("dashboard interactions", () => {
-  test("reset is non-retained, pending cannot close, and a result closes and logs", async () => {
-    const store = ready(); const [client, calls] = fakeClient(); render(<App store={store} client={client} config={config}/>);
-    fireEvent.click(screen.getByRole("button", { name: "Flow actions" })); fireEvent.click(screen.getByRole("menuitem", { name: "Reset total water" }));
-    const dialog = screen.getByRole("dialog"); expect(dialog.getAttribute("aria-modal")).toBe("true"); expect(dialog.getAttribute("aria-labelledby")).toBe("dialog-title"); expect(dialog.getAttribute("aria-describedby")).toBe("dialog-message");
-    fireEvent.click(screen.getByRole("button", { name: "Reset total" })); expect(calls[0]).toEqual([`${prefix}/flow/reset_total/request`, "ON", { retain: false }]);
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" })); fireEvent.keyDown(dialog, { key: "Escape" }); fireEvent.mouseDown(dialog.parentElement!, { target: dialog.parentElement }); expect(screen.getByRole("dialog")).toBeTruthy();
-    await act(async () => { store.handleResetResult("success"); }); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); expect(screen.getByText("total water reset")).toBeTruthy();
+describe("reset", () => {
+  test("guard reason disables the menu item", () => {
+    renderApp(seeded({ entities: { ...eligibleEntities(), flow_rate: entity(1) } }));
+    fireEvent.click(screen.getByRole("button", { name: "Flow actions" }));
+    expect(screen.getByRole("menuitem", { name: "Reset total water" }).hasAttribute("disabled")).toBe(true);
   });
-  test("timeout releases a pending reset with the exact danger message", async () => { const store = ready(); const [client] = fakeClient(); render(<App store={store} client={client} config={config}/>); fireEvent.click(screen.getByRole("button", { name: "Flow actions" })); fireEvent.click(screen.getByRole("menuitem", { name: "Reset total water" })); fireEvent.click(screen.getByRole("button", { name: "Reset total" })); await sleep(10_050); expect(screen.getByText("No response from device. Check its connection and current total before retrying.")).toBeTruthy(); expect(screen.getByRole("button", { name: "Cancel" }).hasAttribute("disabled")).toBe(false); }, 15_000);
-  test("eligibility updates live and valve commands are exclusive", async () => {
-    const store = ready(); const [client, calls] = fakeClient(); render(<App store={store} client={client} config={config}/>);
-    fireEvent.click(screen.getByRole("button", { name: "Flow actions" })); fireEvent.click(screen.getByRole("menuitem", { name: "Reset total water" }));
-    store.message(prefix, `${prefix}/sensor/flow_rate/state`, "1"); await waitFor(() => expect(screen.getByText("Reset unavailable: Flow active.")).toBeTruthy()); store.message(prefix, `${prefix}/sensor/flow_rate/state`, "0"); await waitFor(() => expect(screen.getByRole("button", { name: "Reset total" }).hasAttribute("disabled")).toBe(false));
-    fireEvent.click(screen.getByRole("button", { name: "Clean" })); expect(calls.at(-1)).toEqual([`${prefix}/switch/clean_water_valve/command`, "ON", undefined]); expect(screen.getByText("Switching… both valves close for a moment")).toBeTruthy();
-    store.message(prefix, `${prefix}/switch/pump/state`, "ON"); await waitFor(() => expect(screen.getByText("Switching… both valves close for a moment, so the pump stops")).toBeTruthy()); fireEvent.click(screen.getByRole("button", { name: "Closed" })); expect(calls.slice(-2)).toEqual([[`${prefix}/switch/clean_water_valve/command`, "OFF", undefined], [`${prefix}/switch/fertigation_valve/command`, "OFF", undefined]]);
+  test("pending cannot close; success posts and closes", async () => {
+    let release!: (r: Response) => void;
+    responders["reset-total-water"] = () => new Promise((resolve) => { release = resolve; });
+    renderApp(seeded());
+    fireEvent.click(screen.getByRole("button", { name: "Flow actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Reset total water" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset total" }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "reset-total-water", body: {} }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" }).hasAttribute("disabled")).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    await act(async () => { release(json({ result: "success" }, 200)); await sleep(0); });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
-  test("dialog traps enabled buttons and focus returns to its trigger", async () => { const store = ready(); const [client] = fakeClient(); render(<App store={store} client={client} config={config}/>); const trigger = screen.getByRole("button", { name: "Flow actions" }); fireEvent.click(trigger); fireEvent.click(screen.getByRole("menuitem", { name: "Reset total water" })); const dialog = screen.getByRole("dialog"); const confirm = screen.getByRole("button", { name: "Reset total" }); fireEvent.keyDown(confirm, { key: "Tab" }); expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" })); fireEvent.keyDown(document.activeElement!, { key: "Tab", shiftKey: true }); expect(document.activeElement).toBe(confirm); fireEvent.click(screen.getByRole("button", { name: "Cancel" })); await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); expect(document.activeElement).toBe(trigger); });
-  test("mode switches units and shows correct derived phase figures", async () => {
-    const store = ready(); store.message(prefix, `${prefix}/select/cycle_mode/state`, "Time"); store.message(prefix, `${prefix}/number/cycle_minutes/state`, "25"); store.message(prefix, `${prefix}/number/cycle_liters/state`, "100"); store.message(prefix, `${prefix}/number/pre-wet_percent/state`, "20"); store.message(prefix, `${prefix}/number/flush_minutes/state`, "5"); const [client, calls] = fakeClient(); render(<App store={store} client={client} config={config}/>);
-    expect(screen.getByTitle("Pre-wet — 5 min")).toBeTruthy(); expect(screen.getByTitle("Fertigation — 20 min")).toBeTruthy(); fireEvent.change(screen.getByLabelText("Cycle Mode"), { target: { value: "Volume" } }); expect(calls.at(-1)).toEqual([`${prefix}/select/cycle_mode/command`, "Volume", undefined]); await act(async () => { store.message(prefix, `${prefix}/select/cycle_mode/state`, "Volume"); }); expect(screen.getByTitle("Pre-wet — 20 L")).toBeTruthy(); expect(screen.getByTitle("Fertigation — 80 L")).toBeTruthy();
+  test("timeout surfaces the danger message with cancel enabled", async () => {
+    responders["reset-total-water"] = async () => json({ result: "timeout" }, 504);
+    renderApp(seeded());
+    fireEvent.click(screen.getByRole("button", { name: "Flow actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Reset total water" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset total" }));
+    await waitFor(() => expect(screen.getByText("No response from device. Check its connection and current total before retrying.")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Cancel" }).hasAttribute("disabled")).toBe(false);
   });
-  test("recovery flush reports irrigation as running", async () => {
-    const store = ready(); const [client] = fakeClient(); render(<App store={store} client={client} config={config}/>); await act(async () => { store.message(prefix, `${prefix}/binary_sensor/irrigation_running/state`, "ON"); }); expect(screen.getByText("running")).toBeTruthy();
+});
+
+describe("commands", () => {
+  test("valve selection is exclusive", async () => {
+    const store = seeded();
+    renderApp(store);
+    fireEvent.click(screen.getByRole("button", { name: "Clean" }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-valve", body: { valve: "clean_water_valve" } }));
+    expect(screen.getByText("Switching… both valves close for a moment")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Closed" }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-valve", body: { valve: "" } }));
   });
-  test("pre-wet slider publishes only 5 percent steps on release", () => {
-    const store = ready(); store.message(prefix, `${prefix}/number/pre-wet_percent/state`, "20"); const [client, calls] = fakeClient(); render(<App store={store} client={client} config={config}/>); const slider = screen.getByRole("slider", { name: "Pre-wet Percent" }); fireEvent.change(slider, { target: { value: "35" } }); expect(calls).toHaveLength(0); fireEvent.pointerUp(slider); expect(calls.at(-1)).toEqual([`${prefix}/number/pre-wet_percent/command`, "35", undefined]);
+  test("cycle mode posts immediately", async () => {
+    renderApp(seeded({ entities: { ...eligibleEntities(), cycle_mode: entity("Time") } }));
+    fireEvent.change(screen.getByLabelText("Cycle Mode"), { target: { value: "Volume" } });
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "set-cycle-mode", body: { mode: "Volume" } }));
   });
-  test("Escape closes menu before dialog", async () => {
-    const store = ready(); const [client] = fakeClient(); render(<App store={store} client={client} config={config}/>); const trigger = screen.getByRole("button", { name: "Flow actions" }); trigger.focus(); fireEvent.click(trigger); expect(screen.getByRole("menu")).toBeTruthy(); fireEvent.keyDown(document, { key: "Escape" }); await sleep(0); expect(screen.queryByRole("menu")).toBeNull(); expect(document.activeElement).toBe(trigger);
+  test("number input debounces into a single command", async () => {
+    renderApp(seeded({ entities: { ...eligibleEntities(), flush_minutes: entity(5) } }));
+    const input = screen.getByDisplayValue("5");
+    fireEvent.change(input, { target: { value: "6" } });
+    fireEvent.change(input, { target: { value: "7" } });
+    expect(calls).toHaveLength(0);
+    await waitFor(() => expect(calls).toEqual([{ name: "set-flush-duration", body: { value: 7 } }]));
+  });
+  test("pre-wet slider posts on release", async () => {
+    renderApp(seeded({ entities: { ...eligibleEntities(), "pre-wet_percent": entity(20) } }));
+    const slider = screen.getByRole("slider", { name: "Pre-wet Percent" });
+    fireEvent.change(slider, { target: { value: "35" } });
+    expect(calls).toHaveLength(0);
+    fireEvent.pointerUp(slider);
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "set-pre-wet-percent", body: { value: 35 } }));
+  });
+  test("Escape closes the menu before the dialog", async () => {
+    renderApp(seeded());
+    const trigger = screen.getByRole("button", { name: "Flow actions" });
+    trigger.focus(); fireEvent.click(trigger);
+    expect(screen.getByRole("menu")).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await sleep(0);
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 });

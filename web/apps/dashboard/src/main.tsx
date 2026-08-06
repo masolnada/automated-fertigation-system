@@ -1,4 +1,17 @@
-import { createRoot } from "react-dom/client"; import mqtt from "mqtt"; import { DashboardStore, parseConfig } from "@hort/mqtt"; import { App } from "./App"; import "./styles.css";
+import { createRoot } from "react-dom/client";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { Snapshot as WireSnapshot } from "@hort/contracts";
+import { SnapshotStore } from "./store";
+import { App } from "./App";
+import "./styles.css";
+
 const root = createRoot(document.body.firstElementChild as HTMLElement);
-async function start() { try { const response=await fetch("/config.json"); if(!response.ok) throw new Error(`config request failed: ${response.status}`); const config=parseConfig(await response.json()); const store=new DashboardStore(); const client=mqtt.connect(config.brokerUrl,{username:config.username,password:config.password,reconnectPeriod:3000,keepalive:30}); client.on("connect",()=>{store.connected();client.subscribe(`${config.prefix}/#`);});client.on("close",()=>store.closed());client.on("error",error=>store.error(error));client.on("message",(topic,payload)=>store.message(config.prefix,topic,payload.toString()));let hiddenSince=0;document.addEventListener("visibilitychange",()=>{if(document.hidden){hiddenSince=Date.now();return;}if(client.connected&&Date.now()-hiddenSince<30000)return;client.end(true,()=>client.reconnect());});root.render(<App store={store} client={client} config={config}/>); } catch (error) { root.render(<pre>Dashboard configuration error: {error instanceof Error?error.message:String(error)}</pre>); } }
-void start();
+const store = new SnapshotStore();
+const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+
+const source = new EventSource("/api/stream");
+source.onopen = () => store.setServerConnected(true);
+source.onerror = () => store.setServerConnected(false);
+source.onmessage = (event) => { store.setServerConnected(true); store.replace(JSON.parse(event.data) as WireSnapshot); };
+
+root.render(<QueryClientProvider client={queryClient}><App store={store} /></QueryClientProvider>);
