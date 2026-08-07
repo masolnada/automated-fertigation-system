@@ -14,5 +14,6 @@ React/TypeScript and Tailwind/CSS custom properties.
 - Secrets: plaintext `controller/secrets.yaml` is gitignored; committed artifact
   is the age-encrypted `controller/secrets.enc.yaml` (recipient in
   `controller/.age-recipients`).
-- The dashboard ships as a generic nginx build artifact; compose/vhost/env wiring
-  lives in the separate homelab repo (snippets in `web/README.md`).
+- Deployment is self-contained under `deploy/`: a Tailscale-only Caddy (static
+  `file_server` + Cloudflare DNS-01 TLS + `/api` split), the Bun server, and a
+  dedicated Mosquitto broker on the hort VM. See `deploy/README.md`.

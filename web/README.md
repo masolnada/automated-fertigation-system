@@ -22,7 +22,7 @@ bun run dev        # starts BOTH the Express server (:4000) and the dashboard (:
 bun run typecheck
 bun test
 bun run build      # builds the static dashboard into apps/dashboard/dist
-podman build -t hort-dashboard -f apps/dashboard/Containerfile .
+podman build -t hort-dashboard -f apps/dashboard/Containerfile.caddy .
 podman build -t hort-server -f apps/server/Containerfile .
 ```
 
@@ -41,21 +41,17 @@ These are read by `apps/server` at boot and are **never** sent to the browser.
 | `MQTT_PREFIX` | Device topic prefix (normally `kc868-a8`) |
 | `PORT` | Express server port (default `4000`) |
 
-## Deployment (two containers)
+## Deployment
 
-1. **nginx** serving the static `dist/` from `apps/dashboard/Containerfile`.
-2. **Express server** from `apps/server/Containerfile`.
+Self-contained under [`../deploy/`](../deploy/): a Tailscale-only **Caddy**
+terminates TLS (Cloudflare DNS-01) and path-splits the single origin — `/api/*`
+→ `hort-server:4000` (SSE unbuffered via `flush_interval -1`), everything else
+→ the static dashboard (Caddy `file_server`). Two images built from this
+workspace:
 
-nginx proxies `/api` to the server with **`proxy_buffering off`** so SSE is
-delivered incrementally, e.g.:
+1. static dashboard — `apps/dashboard/Containerfile.caddy`
+2. server — `apps/server/Containerfile`
 
-```nginx
-location /api/ {
-  proxy_pass http://hort-server:4000;
-  proxy_buffering off;
-  proxy_http_version 1.1;
-  proxy_set_header Connection "";
-}
-```
-
-Compose/vhost/env wiring lives in the separate homelab repo.
+Credentials are server-only env; the browser only ever talks to `/api/*`. See
+[`../deploy/README.md`](../deploy/README.md) for the full stack (dedicated
+broker, Tailscale, age secrets, bootstrap).

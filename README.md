@@ -2,7 +2,7 @@
 
 Portable, solar-powered fertigation controller. Waters while injecting humic acid (e.g. potassium humate) and micro-organisms into the supply. Portable so it cannot be stolen.
 
-The current browser dashboard is in [`web/`](web/); the legacy [`dashboard/`](dashboard/) artifact is deprecated pending homelab cutover.
+The browser dashboard and its server live in [`web/`](web/); deployment is self-contained under [`deploy/`](deploy/).
 
 ## Hardware
 
