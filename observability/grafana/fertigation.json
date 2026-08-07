@@ -24,8 +24,8 @@
     },
     {
       "type": "panel",
-      "id": "timeseries",
-      "name": "Time series",
+      "id": "barchart",
+      "name": "Bar chart",
       "version": ""
     },
     {
@@ -44,7 +44,7 @@
   "annotations": {
     "list": []
   },
-  "description": "YF-B5 flow sensor \u2014 flow rate, water used per interval, total since reset, and device warnings/errors.",
+  "description": "YF-B5 flow sensor \u2014 water used per configurable interval, range total, time since last watering, and device warnings/errors.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -59,111 +59,37 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "fixed",
-            "fixedColor": "black"
+            "mode": "palette-classic"
           },
           "custom": {
-            "lineWidth": 2,
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "spanNulls": false,
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "showPoints": "never",
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "gradientMode": "none"
           },
-          "unit": "Lmin",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "black",
-                "value": null
-              }
-            ]
-          }
+          "unit": "litre"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 24,
         "x": 0,
         "y": 0
       },
-      "id": 1,
-      "options": {
-        "legend": {
-          "displayMode": "hidden",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "influxdb",
-            "uid": "influxdb-zigbee"
-          },
-          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"esphome_sensor\")\n  |> filter(fn: (r) => r.entity == \"flow_rate\" and r._field == \"value\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
-          "refId": "A"
-        }
-      ],
-      "title": "Flow rate",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "influxdb",
-        "uid": "influxdb-zigbee"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "black"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "drawStyle": "bars",
-            "lineInterpolation": "linear",
-            "spanNulls": false,
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "showPoints": "never",
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "unit": "litre",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "black",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 8
-      },
       "id": 2,
       "options": {
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 100,
         "legend": {
-          "displayMode": "hidden",
-          "placement": "bottom"
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
           "mode": "single",
@@ -176,12 +102,12 @@
             "type": "influxdb",
             "uid": "influxdb-zigbee"
           },
-          "query": "interval = if \"${water_interval}\" == \"Auto\" then v.windowPeriod else duration(v: \"${water_interval}\")\nfrom(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"esphome_sensor\")\n  |> filter(fn: (r) => r.entity == \"total_water\" and r._field == \"value\")\n  |> sort(columns: [\"_time\"])\n  |> difference(nonNegative: true)\n  |> aggregateWindow(every: interval, fn: sum, createEmpty: false)",
+          "query": "selected = \"${water_interval}\"\ninterval =\n  if selected == \"15m\" then 15m\n  else if selected == \"1h\" then 1h\n  else if selected == \"6h\" then 6h\n  else if selected == \"1d\" then 1d\n  else if selected == \"7d\" then 7d\n  else 1h\nfrom(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"esphome_sensor\")\n  |> filter(fn: (r) => r.entity == \"total_water\" and r._field == \"value\")\n  |> sort(columns: [\"_time\"])\n  |> difference(nonNegative: true)\n  |> aggregateWindow(every: interval, fn: sum, createEmpty: true)\n  |> fill(column: \"_value\", value: 0.0)",
           "refId": "A"
         }
       ],
       "title": "Water used per interval",
-      "type": "timeseries"
+      "type": "barchart"
     },
     {
       "datasource": {
@@ -210,9 +136,9 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 8,
+        "w": 6,
         "x": 0,
-        "y": 16
+        "y": 9
       },
       "id": 3,
       "options": {
@@ -235,11 +161,62 @@
             "type": "influxdb",
             "uid": "influxdb-zigbee"
           },
-          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"esphome_sensor\")\n  |> filter(fn: (r) => r.entity == \"total_water\" and r._field == \"value\")\n  |> last()",
+          "query": "from(bucket: v.defaultBucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"esphome_sensor\")\n  |> filter(fn: (r) => r.entity == \"total_water\" and r._field == \"value\")\n  |> sort(columns: [\"_time\"])\n  |> difference(nonNegative: true)\n  |> sum()",
           "refId": "A"
         }
       ],
-      "title": "Total since reset",
+      "title": "Water used (selected range)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb-zigbee"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "unit": "dtdurationms",
+          "decimals": 0,
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 9
+      },
+      "id": 5,
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb-zigbee"
+          },
+          "query": "last = from(bucket: v.defaultBucket)\n  |> range(start: -30d)\n  |> filter(fn: (r) => r._measurement == \"esphome_sensor\")\n  |> filter(fn: (r) => r.entity == \"total_water\" and r._field == \"value\")\n  |> sort(columns: [\"_time\"])\n  |> difference(nonNegative: true)\n  |> filter(fn: (r) => r._value > 0.0)\n  |> last()\n  |> map(fn: (r) => ({_time: r._time, _value: float(v: int(v: now()) - int(v: r._time)) / 1000000.0}))\n  |> keep(columns: [\"_time\", \"_value\"])\nlast",
+          "refId": "A"
+        }
+      ],
+      "title": "Time since last watering",
       "type": "stat"
     },
     {
@@ -309,9 +286,9 @@
       },
       "gridPos": {
         "h": 9,
-        "w": 16,
-        "x": 8,
-        "y": 16
+        "w": 12,
+        "x": 12,
+        "y": 9
       },
       "id": 4,
       "options": {
@@ -349,36 +326,21 @@
         "label": "Water interval",
         "type": "custom",
         "hide": 0,
-        "query": "Auto,1m,5m,15m,1h,6h,12h,1d,7d",
-        "definition": "Auto,1m,5m,15m,1h,6h,12h,1d,7d",
+        "query": "15m,1h,6h,1d,7d",
+        "definition": "15m,1h,6h,1d,7d",
         "current": {
           "selected": true,
-          "text": "Auto",
-          "value": "Auto"
+          "text": "1h",
+          "value": "1h"
         },
         "options": [
-          {
-            "selected": true,
-            "text": "Auto",
-            "value": "Auto"
-          },
-          {
-            "selected": false,
-            "text": "1m",
-            "value": "1m"
-          },
-          {
-            "selected": false,
-            "text": "5m",
-            "value": "5m"
-          },
           {
             "selected": false,
             "text": "15m",
             "value": "15m"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "1h",
             "value": "1h"
           },
@@ -386,11 +348,6 @@
             "selected": false,
             "text": "6h",
             "value": "6h"
-          },
-          {
-            "selected": false,
-            "text": "12h",
-            "value": "12h"
           },
           {
             "selected": false,
@@ -417,5 +374,5 @@
   "timezone": "browser",
   "title": "Hort \u00b7 Fertigation",
   "uid": "hort-fertigation",
-  "version": 1
+  "version": 6
 }

@@ -110,10 +110,20 @@ them up.
 payload. Total Water is cumulative litres since the last reset and persists
 across normal reboots.
 
-Grafana's **Water used per interval** calculates non-negative differences from
-raw Total Water samples before summing them, so reset drops do not create
-negative usage or hide subsequent use. Its interval selector defaults to Auto.
-The **Errors and warnings** table only displays MQTT-originated events:
+Grafana's **Water used per interval** bar chart calculates non-negative
+differences from raw Total Water samples before summing them, so reset drops do
+not create negative usage or hide subsequent use. Its interval selector offers
+`15m`, `1h`, `6h`, `1d`, and `7d`, defaults to `1h`, and renders empty buckets
+as 0 L. The query whitelists those intervals and falls back to `1h` for unknown
+or stale values, such as `Auto` in an old bookmarked URL. The **Water used
+(selected range)** stat is computed from the same non-negative differences over
+the dashboard time range; the cumulative **Total since reset** panel is gone.
+The **Time since last watering** stat uses the last positive `total_water`
+difference within a fixed 30-day lookback. It deliberately ignores the
+dashboard time picker, so it remains meaningful for shorter selected ranges.
+Telegraf still ingests `flow_rate`, though
+no dashboard panel displays it, so the MQTT/InfluxDB schema table above remains
+unchanged. The **Errors and warnings** table only displays MQTT-originated events:
 
 - error: dry-run shutdown, reset `error_persistence`, and device `offline`;
 - warning: reset `rejected_pump_running`, `rejected_flow_active`, and
