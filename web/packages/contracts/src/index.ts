@@ -19,7 +19,7 @@ export type StateKind = "sensor" | "binary_sensor" | "switch" | "number" | "sele
 /** Entity kinds only — needed to parse `${kind}/${objectId}/state` topics. */
 export const entityKinds: Record<string, StateKind> = {
   battery_voltage: "sensor", battery_current: "sensor", battery_state_of_charge: "sensor", battery_consumed_ah: "sensor", battery_time_remaining: "sensor",
-  "ds18b20-1": "sensor", flow_rate: "sensor", total_water: "sensor",
+  flow_rate: "sensor", total_water: "sensor",
   cycle_minutes: "number", cycle_liters: "number", "pre-wet_percent": "number", flush_minutes: "number", min_flow: "number",
   cycle_mode: "select",
 };

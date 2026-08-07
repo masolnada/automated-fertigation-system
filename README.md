@@ -6,7 +6,7 @@ The browser dashboard and its server live in [`web/`](web/); deployment is self-
 
 ## Hardware
 
-- KinCony KC868-A8 v1.7 — ESP32 (WROOM-32), 8 relays and 8 digital inputs via PCF8574 I2C expanders, YF-B5 flow sensor on GPIO14 (sensor header S1), DS18B20 temperature on GPIO13 (S2)
+- KinCony KC868-A8 v1.7 — ESP32 (WROOM-32), 8 relays and 8 digital inputs via PCF8574 I2C expanders, YF-B5 flow sensor on GPIO14 (sensor header S1)
 - Vechline solar panel — 100Wp, 18.35V / 5.45A rated, 22.7V open circuit
 - Victron Energy MPPT 100|20 charge controller
 - LiFePO4 battery — 12V 8Ah (96Wh), BMS limits 8A charge / 10A discharge, charge temperature 0–55°C, 3000+ cycles

@@ -613,10 +613,6 @@ binary_sensor:
       number: 33
       inverted: true
 
-one_wire:
-  - platform: gpio
-    pin: GPIO13
-
 sensor:
   # The shunt broadcasts ~1/s; throttle publishing to every 5s.
   - platform: victron_ble
@@ -655,12 +651,6 @@ sensor:
   - platform: uptime
     name: "Uptime"
     update_interval: 30s
-  - platform: dallas_temp
-    # Replace with your own sensor's address — it is printed in the
-    # ESPHome logs on boot when a DS18B20 is connected to GPIO13 (S2).
-    address: 0x1c0000031edd2a28
-    name: "ds18b20-1"
-
   # YF-B5 flow sensor on GPIO14 (sensor header S1). 387.0 pulses per liter measured
   # (396 pulses per liter nominal).
   # Powered at 12V but its output is a stiff ~5V logic signal, dropped to ~3V
