@@ -1,6 +1,7 @@
 # Plaintext secrets — only the age-encrypted secrets.enc.yaml is committed
 /controller/secrets.yaml
 /dashboard/site/config.js
+/deploy/.env
 
 # ESPHome build files
 .esphome/

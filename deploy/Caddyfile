@@ -1,0 +1,21 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# Ingress shares the tailscale container's network namespace, so the client and
+# server are reachable on localhost (no Docker DNS needed). Only outbound name
+# that must resolve via Tailscale MagicDNS is the broker (homelab), used by
+# hort-server, not here.
+dashboard.safs.milverds.com {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+	}
+
+	# SSE needs immediate flushing; keep /api ahead of the static catch-all.
+	@api path /api/*
+	reverse_proxy @api localhost:4000 {
+		flush_interval -1
+	}
+
+	reverse_proxy localhost:8080
+}

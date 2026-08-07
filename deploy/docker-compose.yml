@@ -1,0 +1,110 @@
+services:
+  # Joins the tailnet as node "hort" and owns the network namespace that caddy,
+  # hort, and hort-server share. TS_ACCEPT_DNS makes MagicDNS names (homelab)
+  # resolve inside that namespace; non-tailnet lookups fall through to the
+  # upstream resolvers. Persistent state means restarts reuse the node without
+  # re-consuming the (single-use) auth key.
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: hort-tailscale
+    hostname: hort
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTHKEY}
+      - TS_HOSTNAME=hort
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_ACCEPT_DNS=true
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    networks:
+      - hort_net
+    healthcheck:
+      test: ["CMD", "tailscale", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  # TLS (Cloudflare DNS-01) + path-split. Reachable only over Tailscale because
+  # it lives in the tailscale namespace, never on the VLAN.
+  caddy:
+    build: .
+    container_name: hort-caddy
+    restart: unless-stopped
+    network_mode: service:tailscale
+    depends_on:
+      tailscale:
+        condition: service_healthy
+    environment:
+      - ACME_EMAIL=${ACME_EMAIL}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  # Static dashboard (Caddy file_server on :8080). Independently deployable:
+  # `docker compose up -d --build hort`.
+  hort:
+    build:
+      context: ../web
+      dockerfile: apps/dashboard/Containerfile.caddy
+    container_name: hort
+    restart: unless-stopped
+    network_mode: service:tailscale
+    depends_on:
+      tailscale:
+        condition: service_healthy
+
+  # Express-on-Bun, the only MQTT client. Reaches the broker over Tailscale
+  # MagicDNS (mqtt://homelab:1883). Independently deployable:
+  # `docker compose up -d --build hort-server`.
+  hort-server:
+    build:
+      context: ../web
+      dockerfile: apps/server/Containerfile
+    container_name: hort-server
+    restart: unless-stopped
+    network_mode: service:tailscale
+    depends_on:
+      tailscale:
+        condition: service_healthy
+    environment:
+      - MQTT_URL=mqtt://homelab:1883
+      - MQTT_USERNAME=${MQTT_USERNAME}
+      - MQTT_PASSWORD=${MQTT_PASSWORD}
+      - MQTT_PREFIX=kc868-a8
+      - PORT=4000
+
+  # Restart the namespace-sharers when tailscale restarts: a new tailscale
+  # container means a new netns they must rejoin.
+  caddy-watcher:
+    image: docker:cli
+    container_name: hort-caddy-watcher
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - tailscale
+    command:
+      - sh
+      - -c
+      - |
+        docker events --filter "container=hort-tailscale" --filter "event=start" |
+        while read event; do
+          until [ "$$(docker inspect --format '{{.State.Health.Status}}' hort-tailscale)" = "healthy" ]; do
+            sleep 2
+          done
+          docker restart hort-caddy hort hort-server
+        done
+
+volumes:
+  tailscale_state:
+  caddy_data:
+  caddy_config:
+
+networks:
+  hort_net:
