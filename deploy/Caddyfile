@@ -9,6 +9,10 @@
 dashboard.safs.milverds.com {
 	tls {
 		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+		# Check propagation against milverds.com's authoritative NS directly
+		# (avoids recursive-resolver caching stalls on the DNS-01 TXT record).
+		resolvers nina.ns.cloudflare.com randy.ns.cloudflare.com
+		propagation_delay 60s
 	}
 
 	# SSE needs immediate flushing; keep /api ahead of the static catch-all.

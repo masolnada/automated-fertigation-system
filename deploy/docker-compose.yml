@@ -16,7 +16,6 @@ services:
       - TS_AUTHKEY=${TAILSCALE_AUTHKEY}
       - TS_HOSTNAME=hort
       - TS_STATE_DIR=/var/lib/tailscale
-      - TS_ACCEPT_DNS=true
     volumes:
       - tailscale_state:/var/lib/tailscale
       - /dev/net/tun:/dev/net/tun
@@ -59,8 +58,35 @@ services:
       tailscale:
         condition: service_healthy
 
-  # Express-on-Bun, the only MQTT client. Reaches the broker over Tailscale
-  # MagicDNS (mqtt://homelab:1883). Independently deployable:
+  # Dedicated fertigation broker. Host-published on 1883 for the KC868-A8
+  # controller (VLAN 20); hort-server reaches it as mosquitto:1883 over the
+  # tailscale container's Docker DNS (both share hort_net's view).
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: hort-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    environment:
+      - MQTT_USERNAME=${MQTT_USERNAME}
+      - MQTT_PASSWORD=${MQTT_PASSWORD}
+    # Render the password file from the env at start (the image has no env
+    # substitution of its own). Shell vars written $$VAR so compose passes them
+    # through instead of interpolating.
+    command: >
+      sh -c 'rm -f /mosquitto/passwd
+      && mosquitto_passwd -c -b /mosquitto/passwd "$$MQTT_USERNAME" "$$MQTT_PASSWORD"
+      && chown mosquitto:mosquitto /mosquitto/passwd
+      && chmod 0600 /mosquitto/passwd
+      && exec mosquitto -c /mosquitto/config/mosquitto.conf'
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+    networks:
+      - hort_net
+
+  # Express-on-Bun, the only MQTT client. Reaches the dedicated broker in-compose
+  # as mosquitto:1883 (Docker DNS, no hardcoded IP). Independently deployable:
   # `docker compose up -d --build hort-server`.
   hort-server:
     build:
@@ -72,8 +98,10 @@ services:
     depends_on:
       tailscale:
         condition: service_healthy
+      mosquitto:
+        condition: service_started
     environment:
-      - MQTT_URL=mqtt://homelab:1883
+      - MQTT_URL=mqtt://mosquitto:1883
       - MQTT_USERNAME=${MQTT_USERNAME}
       - MQTT_PASSWORD=${MQTT_PASSWORD}
       - MQTT_PREFIX=kc868-a8
@@ -105,6 +133,7 @@ volumes:
   tailscale_state:
   caddy_data:
   caddy_config:
+  mosquitto_data:
 
 networks:
   hort_net:
