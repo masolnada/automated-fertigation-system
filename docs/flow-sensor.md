@@ -63,7 +63,7 @@ Yellow (~5V) ──[ 2.2kΩ ]──┬── S1 (GPIO14)
 > [!NOTE]
 > **If you later add a DS18B20 temperature sensor, wire it to S2 (GPIO13), not
 > S1** — the flow sensor took over S1/GPIO14, so the DS18B20 was moved to
-> S2/GPIO13 in firmware. The address in `kc868-a8.yaml` (`0x1c…`) is a
+> S2/GPIO13 in firmware. The address in `controller/kc868-a8.yaml` (`0x1c…`) is a
 > placeholder: connect the sensor, read its real address from the boot logs,
 > and swap it in.
 

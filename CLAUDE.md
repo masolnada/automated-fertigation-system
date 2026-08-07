@@ -8,9 +8,11 @@ React/TypeScript and Tailwind/CSS custom properties.
 
 ## Repo notes
 
-- ESPHome config for a KinCony KC868-A8 fertigation controller; see README.md.
+- ESPHome config for a KinCony KC868-A8 fertigation controller lives in
+  `controller/kc868-a8.yaml`; see README.md.
 - No local ESPHome install: use `../my-esphome/.venv/bin/esphome`.
-- Secrets: plaintext `secrets.yaml` is gitignored; committed artifact is the
-  age-encrypted `secrets.enc.yaml` (recipient in `.age-recipients`).
+- Secrets: plaintext `controller/secrets.yaml` is gitignored; committed artifact
+  is the age-encrypted `controller/secrets.enc.yaml` (recipient in
+  `controller/.age-recipients`).
 - The dashboard ships as a generic nginx build artifact; compose/vhost/env wiring
   lives in the separate homelab repo (snippets in `web/README.md`).

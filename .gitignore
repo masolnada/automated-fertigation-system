@@ -1,9 +1,9 @@
 # Plaintext secrets — only the age-encrypted secrets.enc.yaml is committed
-/secrets.yaml
+/controller/secrets.yaml
 /dashboard/site/config.js
 
 # ESPHome build files
-/.esphome/
+.esphome/
 
 /.vscode
 

@@ -70,7 +70,7 @@ Pump and valve relays use `restore_mode: ALWAYS_OFF`: after a power loss everyth
 
 ## Automation
 
-One automation exists: the irrigation sequence (`script: irrigation_sequence` in `kc868-a8.yaml`). Started by button or MQTT, it runs three phases and shuts everything down by itself — there is no state in which the sequence ends with the pump running.
+One automation exists: the irrigation sequence (`script: irrigation_sequence` in `controller/kc868-a8.yaml`). Started by button or MQTT, it runs three phases and shuts everything down by itself — there is no state in which the sequence ends with the pump running.
 
 | Phase | Duration | Pump | Fertigation valve | Clean water valve | Purpose |
 |---|---|---|---|---|---|
@@ -114,11 +114,13 @@ A physical button on the board also starts/stops irrigation with no WiFi or MQTT
 
 ## Layout
 
+The firmware and its secrets are self-contained under `controller/`:
+
 ```
-kc868-a8.yaml       # device config
-secrets.yaml        # plaintext secrets (gitignored)
-secrets.enc.yaml    # age-encrypted secrets (committed)
-.age-recipients     # age public key, derived from ~/.ssh/id_dev
+controller/kc868-a8.yaml       # device config
+controller/secrets.yaml        # plaintext secrets (gitignored)
+controller/secrets.enc.yaml    # age-encrypted secrets (committed)
+controller/.age-recipients     # age public key, derived from ~/.ssh/id_dev
 ```
 
 Secrets follow the same scheme as [my-esphome](https://github.com/masolnada/my-esphome) and hold the same values.
@@ -128,19 +130,19 @@ Secrets follow the same scheme as [my-esphome](https://github.com/masolnada/my-e
 Decrypt the secrets:
 
 ```bash
-age --decrypt --identity ~/.ssh/id_dev --output secrets.yaml secrets.enc.yaml
+age --decrypt --identity ~/.ssh/id_dev --output controller/secrets.yaml controller/secrets.enc.yaml
 ```
 
-After editing `secrets.yaml`, re-encrypt and commit:
+After editing `controller/secrets.yaml`, re-encrypt and commit:
 
 ```bash
-age --encrypt -R .age-recipients -o secrets.enc.yaml secrets.yaml
+age --encrypt -R controller/.age-recipients -o controller/secrets.enc.yaml controller/secrets.yaml
 ```
 
 This repo has no ESPHome install of its own; use the venv from `../my-esphome`:
 
 ```bash
-../my-esphome/.venv/bin/esphome config kc868-a8.yaml
+../my-esphome/.venv/bin/esphome config controller/kc868-a8.yaml
 ```
 
 ## Flashing
@@ -150,7 +152,7 @@ This repo has no ESPHome install of its own; use the venv from `../my-esphome`:
 The device answers at `kc868-a8.local` (10.0.20.160):
 
 ```bash
-../my-esphome/.venv/bin/esphome run kc868-a8.yaml --device kc868-a8.local
+../my-esphome/.venv/bin/esphome run controller/kc868-a8.yaml --device kc868-a8.local
 ```
 
 ### USB (first flash or broken OTA)
@@ -170,7 +172,7 @@ USB flashing must run natively. The ESPHome container is useless here: Podman on
 3. Flash:
 
    ```bash
-   ../my-esphome/.venv/bin/esphome run kc868-a8.yaml --device /dev/cu.usbserial-XXXXXX
+   ../my-esphome/.venv/bin/esphome run controller/kc868-a8.yaml --device /dev/cu.usbserial-XXXXXX
    ```
 
 The board has auto-reset circuitry: no manual bootloader mode (GPIO0 to GND) is required, unlike the Shelly boards in my-esphome.
@@ -178,5 +180,5 @@ The board has auto-reset circuitry: no manual bootloader mode (GPIO0 to GND) is 
 ## Logs
 
 ```bash
-../my-esphome/.venv/bin/esphome logs kc868-a8.yaml --device kc868-a8.local
+../my-esphome/.venv/bin/esphome logs controller/kc868-a8.yaml --device kc868-a8.local
 ```

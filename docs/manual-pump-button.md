@@ -7,7 +7,7 @@ even when nothing else is reachable.
 ## Behaviour
 
 The button toggles between two states via the `manual_pump_toggle` script
-(`kc868-a8.yaml`):
+(`controller/kc868-a8.yaml`):
 
 | Press | Pump was | Action |
 |---|---|---|
