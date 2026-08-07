@@ -12,3 +12,6 @@
 /web/**/node_modules/
 /web/**/dist/
 /web/.env
+
+# SQLite dev database (WAL/SHM sidecars included)
+/web/apps/server/data/

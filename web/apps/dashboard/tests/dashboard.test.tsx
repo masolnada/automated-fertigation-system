@@ -19,7 +19,7 @@ beforeEach(() => {
   calls = []; responders = {};
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const name = String(input).split("/").pop()!;
-    calls.push({ name, body: init?.body ? JSON.parse(String(init.body)) : {} });
+    if (init?.method === "POST") calls.push({ name, body: init?.body ? JSON.parse(String(init.body)) : {} });
     return responders[name] ? responders[name]!() : json({ ok: true }, 202);
   }) as typeof fetch;
 });

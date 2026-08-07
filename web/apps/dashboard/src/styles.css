@@ -9,5 +9,5 @@ h1 { font-size: 1.5rem; font-weight: 900; text-transform: uppercase; letter-spac
 .subtitle { display: block; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; }
 main { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; padding: 2rem 1.5rem 4rem; max-width: 1100px; margin: 0 auto; }
 .card-irrigation, .card-relays { grid-row: span 2; }
-.card-log { grid-column: 1 / -1; }
+.card-watering, .card-log { grid-column: 1 / -1; }
 @media (max-width: 640px) { header { padding: 0 1rem; margin-top: 1rem; } .pill-nav { gap: 0.8rem; padding: 0.8rem 1rem; } .subtitle, #broker-status { display: none; } main { padding: 1.5rem 1rem 3rem; gap: 1.25rem; } }

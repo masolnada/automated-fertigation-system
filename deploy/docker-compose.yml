@@ -106,6 +106,9 @@ services:
       - MQTT_PASSWORD=${MQTT_PASSWORD}
       - MQTT_PREFIX=kc868-a8
       - PORT=4000
+      - DB_PATH=/data/hort.db
+    volumes:
+      - hort_db:/data
 
   # Restart the namespace-sharers when tailscale restarts: a new tailscale
   # container means a new netns they must rejoin.
@@ -134,6 +137,7 @@ volumes:
   caddy_data:
   caddy_config:
   mosquitto_data:
+  hort_db:
 
 networks:
   hort_net:

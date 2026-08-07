@@ -36,6 +36,14 @@ Whether a Total Water reset is currently allowed (`resetIneligibleReason`). The
 server is the enforcing authority; the client keeps the same check only to dim
 the affordance.
 
+**Watering event**:
+One pump-on span — pump start to pump stop — however it was triggered
+(dashboard sequence, MQTT, or the manual button) or stopped (sequence
+completion, automation, or abort). The sequence's brief intra-handover pump-off
+gaps are absorbed by a ~30s debounce, so one sequence is one event. Recorded to
+SQLite with its litres delivered.
+_Avoid_: irrigation run, cycle, watering session.
+
 **e-ink theme**:
 The single shipped visual theme, driving the hard design constraints (no motion,
 no rounded corners, no shadows, no gradients). Governed by

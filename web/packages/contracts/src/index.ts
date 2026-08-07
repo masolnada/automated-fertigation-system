@@ -32,6 +32,19 @@ export type ResetResult =
   | "rejected_flow_unknown"
   | "error_persistence";
 
+// A watering event: one pump-on span (any trigger/stop), coalesced across the
+// sequence's intra-handover pump-off gaps. `endedAt` is null while the event is
+// open; `litresDelivered`/`peakFlow`/`avgFlow` are null until it is finalized.
+// `startedAt`/`endedAt` are ISO strings on the wire.
+export type WateringEvent = {
+  id: number;
+  startedAt: string;
+  endedAt: string | null;
+  litresDelivered: number | null;
+  peakFlow: number | null;
+  avgFlow: number | null;
+};
+
 // Command names (URL segment under POST /api/commands/<name>) and their request bodies.
 export type ValveSelection = "" | "clean_water_valve" | "fertigation_valve";
 export type CycleMode = "Time" | "Volume";

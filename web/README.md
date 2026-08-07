@@ -6,8 +6,10 @@ It owns all device communication, keeps an in-memory snapshot, streams it to the
 browser over SSE, and accepts commands over HTTP.
 
 - `apps/server`: Express on Bun — the only MQTT client (DDD / hexagonal). Owns
-  device I/O, the read model, SSE (`GET /api/stream`), and command endpoints
-  (`POST /api/commands/*`).
+  device I/O, the read model, SSE (`GET /api/stream`), command endpoints
+  (`POST /api/commands/*`), and watering-event history in SQLite via Drizzle
+  (`GET /api/watering-events`). See
+  [ADR-0008](docs/adr/0008-watering-events-sqlite-repository.md).
 - `apps/dashboard`: React/TypeScript static app. Consumes SSE via
   `useSyncExternalStore` and issues commands with react-query `useMutation`.
 - `packages/contracts`: shared wire types (`@hort/contracts`).
@@ -40,6 +42,7 @@ These are read by `apps/server` at boot and are **never** sent to the browser.
 | `MQTT_PASSWORD` | MQTT password |
 | `MQTT_PREFIX` | Device topic prefix (normally `kc868-a8`) |
 | `PORT` | Express server port (default `4000`) |
+| `DB_PATH` | SQLite file for watering-event history (default `./data/hort.db`) |
 
 ## Deployment
 

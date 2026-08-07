@@ -12,3 +12,4 @@ in 1–3 sentences. See [../../CONTEXT.md](../../CONTEXT.md) for the glossary.
 | [0005](0005-contracts-vs-display-split.md) | Wire types are shared; display metadata stays client-side |
 | [0006](0006-synchronous-guarded-reset.md) | Total Water reset is a synchronous HTTP command |
 | [0007](0007-two-container-deployment.md) | Two-container deployment: nginx static + Express server |
+| [0008](0008-watering-events-sqlite-repository.md) | Watering events in SQLite (Drizzle) behind a repository port |

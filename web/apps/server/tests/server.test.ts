@@ -29,7 +29,7 @@ async function waitFor(predicate: () => boolean, timeout = 2000) { const start =
 
 async function start(resetTimeoutMs = 300): Promise<Harness> {
   const controller = new Controller();
-  const device = new MqttDevice({ brokerUrl, username: "", password: "", prefix, port: 0 }, controller);
+  const device = new MqttDevice({ brokerUrl, username: "", password: "", prefix, port: 0, dbPath: ":memory:" }, controller);
   const ctx: Context = { device, controller, resetTimeoutMs };
   const app = createApp(ctx);
   const http = app.listen(0);

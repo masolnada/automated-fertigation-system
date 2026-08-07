@@ -10,5 +10,6 @@ export function dispatchCommand(ctx: Context, name: string, body: unknown): unkn
 
 export const isCommandName = (name: string): name is CommandName => name in handlers;
 
-/** The single query. */
+/** Queries. */
 export const getSnapshot = (ctx: Context) => ctx.controller.getSnapshot();
+export const getWateringEvents = (ctx: Context) => ctx.wateringEvents?.recent(100) ?? [];

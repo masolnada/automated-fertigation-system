@@ -1,6 +1,6 @@
 import type { CommandBodies, ResetResult } from "@hort/contracts";
 import type { Controller } from "../domain/controller";
-import type { DevicePort } from "../domain/ports";
+import type { DevicePort, WateringEventRepository } from "../domain/ports";
 import { canReset, inRange, ranges, resetIneligibleReason, type RangeId } from "../domain/policies";
 import { topics } from "../domain/topics";
 
@@ -12,7 +12,7 @@ export class CommandError extends Error {
 export type ResetOutcome = { result: ResetResult | "timeout" };
 export const RESET_TIMEOUT_MS = 10_000;
 
-export type Context = { device: DevicePort; controller: Controller; resetTimeoutMs?: number };
+export type Context = { device: DevicePort; controller: Controller; wateringEvents?: WateringEventRepository; resetTimeoutMs?: number };
 
 function numberBody(body: unknown): number {
   const value = (body as { value?: unknown })?.value;

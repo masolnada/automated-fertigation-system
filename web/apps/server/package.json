@@ -1,1 +1,1 @@
-{"name":"@hort/server","version":"0.0.0","private":true,"type":"module","scripts":{"start":"bun src/main.ts"},"dependencies":{"@hort/contracts":"workspace:*","express":"^5.2.1","mqtt":"^5.14.1"}}
+{"name":"@hort/server","version":"0.0.0","private":true,"type":"module","scripts":{"start":"bun src/main.ts","db:generate":"drizzle-kit generate"},"dependencies":{"@hort/contracts":"workspace:*","drizzle-orm":"^0.44.7","express":"^5.2.1","mqtt":"^5.14.1"},"devDependencies":{"drizzle-kit":"^0.31.5"}}
