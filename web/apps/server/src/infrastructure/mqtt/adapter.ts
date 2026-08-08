@@ -13,6 +13,7 @@ export class MqttDevice implements DevicePort {
   readonly prefix: string;
   private client: MqttClient;
   private resetListeners = new Set<(result: string) => void>();
+  private wateringLogListeners = new Set<(payload: string) => void>();
 
   constructor(config: Config, private controller: Controller) {
     this.prefix = config.prefix;
@@ -25,10 +26,13 @@ export class MqttDevice implements DevicePort {
 
   private onMessage(topic: string, payload: string): void {
     this.controller.message(this.prefix, topic, payload);
-    if (parseStateTopic(this.prefix, topic).type === "resetResult") this.resetListeners.forEach((listener) => listener(payload));
+    const type = parseStateTopic(this.prefix, topic).type;
+    if (type === "resetResult") this.resetListeners.forEach((listener) => listener(payload));
+    if (type === "wateringLog") this.wateringLogListeners.forEach((listener) => listener(payload));
   }
 
   publish(topic: string, payload: string, options?: { retain?: boolean }): void { this.client.publish(topic, payload, { retain: options?.retain ?? false }); }
   onResetResult(callback: (result: string) => void): () => void { this.resetListeners.add(callback); return () => { this.resetListeners.delete(callback); }; }
+  onWateringLog(callback: (payload: string) => void): () => void { this.wateringLogListeners.add(callback); return () => { this.wateringLogListeners.delete(callback); }; }
   close(): void { this.client.end(true); }
 }

@@ -32,17 +32,21 @@ export type ResetResult =
   | "rejected_flow_unknown"
   | "error_persistence";
 
-// A watering event: one pump-on span (any trigger/stop), coalesced across the
-// sequence's intra-handover pump-off gaps. `endedAt` is null while the event is
-// open; `litresDelivered`/`peakFlow`/`avgFlow` are null until it is finalized.
-// `startedAt`/`endedAt` are ISO strings on the wire.
+// A completed watering event, reported by the controller (the authoritative
+// source) and ingested by the server. `deviceId`+`seq` is the device-scoped
+// identity/dedup key. `startedAt`/`endedAt` are ISO strings on the wire.
+export type WateringOutcome = "completed" | "aborted" | "dry_run" | "recovery";
+export type WateringTrigger = "manual" | "sequence";
 export type WateringEvent = {
   id: number;
+  deviceId: string;
+  seq: number;
   startedAt: string;
-  endedAt: string | null;
-  litresDelivered: number | null;
-  peakFlow: number | null;
-  avgFlow: number | null;
+  endedAt: string;
+  litresDelivered: number;
+  outcome: WateringOutcome;
+  trigger: WateringTrigger;
+  channel: string | null;
 };
 
 // Command names (URL segment under POST /api/commands/<name>) and their request bodies.

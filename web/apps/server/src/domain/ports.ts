@@ -6,16 +6,26 @@ export interface DevicePort {
   publish(topic: string, payload: string, options?: { retain?: boolean }): void;
   /** Register a one-shot-style listener for `flow/reset_total/result`; returns an unsubscribe. */
   onResetResult(callback: (result: string) => void): () => void;
+  /** Register a listener for the retained `watering/log` payload; returns an unsubscribe. */
+  onWateringLog(callback: (payload: string) => void): () => void;
 }
+
+/** A watering event as reported by the controller, ready to persist. */
+export type IngestedWateringEvent = {
+  deviceId: string;
+  seq: number;
+  startedAt: Date;
+  endedAt: Date;
+  litresDelivered: number;
+  outcome: string;
+  trigger: string;
+  channel: string | null;
+};
 
 // Persistence for watering events, behind which the SQLite/Drizzle adapter lives.
 export interface WateringEventRepository {
-  /** Insert an open event at pump-on; returns its id. */
-  insertOpen(startedAt: Date, startTotalWater: number): number;
-  /** Close an event once the debounce confirms the pump stayed off. */
-  finalize(id: number, endedAt: Date, litresDelivered: number, peakFlow: number | null, avgFlow: number | null): void;
-  /** The most recent still-open event (for startup reconciliation), if any. */
-  openEvent(): { id: number; startTotalWater: number } | undefined;
+  /** Insert events, ignoring any whose `(deviceId, seq)` is already stored. */
+  ingest(events: IngestedWateringEvent[]): void;
   /** Recent events, newest first, for the read endpoint. */
   recent(limit: number): WateringEvent[];
 }
