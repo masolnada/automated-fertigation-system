@@ -37,12 +37,16 @@ server is the enforcing authority; the client keeps the same check only to dim
 the affordance.
 
 **Watering event**:
-One pump-on span — pump start to pump stop — however it was triggered
-(dashboard sequence, MQTT, or the manual button) or stopped (sequence
-completion, automation, or abort). The sequence's brief intra-handover pump-off
-gaps are absorbed by a ~30s debounce, so one sequence is one event. Recorded to
-SQLite with its litres delivered.
+One completed pump-on span reported by the controller, which is the authoritative
+source (see the controller glossary). The server does not detect events — it
+ingests the controller's log and dedups by `(device_id, seq)`, storing the
+device's wall-clock start/end, litres, outcome and trigger in SQLite.
 _Avoid_: irrigation run, cycle, watering session.
+
+**Ingest**:
+The server's one job for watering history: consume the retained `watering/log`,
+insert any event with an unseen `(device_id, seq)`, store the device's values
+verbatim. Not detection, not derivation.
 
 **e-ink theme**:
 The single shipped visual theme, driving the hard design constraints (no motion,

@@ -1,5 +1,10 @@
 # Watering events persisted in SQLite behind a repository port
 
+> **Status: partially superseded by [ADR-0009](0009-server-ingests-device-authoritative-events.md).**
+> The SQLite/Drizzle store behind a repository port stands. The server-side
+> pump-edge recorder and 30 s debounce described below are replaced by ingesting
+> the controller's own event log.
+
 The server records each watering event to a SQLite file via Drizzle
 (`drizzle-orm/bun-sqlite`, `sqlite` dialect) behind a `WateringEventRepository`
 port, so the domain stays storage-agnostic and the data is owned in-process to

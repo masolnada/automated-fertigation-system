@@ -13,3 +13,4 @@ in 1–3 sentences. See [../../CONTEXT.md](../../CONTEXT.md) for the glossary.
 | [0006](0006-synchronous-guarded-reset.md) | Total Water reset is a synchronous HTTP command |
 | [0007](0007-two-container-deployment.md) | Two-container deployment: nginx static + Express server |
 | [0008](0008-watering-events-sqlite-repository.md) | Watering events in SQLite (Drizzle) behind a repository port |
+| [0009](0009-server-ingests-device-authoritative-events.md) | Server ingests device-authoritative events (supersedes 0008's detector) |

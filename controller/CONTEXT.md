@@ -68,6 +68,23 @@ any other phase stops dead instead.
 Pump running with no water moving. Published to `flow/dry_run` on every watchdog
 trip.
 
+**Watering event**:
+One pump-on span, bracketed on-device by a `handover` flag so a sequence's
+deliberate mid-run pump toggles don't split it. Recorded only on completion, with
+an RTC wall-clock start/end, litres, outcome and trigger. The controller is the
+authoritative source; the server ingests, it does not detect.
+_Avoid_: irrigation run, cycle, watering session.
+
+**Watering event log**:
+The durable on-device ring buffer (ESP32 NVS, N=192) of the most recent watering
+events, published retained on `watering/log` for the server and per-event on
+`watering/event` for observability. Survives weeks offline and reboots.
+
+**Event seq**:
+The durable, monotonic sequence number stamped on each watering event. The
+server's dedup key; a gap in it tells the server exactly how many events rolled
+off the ring unseen.
+
 **Total Water**:
 Cumulative litres metered since the last reset. Persists across normal reboots;
 resetting it is irreversible and is written to preferences before success is

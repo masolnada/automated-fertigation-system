@@ -17,6 +17,9 @@ in 1–3 sentences: the context, what was decided, and why. See
 | [0008](0008-esp-idf-not-arduino.md) | ESP-IDF framework, not Arduino (BLE boot loop) |
 | [0009](0009-smartshunt-passive-ble-monitoring-only.md) | SmartShunt is read passively over encrypted BLE, monitoring only |
 | [0010](0010-power-path-external-constraints.md) | The power path is bounded by operator-set constraints |
+| [0011](0011-watering-log-in-nvs-not-eeprom.md) | The on-device watering-event log lives in ESP32 NVS, not the AT24C32 EEPROM |
+| [0012](0012-device-authoritative-watering-log.md) | The controller is the authoritative source of watering events |
+| [0013](0013-ds3231-rtc-for-offline-timestamps.md) | A DS3231 RTC provides wall-clock time for offline event timestamps |
 
 If a decision is reversed, add a new ADR that supersedes the old one rather than
 editing history.
