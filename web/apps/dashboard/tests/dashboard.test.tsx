@@ -93,13 +93,15 @@ describe("commands", () => {
     expect(calls).toHaveLength(0);
     await waitFor(() => expect(calls).toEqual([{ name: "set-flush-duration", body: { value: 7 } }]));
   });
-  test("pre-wet slider posts on release", async () => {
+  test("pre-wet preset posts immediately", async () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), "pre-wet_percent": entity(20) } }));
-    const slider = screen.getByRole("slider", { name: "Pre-wet Percent" });
-    fireEvent.change(slider, { target: { value: "35" } });
-    expect(calls).toHaveLength(0);
-    fireEvent.pointerUp(slider);
-    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "set-pre-wet-percent", body: { value: 35 } }));
+    fireEvent.click(screen.getByRole("button", { name: "25%" }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "set-pre-wet-percent", body: { value: 25 } }));
+  });
+  test("only offers Stop while irrigation is running", () => {
+    renderApp(seeded({ entities: { ...eligibleEntities(), irrigation_running: entity("ON") } }));
+    expect(screen.getByRole("button", { name: "Stop irrigation" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Start irrigation" })).toBeNull();
   });
   test("Escape closes the menu before the dialog", async () => {
     renderApp(seeded());

@@ -10,12 +10,16 @@ The goal is absolute high-contrast legibility, zero layout shift, and minimal sc
 
 | Principle | Guideline | Why? |
 | :--- | :--- | :--- |
-| **Strict Monochrome** | Only pure black and pure white. A single mid-tone gray is allowed only for secondary borders or dividing lines. **Danger Red (`#B00020`) is the sole semantic colour exception.** | E-ink screens have limited grayscale levels. Gradients look muddy and pixelated. |
+| **Strict Monochrome** | Only pure black and pure white. A single mid-tone gray is allowed only for secondary borders or dividing lines. **Action Blue (`#9FD8F3`) and Danger Red (`#B00020`) are the only semantic colour exceptions.** | E-ink screens have limited grayscale levels. Gradients look muddy and pixelated. |
 | **Zero Animation** | Disable all transitions, transforms, scrolling effects, and animations. | Screen refresh rates are too slow. Moving elements cause severe flickering and screen ghosting. |
 | **Sharp Geometry** | Use sharp, 90-degree corners for all containers. Avoid rounded corners. | Round, anti-aliased edges look fuzzy on low-DPI paper displays. |
 | **Negative Space** | Maintain generous, consistent padding around the screen edges and wide gaps between content blocks. | Prevents visual clutter, making the physical screen look like structured paper. |
 
 ---
+
+### Action semantics
+
+`#9FD8F3` is reserved for the one primary, affirmative action on a surface: for example, **Start irrigation**. Pair it with a direct verb label, black text, and a black border. Do not use it for status, decorative elements, secondary controls, or more than one action in the same control group.
 
 ### Danger semantics
 

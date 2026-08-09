@@ -1,7 +1,7 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
-@theme { --color-ink: #000; --color-paper: #fff; --color-gray: #808080; --color-danger: #B00020; --font-ui: system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; --font-num: ui-monospace,"SF Mono",Menlo,Consolas,monospace; --border-heavy-width: 3px; --border-light-width: 2px; --divider-width: 2px; }
+@theme { --color-ink: #000; --color-paper: #fff; --color-gray: #808080; --color-action: #9FD8F3; --color-danger: #B00020; --font-ui: system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; --font-num: ui-monospace,"SF Mono",Menlo,Consolas,monospace; --border-heavy-width: 3px; --border-light-width: 2px; --divider-width: 2px; }
 * { box-sizing: border-box; animation: none !important; transition: none !important; border-radius: 0 !important; box-shadow: none !important; }
 :focus-visible { outline: 3px solid var(--color-ink); outline-offset: 3px; }
 html { scroll-behavior: auto; }
