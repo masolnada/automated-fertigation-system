@@ -14,8 +14,8 @@ export interface DevicePort {
 export type IngestedWateringEvent = {
   deviceId: string;
   seq: number;
-  startedAt: Date;
-  endedAt: Date;
+  startedAt: Date | null;
+  endedAt: Date | null;
   litresDelivered: number;
   outcome: string;
   trigger: string;

@@ -56,6 +56,14 @@ describe("WateringIngester", () => {
     expect(repo.recent(10)).toHaveLength(2);
   });
 
+  test("stores epoch-0 (device clock not set) as null timestamps", () => {
+    emit(log([event(1, { start: 0, end: 0 })]));
+    const row = repo.recent(10)[0]!;
+    expect(row.startedAt).toBeNull();
+    expect(row.endedAt).toBeNull();
+    expect(row.litresDelivered).toBeCloseTo(12.4, 5);
+  });
+
   test("skips malformed payloads and invalid events without throwing", () => {
     emit("not json");
     emit(JSON.stringify({ device: "kc868-a8" })); // no events

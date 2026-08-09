@@ -112,7 +112,8 @@ switch:
             id(event_open) = true;
             id(event_seq) = g_watering_log.next_seq;
             g_watering_log.next_seq++;
-            id(event_start_epoch) = (uint32_t) id(rtc_time).now().timestamp;
+            // 0 is the "clock not set" sentinel; the server stores it as null.
+            id(event_start_epoch) = id(rtc_time).now().is_valid() ? (uint32_t) id(rtc_time).now().timestamp : 0;
             id(event_start_l) = id(water_total_l);
             id(event_trigger) = id(next_trigger);
             id(pending_outcome) = 0;
@@ -124,7 +125,7 @@ switch:
             WateringRecord r;
             r.seq = id(event_seq);
             r.start = id(event_start_epoch);
-            r.end = (uint32_t) id(rtc_time).now().timestamp;
+            r.end = id(rtc_time).now().is_valid() ? (uint32_t) id(rtc_time).now().timestamp : 0;
             double dl = id(water_total_l) - id(event_start_l);
             r.litres = dl < 0 ? 0.0f : (float) dl;
             r.outcome = id(pending_outcome);

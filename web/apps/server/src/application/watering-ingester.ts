@@ -49,11 +49,13 @@ export class WateringIngester {
     if (!Number.isFinite(litres)) return null;
     if (typeof outcome !== "string" || !OUTCOMES.has(outcome)) return null;
     if (typeof trigger !== "string" || !TRIGGERS.has(trigger)) return null;
+    // 0 is the device's "clock not set" sentinel (no RTC, no network) -> unknown time.
+    const epoch = (value: number): Date | null => (value > 0 ? new Date(value * 1000) : null);
     return {
       deviceId,
       seq: seq as number,
-      startedAt: new Date((start as number) * 1000),
-      endedAt: new Date((end as number) * 1000),
+      startedAt: epoch(start as number),
+      endedAt: epoch(end as number),
       litresDelivered: litres as number,
       outcome,
       trigger,

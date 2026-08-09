@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c869f14b-7ebe-468d-88ac-51337f315f88",
+  "id": "893f4080-cd86-4349-9ad6-573fd066a8de",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "watering_events": {
@@ -32,14 +32,14 @@
           "name": "started_at",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "ended_at": {
           "name": "ended_at",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "litres_delivered": {

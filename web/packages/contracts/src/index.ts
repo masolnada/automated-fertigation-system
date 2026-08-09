@@ -34,15 +34,16 @@ export type ResetResult =
 
 // A completed watering event, reported by the controller (the authoritative
 // source) and ingested by the server. `deviceId`+`seq` is the device-scoped
-// identity/dedup key. `startedAt`/`endedAt` are ISO strings on the wire.
+// identity/dedup key. `startedAt`/`endedAt` are ISO strings, or null when the
+// controller had no valid clock (no RTC and no network) at capture time.
 export type WateringOutcome = "completed" | "aborted" | "dry_run" | "recovery";
 export type WateringTrigger = "manual" | "sequence";
 export type WateringEvent = {
   id: number;
   deviceId: string;
   seq: number;
-  startedAt: string;
-  endedAt: string;
+  startedAt: string | null;
+  endedAt: string | null;
   litresDelivered: number;
   outcome: WateringOutcome;
   trigger: WateringTrigger;
