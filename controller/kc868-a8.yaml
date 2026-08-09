@@ -45,9 +45,12 @@ i2c:
   scan: true
   id: bus_a
 
-# Wall-clock for watering-event timestamps. The DS3231 (ADR-0013) keeps time
+# Wall-clock for watering-event timestamps. A DS3231 (ADR-0013) keeps time
 # across field power-cycles with no network; SNTP corrects it and writes back
-# whenever WiFi is available.
+# whenever WiFi is available. The chip is a DS3231, but ESPHome has no native
+# DS3231 driver, so it is driven by the `ds1307` platform: the DS3231's
+# timekeeping registers (0x00-0x06 at 0x68) are byte-identical to the DS1307's.
+# The DS3231's extras (temp-compensated oscillator, alarms, temperature) are unused.
 time:
   - platform: sntp
     id: sntp_time

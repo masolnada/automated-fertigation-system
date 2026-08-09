@@ -3,10 +3,11 @@
 Watering events need real timestamps, but the board has no clock — an ESP32 with
 no `time:` platform knows only uptime, and SNTP needs internet the controller
 usually lacks in the field. A battery-backed **DS3231** on the existing I2C bus
-(0x68, ESPHome `ds1307` platform — the DS3231's timekeeping registers are
-DS1307-compatible) keeps true wall-clock across the field power-cycles that a
-solar/battery rig suffers, so every event gets an accurate date even after weeks
-offline. SNTP is also configured and **writes back** to the RTC whenever the
+(0x68) keeps true wall-clock across the field power-cycles that a solar/battery
+rig suffers, so every event gets an accurate date even after weeks offline.
+ESPHome (2025.11) has no native DS3231 driver, so it is driven by the `ds1307`
+platform — the DS3231's timekeeping registers are byte-identical to the DS1307's;
+its temperature-compensated oscillator, alarms and temperature sensor go unused. SNTP is also configured and **writes back** to the RTC whenever the
 controller is home with WiFi.
 
 ## Considered options
