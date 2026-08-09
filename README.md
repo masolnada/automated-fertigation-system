@@ -149,7 +149,7 @@ This repo has no ESPHome install of its own; use the venv from `../my-esphome`:
 
 ### OTA (normal case)
 
-The device answers at `kc868-a8.local` (10.0.20.160):
+The device answers at `kc868-a8.local` (currently 10.0.20.70, DHCP-assigned):
 
 ```bash
 ../my-esphome/.venv/bin/esphome run controller/kc868-a8.yaml --device kc868-a8.local
