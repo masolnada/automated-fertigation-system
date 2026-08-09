@@ -20,6 +20,7 @@ in 1–3 sentences: the context, what was decided, and why. See
 | [0011](0011-watering-log-in-nvs-not-eeprom.md) | The on-device watering-event log lives in ESP32 NVS, not the AT24C32 EEPROM |
 | [0012](0012-device-authoritative-watering-log.md) | The controller is the authoritative source of watering events |
 | [0013](0013-ds3231-rtc-for-offline-timestamps.md) | A DS3231 RTC provides wall-clock time for offline event timestamps |
+| [0014](0014-esphome-coupled-feature-headers.md) | Feature logic lives in ESPHome-coupled headers, not pure/testable cores |
 
 If a decision is reversed, add a new ADR that supersedes the old one rather than
 editing history.

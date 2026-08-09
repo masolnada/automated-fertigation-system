@@ -9,7 +9,10 @@ esphome:
   name: kc868-a8
   friendly_name: Automated Fertigation System
   includes:
-    - watering_log.h
+    - features/watering_log.h
+    - features/watering_events.h
+    - features/reset.h
+    - features/watchdog.h
   on_boot:
     priority: -100
     then:
@@ -106,42 +109,9 @@ switch:
       mode: OUTPUT
       inverted: true
     on_turn_on:
-      - lambda: |-
-          id(pump_on_since_ms) = millis();
-          id(low_flow_secs) = 0;
-          // Open a watering event on the first pump-on; a mid-sequence handover
-          // (pump toggles off then on) leaves the event open, so this is a no-op then.
-          if (!id(event_open)) {
-            id(event_open) = true;
-            id(event_seq) = g_watering_log.next_seq;
-            g_watering_log.next_seq++;
-            // 0 is the "clock not set" sentinel; the server stores it as null.
-            id(event_start_epoch) = id(rtc_time).now().is_valid() ? (uint32_t) id(rtc_time).now().timestamp : 0;
-            id(event_start_l) = id(water_total_l);
-            id(event_trigger) = id(next_trigger);
-            id(pending_outcome) = 0;
-          }
+      - lambda: 'watchdog_arm(); watering_event_pump_on();'
     on_turn_off:
-      - lambda: |-
-          // Close the event on any real pump-off; a handover pump-off is skipped.
-          if (id(event_open) && !id(pump_handover)) {
-            WateringRecord r;
-            r.seq = id(event_seq);
-            r.start = id(event_start_epoch);
-            r.end = id(rtc_time).now().is_valid() ? (uint32_t) id(rtc_time).now().timestamp : 0;
-            double dl = id(water_total_l) - id(event_start_l);
-            r.litres = dl < 0 ? 0.0f : (float) dl;
-            r.outcome = id(pending_outcome);
-            r.trigger = id(event_trigger);
-            r.channel = 0;
-            watering_log_append(g_watering_log, r);
-            id(event_open) = false;
-            watering_log_save();
-            std::string ev = watering_record_json(App.get_name().c_str(), r);
-            std::string lg = watering_log_json(App.get_name().c_str(), g_watering_log);
-            mqtt::global_mqtt_client->publish("kc868-a8/watering/log", lg, 0, true);
-            mqtt::global_mqtt_client->publish("kc868-a8/watering/event", ev, 0, false);
-          }
+      - lambda: 'watering_event_pump_off();'
   # Both valves may be open at once: the manual button opens both so a
   # downstream mechanical valve selects the source. The mutual-exclusion
   # interlock is therefore removed; the irrigation_sequence still opens only
@@ -301,28 +271,14 @@ globals:
     type: double
     restore_value: yes
     initial_value: "0"
-  # millis() at the last pump turn-on; drives the 15 s priming grace.
-  - id: pump_on_since_ms
-    type: uint32_t
-    restore_value: no
-    initial_value: "0"
-  # Consecutive seconds of low flow while armed; the 3 s confirm window.
-  - id: low_flow_secs
-    type: int
-    restore_value: no
-    initial_value: "0"
   # Last observed cumulative pulse count, to compute per-cycle deltas.
   - id: last_total_pulses
     type: double
     restore_value: no
     initial_value: "0"
-  # Carries the explicit preference-sync result between reset actions.
-  - id: reset_persistence_ok
-    type: bool
-    restore_value: no
-    initial_value: "false"
   # Which phase the sequence is in: 0 idle, 1 pre-wet, 2 fertigation, 3 flush.
-  # Drives the phase-aware watchdog escape.
+  # Written by the sequence (YAML), read by the watchdog (watchdog.h) — shared
+  # across a YAML feature and a header feature, so it stays an ESPHome global.
   - id: current_phase
     type: int
     restore_value: no
@@ -333,44 +289,11 @@ globals:
     type: double
     restore_value: no
     initial_value: "0"
-  # --- Watering-event log (device-authoritative; controller ADR-0012) ---
-  # The ring buffer itself lives in watering_log.h (g_watering_log), persisted to
-  # NVS (ADR-0011). These are the RAM-only working state for the currently-open event.
-  - id: event_open
-    type: bool
-    restore_value: no
-    initial_value: "false"
-  - id: event_seq
-    type: uint32_t
-    restore_value: no
-    initial_value: "0"
-  - id: event_start_epoch
-    type: uint32_t
-    restore_value: no
-    initial_value: "0"
-  - id: event_start_l
-    type: double
-    restore_value: no
-    initial_value: "0"
-  - id: event_trigger
-    type: uint8_t
-    restore_value: no
-    initial_value: "0"
-  # Outcome stamped on the next close: 0 completed, 1 aborted, 2 dry_run, 3 recovery.
-  - id: pending_outcome
-    type: uint8_t
-    restore_value: no
-    initial_value: "0"
-  # Trigger for the next event to open: 0 sequence, 1 manual.
-  - id: next_trigger
-    type: uint8_t
-    restore_value: no
-    initial_value: "0"
-  # Set around a sequence's deliberate pump off then on handover so it doesn't close the event.
-  - id: pump_handover
-    type: bool
-    restore_value: no
-    initial_value: "false"
+
+  # RAM-only working scalars are file-scoped in their feature header, not globals
+  # (ADR-0014): the watchdog's pump_on_since_ms / low_flow_secs in watchdog.h; the
+  # watering-event event_* / next_trigger / pending_outcome / pump_handover in
+  # watering_events.h; reset_persistence_ok is a local in reset_finalize().
 
 script:
   # The pump must never run without an open path, so closing the last valve
@@ -395,7 +318,7 @@ script:
   - id: irrigation_sequence
     mode: single
     then:
-      - lambda: 'id(next_trigger) = 0;'
+      - lambda: 'watering_set_next_trigger(0);'
       # Phase 1: pre-wet with clean water — prime lines, moisten soil.
       - if:
           condition:
@@ -424,7 +347,7 @@ script:
             lambda: 'return (id(cycle_mode).state == "Time" ? id(cycle_minutes).state : id(cycle_liters).state) * (1.0 - id(prewet_percent).state / 100.0) > 0;'
           then:
             - lambda: 'id(current_phase) = 2;'
-            - lambda: 'id(pump_handover) = true;'
+            - lambda: 'watering_set_handover(true);'
             - switch.turn_off: pump
             - delay: 2s
             - switch.turn_off: clean_water_valve
@@ -436,7 +359,7 @@ script:
                 then:
                   - lambda: 'id(phase_start_l) = id(water_total_l);'
             - switch.turn_on: pump
-            - lambda: 'id(pump_handover) = false;'
+            - lambda: 'watering_set_handover(false);'
             - if:
                 condition:
                   lambda: 'return id(cycle_mode).state == "Time";'
@@ -447,14 +370,14 @@ script:
                       lambda: 'return id(water_total_l) - id(phase_start_l) >= id(cycle_liters).state * (1.0 - id(prewet_percent).state / 100.0);'
       # Phase 3: flush with clean water so no residues remain.
       - lambda: 'id(current_phase) = 3;'
-      - lambda: 'id(pump_handover) = true;'
+      - lambda: 'watering_set_handover(true);'
       - switch.turn_off: pump
       - delay: 2s
       - switch.turn_off: fertigation_valve
       - switch.turn_on: clean_water_valve
       - delay: 2s
       - switch.turn_on: pump
-      - lambda: 'id(pump_handover) = false;'
+      - lambda: 'watering_set_handover(false);'
       - delay: !lambda "return (uint32_t)(id(flush_minutes).state * 60000);"
       # Shutdown
       - switch.turn_off: pump
@@ -468,7 +391,7 @@ script:
     mode: single
     then:
       - script.stop: irrigation_sequence
-      - lambda: 'id(pump_handover) = true;'
+      - lambda: 'watering_set_handover(true);'
       - switch.turn_off: pump
       - delay: 2s
       - switch.turn_off: fertigation_valve
@@ -476,9 +399,9 @@ script:
       - delay: 2s
       - lambda: 'id(current_phase) = 3;'
       - switch.turn_on: pump
-      - lambda: 'id(pump_handover) = false;'
+      - lambda: 'watering_set_handover(false);'
       - delay: !lambda "return (uint32_t)(id(flush_minutes).state * 60000);"
-      - lambda: 'id(pending_outcome) = 3;'
+      - lambda: 'watering_set_pending_outcome(3);'
       - switch.turn_off: pump
       - lambda: 'id(current_phase) = 0;'
       - delay: 2s
@@ -513,7 +436,7 @@ script:
             - switch.turn_off: clean_water_valve
             - switch.turn_off: fertigation_valve
           else:
-            - lambda: 'id(next_trigger) = 1;'
+            - lambda: 'watering_set_next_trigger(1);'
             - switch.turn_on: clean_water_valve
             - switch.turn_on: fertigation_valve
             - delay: 2s
@@ -538,69 +461,10 @@ script:
     then:
       - if:
           condition:
-            - switch.is_on: pump
+            lambda: 'return reset_prepare();'
           then:
-            - lambda: 'ESP_LOGW("flow", "total-water reset rejected: pump running");'
-            - mqtt.publish:
-                topic: kc868-a8/flow/reset_total/result
-                payload: rejected_pump_running
-                retain: false
-          else:
-            - if:
-                condition:
-                  lambda: 'return isnan(id(flow_pulses).state);'
-                then:
-                  - lambda: 'ESP_LOGW("flow", "total-water reset rejected: flow unknown");'
-                  - mqtt.publish:
-                      topic: kc868-a8/flow/reset_total/result
-                      payload: rejected_flow_unknown
-                      retain: false
-                else:
-                  - if:
-                      condition:
-                        lambda: 'return id(flow_pulses).state >= 0.1f;'
-                      then:
-                        - lambda: 'ESP_LOGW("flow", "total-water reset rejected: flow active");'
-                        - mqtt.publish:
-                            topic: kc868-a8/flow/reset_total/result
-                            payload: rejected_flow_active
-                            retain: false
-                      else:
-                        - if:
-                            condition:
-                              lambda: 'return fabs(id(water_total_l)) < 0.000001;'
-                            then:
-                              - lambda: 'ESP_LOGI("flow", "total-water reset skipped: already zero");'
-                              - mqtt.publish:
-                                  topic: kc868-a8/flow/reset_total/result
-                                  payload: already_zero
-                                  retain: false
-                            else:
-                              - lambda: 'id(water_total_l) = 0.0;'
-                              - delay: 1s
-                              - lambda: |-
-                                  id(reset_persistence_ok) = global_preferences->sync();
-                                  if (id(reset_persistence_ok)) {
-                                    id(total_water).publish_state(0.0);
-                                    ESP_LOGI("flow", "total-water reset persisted successfully");
-                                  } else {
-                                    // RAM is zero, but it may not survive reboot after this error.
-                                    id(total_water).publish_state(id(water_total_l));
-                                    ESP_LOGE("flow", "total-water reset persistence failed");
-                                  }
-                              - if:
-                                  condition:
-                                    lambda: 'return id(reset_persistence_ok);'
-                                  then:
-                                    - mqtt.publish:
-                                        topic: kc868-a8/flow/reset_total/result
-                                        payload: success
-                                        retain: false
-                                  else:
-                                    - mqtt.publish:
-                                        topic: kc868-a8/flow/reset_total/result
-                                        payload: error_persistence
-                                        retain: false
+            - delay: 1s
+            - lambda: 'reset_finalize();'
 
 button:
   - platform: template
@@ -612,7 +476,7 @@ button:
     name: "Stop Irrigation"
     id: stop_irrigation
     on_press:
-      - lambda: 'id(pending_outcome) = 1;'
+      - lambda: 'watering_set_pending_outcome(1);'
       - script.execute: abort_irrigation
   - platform: template
     name: "Reset Total Water"
@@ -801,28 +665,7 @@ interval:
   # low flow invokes a fertigation recovery flush or the shared abort path.
   - interval: 1s
     then:
-      - lambda: |-
-          if (!id(pump).state) { id(low_flow_secs) = 0; return; }
-          if (millis() - id(pump_on_since_ms) < 15000) { id(low_flow_secs) = 0; return; }
-          if (isnan(id(flow_pulses).state)) return;
-          if (id(flow_pulses).state < id(min_flow_lpm).state) {
-            id(low_flow_secs)++;
-          } else {
-            id(low_flow_secs) = 0;
-          }
-          if (id(low_flow_secs) >= 3) {
-            id(low_flow_secs) = 0;
-            if (id(current_phase) == 2) {
-              id(recovery_flush)->execute();
-              ESP_LOGW("flow", "dry-run detected during fertigation; recovery flush starting");
-              id(recovery_flush_publish)->execute();
-            } else {
-              id(pending_outcome) = 2;
-              id(abort_irrigation)->execute();
-              ESP_LOGW("flow", "dry-run detected: no flow with pump on, aborting");
-            }
-            id(dry_run_publish)->execute();
-          }
+      - lambda: 'watchdog_tick();'
 
 logger:
 
@@ -856,16 +699,14 @@ mqtt:
   # On (re)connect, refresh the broker's retained watering log with anything
   # accumulated while offline, so the server backfills on the next ingest.
   on_connect:
-    - lambda: |-
-        std::string lg = watering_log_json(App.get_name().c_str(), g_watering_log);
-        mqtt::global_mqtt_client->publish("kc868-a8/watering/log", lg, 0, true);
+    - lambda: 'watering_log_publish_retained();'
   on_message:
     - topic: kc868-a8/irrigation/start
       then:
         - script.execute: irrigation_sequence
     - topic: kc868-a8/irrigation/stop
       then:
-        - lambda: 'id(pending_outcome) = 1;'
+        - lambda: 'watering_set_pending_outcome(1);'
         - script.execute: abort_irrigation
     - topic: kc868-a8/flow/reset_total/request
       then:

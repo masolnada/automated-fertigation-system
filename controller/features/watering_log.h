@@ -1,8 +1,9 @@
 #pragma once
 // Device-authoritative watering-event log (controller ADR-0012). A fixed-size
 // ring buffer of completed watering events, persisted whole in NVS (ADR-0011)
-// and serialized to JSON for the two MQTT topics. Pure C++: no ESPHome
-// dependencies, so it is unit-reasonable and the YAML lambdas stay thin.
+// and serialized to JSON for the two MQTT topics. Structs + serialization are
+// plain C++; the ring instance and its whole-blob NVS persistence use ESPHome
+// preferences (this is the sole header that owns persistent state, per ADR-0014).
 #include <cstdint>
 #include <cstdio>
 #include <string>
