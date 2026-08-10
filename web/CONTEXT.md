@@ -48,6 +48,18 @@ The server's one job for watering history: consume the retained `watering/log`,
 insert any event with an unseen `(device_id, seq)`, store the device's values
 verbatim. Not detection, not derivation.
 
+**Last watering**:
+The latest controller-ordered watering event that delivered water, regardless of
+its outcome or trigger. Zero-litre dry runs do not count; wall-clock validity
+does not determine which event is latest.
+_Avoid_: last irrigation.
+
+**Daily water delivered**:
+The sum of litres from watering events whose end falls on one Europe/Madrid
+calendar day. Every outcome contributes its delivered litres; zero-litre events
+contribute nothing but remain errors when their outcome is not completed.
+_Avoid_: watering frequency when referring to the heatmap.
+
 **e-ink theme**:
 The single shipped visual theme, driving the hard design constraints (no motion,
 no rounded corners, no shadows, no gradients). Governed by

@@ -64,6 +64,27 @@ describe("WateringIngester", () => {
     expect(row.litresDelivered).toBeCloseTo(12.4, 5);
   });
 
+  test("builds the ranged chart and Last watering in controller order", () => {
+    emit(log([
+      event(8, { start: 1_739_112_500, end: 1_739_112_600, litres: 0, outcome: "dry_run" }),
+      event(9, { start: 0, end: 0, litres: 4.2, outcome: "aborted" }),
+      event(7, { start: 1_739_112_000, end: 1_739_112_360, litres: 12.4 }),
+    ]));
+    const history = repo.history(new Date(1_739_111_000_000), new Date(1_739_113_000_000));
+    expect(history.chartEvents.map((row) => row.seq)).toEqual([7, 8]);
+    expect(repo.recent(2).map((row) => row.seq)).toEqual([9, 8]);
+    expect(history.lastWatering?.seq).toBe(9);
+    expect(history.lastWatering?.endedAt).toBeNull();
+    expect(history.earliestEventAt).toBe(new Date(1_739_112_360_000).toISOString());
+    expect(repo.history(new Date(1_739_111_000_000), new Date(1_739_112_600_000)).chartEvents.map((row) => row.seq)).toEqual([7]);
+  });
+
+  test("does not truncate the requested chart range", () => {
+    emit(log(Array.from({ length: 105 }, (_, index) => event(index + 1, { start: 1_739_112_000 + index * 60, end: 1_739_112_030 + index * 60 }))));
+    const history = repo.history(new Date(1_739_111_000_000), new Date(1_739_120_000_000));
+    expect(history.chartEvents).toHaveLength(105);
+  });
+
   test("skips malformed payloads and invalid events without throwing", () => {
     emit("not json");
     emit(JSON.stringify({ device: "kc868-a8" })); // no events

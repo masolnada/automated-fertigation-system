@@ -50,6 +50,13 @@ export type WateringEvent = {
   channel: string | null;
 };
 
+/** One consistent read of an event range plus global watering-history metadata. */
+export type WateringHistory = {
+  chartEvents: WateringEvent[];
+  lastWatering: WateringEvent | null;
+  earliestEventAt: string | null;
+};
+
 // Command names (URL segment under POST /api/commands/<name>) and their request bodies.
 export type ValveSelection = "" | "clean_water_valve" | "fertigation_valve";
 export type CycleMode = "Time" | "Volume";

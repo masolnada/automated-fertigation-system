@@ -1,4 +1,4 @@
-import type { CommandName } from "@hort/contracts";
+import type { CommandName, WateringHistory } from "@hort/contracts";
 import { CommandError, handlers, type Context } from "./handlers";
 
 /** Thin dispatch: map a command name + body to its handler. No bus, no registry. */
@@ -13,3 +13,5 @@ export const isCommandName = (name: string): name is CommandName => name in hand
 /** Queries. */
 export const getSnapshot = (ctx: Context) => ctx.controller.getSnapshot();
 export const getWateringEvents = (ctx: Context) => ctx.wateringEvents?.recent(100) ?? [];
+export const getWateringHistory = (ctx: Context, since: Date, until: Date): WateringHistory =>
+  ctx.wateringEvents?.history(since, until) ?? { chartEvents: [], lastWatering: null, earliestEventAt: null };

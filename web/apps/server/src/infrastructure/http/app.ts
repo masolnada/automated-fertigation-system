@@ -1,5 +1,5 @@
 import express, { type Express } from "express";
-import { dispatchCommand, getSnapshot, getWateringEvents } from "../../application/dispatch";
+import { dispatchCommand, getSnapshot, getWateringEvents, getWateringHistory } from "../../application/dispatch";
 import { CommandError, type Context, type ResetOutcome } from "../../application/handlers";
 
 const resetStatus: Record<string, number> = { success: 200, already_zero: 200, rejected_pump_running: 409, rejected_flow_active: 409, rejected_flow_unknown: 409, error_persistence: 500, timeout: 504 };
@@ -11,6 +11,15 @@ export function createApp(ctx: Context): Express {
   app.get("/api/health", (_req, res) => { res.json({ ok: true }); });
   app.get("/api/snapshot", (_req, res) => { res.json(getSnapshot(ctx)); });
   app.get("/api/watering-events", (_req, res) => { res.json(getWateringEvents(ctx)); });
+  app.get("/api/watering-history", (req, res) => {
+    const rawSince = typeof req.query.since === "string" ? req.query.since : "";
+    const rawUntil = typeof req.query.until === "string" ? req.query.until : "";
+    const since = new Date(rawSince);
+    const until = rawUntil ? new Date(rawUntil) : new Date();
+    if (!rawSince || !Number.isFinite(since.getTime())) { res.status(400).json({ error: "since must be an ISO timestamp" }); return; }
+    if (!Number.isFinite(until.getTime()) || until <= since) { res.status(400).json({ error: "until must be an ISO timestamp after since" }); return; }
+    res.json(getWateringHistory(ctx, since, until));
+  });
 
   app.post("/api/commands/:name", async (req, res) => {
     try {

@@ -16,16 +16,17 @@ let responders: Record<string, () => Promise<Response>> = {};
 const json = (data: unknown, status: number) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
 
 beforeEach(() => {
-  calls = []; responders = {};
+  calls = []; responders = { "watering-history": () => new Promise<Response>(() => {}) };
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const name = String(input).split("/").pop()!;
+    const url = new URL(String(input), "http://localhost");
+    const name = url.pathname.split("/").pop()!;
     if (init?.method === "POST") calls.push({ name, body: init?.body ? JSON.parse(String(init.body)) : {} });
     return responders[name] ? responders[name]!() : json({ ok: true }, 202);
   }) as typeof fetch;
 });
-afterEach(() => cleanup());
+afterEach(async () => { await act(async () => { await sleep(0); }); cleanup(); });
 
-function renderApp(store: SnapshotStore) { const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } }); return render(<QueryClientProvider client={client}><App store={store}/></QueryClientProvider>); }
+function renderApp(store: SnapshotStore) { const client = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } }); return render(<QueryClientProvider client={client}><App store={store}/></QueryClientProvider>); }
 function seeded(partial: Partial<WireSnapshot> = {}) { const store = new SnapshotStore(); act(() => store.replace(wire({ entities: eligibleEntities(), ...partial }))); return store; }
 
 describe("snapshot rendering", () => {
@@ -36,6 +37,30 @@ describe("snapshot rendering", () => {
     expect(screen.getByText("12.3")).toBeTruthy();
     act(() => store.replace(wire({ deviceOnline: false, brokerConnected: false, entities: {} })));
     expect(screen.getAllByText("–").length).toBeGreaterThan(0);
+  });
+});
+
+describe("watering history", () => {
+  test("shows Last watering, the yearly cell, and the selected day's event list", async () => {
+    const endedAt = new Date(Date.now() - 5 * 60_000).toISOString();
+    const event = { id: 1, deviceId: "kc868-a8", seq: 4, startedAt: new Date(new Date(endedAt).getTime() - 10 * 60_000).toISOString(), endedAt, litresDelivered: 12.4, outcome: "completed", trigger: "sequence", channel: null };
+    responders["watering-history"] = async () => json({ chartEvents: [event], lastWatering: event, earliestEventAt: endedAt }, 200);
+    renderApp(seeded());
+    await waitFor(() => expect(screen.getByText("5 min ago")).toBeTruthy());
+    expect(screen.getByRole("gridcell", { name: /12.4 litres, 1 watering event, 0 errors/ })).toBeTruthy();
+    expect(screen.getByText("12.4 L")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /show events/i })).toBeNull();
+  });
+  test("shows Watering now whenever the pump is on", async () => {
+    responders["watering-history"] = async () => json({ chartEvents: [], lastWatering: null, earliestEventAt: null }, 200);
+    renderApp(seeded({ entities: { ...eligibleEntities(), pump: entity("ON") } }));
+    await waitFor(() => expect(screen.getByText("Watering now")).toBeTruthy());
+  });
+  test("distinguishes an unavailable history request from empty history", async () => {
+    responders["watering-history"] = async () => json({ error: "offline" }, 503);
+    renderApp(seeded());
+    await waitFor(() => expect(screen.getByText("Watering history unavailable")).toBeTruthy());
+    expect(screen.queryByText("No watering recorded")).toBeNull();
   });
 });
 

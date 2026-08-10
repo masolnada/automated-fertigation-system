@@ -1,4 +1,4 @@
-import type { WateringEvent } from "@hort/contracts";
+import type { WateringEvent, WateringHistory } from "@hort/contracts";
 
 // The application depends on this port, never on `mqtt` directly.
 export interface DevicePort {
@@ -26,6 +26,8 @@ export type IngestedWateringEvent = {
 export interface WateringEventRepository {
   /** Insert events, ignoring any whose `(deviceId, seq)` is already stored. */
   ingest(events: IngestedWateringEvent[]): void;
-  /** Recent events, newest first, for the read endpoint. */
+  /** Recent events, newest first in controller sequence order. */
   recent(limit: number): WateringEvent[];
+  /** Events in a half-open range plus global watering-history metadata. */
+  history(since: Date, until: Date): WateringHistory;
 }

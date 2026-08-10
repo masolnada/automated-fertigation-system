@@ -112,6 +112,20 @@ describe("SSE snapshot stream", () => {
   });
 });
 
+describe("watering history read", () => {
+  test("requires a valid range start", async () => {
+    const h = await start();
+    const invalid = await fetch(`${h.url}/api/watering-history?since=not-a-date`);
+    expect(invalid.status).toBe(400);
+    const since = new Date(Date.now() - 1000);
+    const invalidUntil = await fetch(`${h.url}/api/watering-history?since=${encodeURIComponent(since.toISOString())}&until=${encodeURIComponent(new Date(since.getTime() - 1).toISOString())}`);
+    expect(invalidUntil.status).toBe(400);
+    const valid = await fetch(`${h.url}/api/watering-history?since=${encodeURIComponent(since.toISOString())}&until=${encodeURIComponent(new Date(since.getTime() + 1000).toISOString())}`);
+    expect(valid.status).toBe(200);
+    expect(await valid.json()).toEqual({ chartEvents: [], lastWatering: null, earliestEventAt: null });
+  });
+});
+
 describe("validated command loop (SetFlushDuration)", () => {
   test("out-of-range body is 400 with no publish", async () => {
     const h = await start();

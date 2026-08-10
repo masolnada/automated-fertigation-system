@@ -21,6 +21,10 @@ The goal is absolute high-contrast legibility, zero layout shift, and minimal sc
 
 `#B7E4C7` is reserved for the one primary, affirmative action on a surface: for example, **Start irrigation**. Pair it with a direct verb label, black text, and a black border. Do not use it for status, decorative elements, secondary controls, or more than one action in the same control group.
 
+### Quantitative heatmap exception
+
+A watering-volume heatmap may use the following solid shades derived from Action Green as its only quantitative colour scale: `#EAF6EE`, `#D2EEDA`, `#B7E4C7`, `#78C494`, and `#2F7D4F`. This exception applies only to fixed daily-litre bands, must provide equivalent accessible text for every cell, and must never use gradients. A visible legend may be omitted when selecting a cell exposes its exact litres in the adjacent Daily Inspector. Zero litres remain white. A day containing any non-completed watering event retains its volume fill and uses a Danger Red border.
+
 ### Danger semantics
 
 `#B00020` may be used only for warnings and errors, offline states, destructive controls/actions, danger-dialog messages, and danger event rows. Pair it with a clear text label and an appropriate border or fill; colour alone must never convey the state. White text is permitted on a filled danger control for contrast. Do not add other colours or use red decoratively.

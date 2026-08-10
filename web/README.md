@@ -8,8 +8,9 @@ browser over SSE, and accepts commands over HTTP.
 - `apps/server`: Express on Bun — the only MQTT client (DDD / hexagonal). Owns
   device I/O, the read model, SSE (`GET /api/stream`), command endpoints
   (`POST /api/commands/*`), and watering-event history in SQLite via Drizzle
-  (`GET /api/watering-events`) — **ingested** from the controller's authoritative
-  `watering/log`, deduped by `(device_id, seq)`. See
+  (`GET /api/watering-events` and half-open ranged `GET /api/watering-history?since=<ISO>&until=<ISO>`) —
+  **ingested** from the controller's authoritative `watering/log`, deduped by
+  `(device_id, seq)`. See
   [ADR-0009](docs/adr/0009-server-ingests-device-authoritative-events.md).
 - `apps/dashboard`: React/TypeScript static app. Consumes SSE via
   `useSyncExternalStore` and issues commands with react-query `useMutation`.
