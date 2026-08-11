@@ -26,6 +26,11 @@ export const variants = {
     nodeUnit: "text-[0.56rem] font-extrabold uppercase tracking-[0.06em]",
     nodeWarn: "text-[0.5rem] font-extrabold uppercase tracking-[0.06em] text-danger",
     divider: "border-t-[2px] border-dashed border-gray min-[1100px]:border-t-0 min-[1100px]:border-l-[2px] min-[1100px]:h-full",
+    // Small-screen stacked pipeline. Tap targets stay at least 48px tall.
+    stackCell: "flex min-h-[52px] flex-col justify-center border-[2px] border-ink px-2 py-1 text-left cursor-pointer min-w-0",
+    stackLabel: "text-[0.62rem] font-extrabold uppercase tracking-[0.06em] overflow-hidden text-ellipsis whitespace-nowrap",
+    stackBand: "flex min-h-[52px] w-full items-center gap-2 border-[2px] px-3 py-2 text-left cursor-pointer",
+    stackSelected: "outline outline-[2px] outline-offset-[2px] outline-ink",
     panel: "border-[2px] border-ink p-3 min-h-[190px]",
     panelTitle: "text-[0.56rem] font-extrabold uppercase tracking-[0.1em] block border-b-[2px] border-dashed border-gray pb-2",
     fieldLabel: "text-[0.62rem] font-extrabold uppercase tracking-[0.1em]",

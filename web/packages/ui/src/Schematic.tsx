@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { sourceIds, zoneNumbers, type SourceId } from "@hort/contracts";
 import { variants } from "./theme/variants";
@@ -16,7 +16,13 @@ import { variants } from "./theme/variants";
  *
  * Geometry constants below drive both the box sizes and the SVG coordinates, so
  * connectors always meet box centres; changing a size keeps them aligned.
+ *
+ * Two layouts, one component. The left-to-right diagram needs a fixed 630 px of
+ * width, so below that it is replaced — not shrunk — by a stacked pipeline that
+ * reads top to bottom in the same order: source, pump, flow, zone. Scaling the
+ * diagram down instead would make the boxes unreadable and untappable.
  */
+export const SCHEMATIC_MIN_WIDTH = 1100;
 
 export type SchematicNode = SourceId | "pump" | "flow" | `zone_${number}`;
 
@@ -73,7 +79,85 @@ function ZoneManifold({ activeIndex, flowing }: { activeIndex: number; flowing: 
 
 export const hasOpenPath = (activeSource: string, selectedZone: number) => activeSource !== "" && selectedZone > 0;
 
-export function Schematic({ activeSource, selectedZone, pumpOn, flowRate, zoneNames, sourceLabels, selected, onSelect, onSelectSource, onSelectZone, onTogglePump, children }: SchematicProps) {
+/** True while the viewport is too narrow for the fixed-width diagram. */
+function useNarrow(): boolean {
+  const query = `(max-width: ${SCHEMATIC_MIN_WIDTH - 1}px)`;
+  const [narrow, setNarrow] = useState(() => (typeof window === "undefined" ? false : window.matchMedia(query).matches));
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const onChange = (event: MediaQueryListEvent) => setNarrow(event.matches);
+    setNarrow(media.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, [query]);
+  return narrow;
+}
+
+/** A vertical connector between two stacked bands, inked while a route runs through it. */
+function Drop({ live, flowing }: { live: boolean; flowing: boolean }) {
+  return <svg width={8} height={18} className="mx-auto shrink-0" aria-hidden="true">
+    <line x1={4} y1={0} x2={4} y2={18} strokeWidth={3} stroke={IDLE}/>
+    {live ? <line x1={4} y1={0} x2={4} y2={18} strokeWidth={3} stroke={WATER} strokeDasharray="8 4" data-motion={flowing ? "" : undefined} className={flowing ? variants.schematic.flowing : ""}/> : null}
+  </svg>;
+}
+
+/**
+ * Small-screen layout: the same system as four full-width bands, top to bottom
+ * in flow order. Every control keeps a comfortable tap target instead of being
+ * squeezed into a scaled-down diagram.
+ */
+function StackedPipeline({ activeSource, selectedZone, pumpOn, flowRate, zoneNames, sourceLabels, selected, onSelect, onSelectSource, onSelectZone, onTogglePump }: Omit<SchematicProps, "children">) {
+  const open = hasOpenPath(activeSource, selectedZone);
+  const flowing = pumpOn && open;
+  const routeSelected = activeSource !== "" || selectedZone > 0;
+  const s = variants.schematic;
+
+  return <div className="grid">
+    <span className={`${s.kicker} mb-[6px]`}>Source</span>
+    <div className="grid grid-cols-3 gap-[6px]">
+      {sourceIds.map((id) => {
+        const on = activeSource === id;
+        return <button key={id} type="button" aria-pressed={on} onClick={() => { onSelectSource(on ? "" : id); onSelect(id); }} className={`${s.stackCell} ${on ? s.boxOn : s.boxOff} ${selected === id ? s.stackSelected : ""}`}>
+          <span className={s.stackLabel}>{sourceLabels[id]}</span>
+          <b className={s.boxState}>{on ? "OPEN" : "SHUT"}</b>
+        </button>;
+      })}
+    </div>
+
+    <Drop live={activeSource !== ""} flowing={flowing}/>
+
+    <button type="button" onClick={() => { onTogglePump(); onSelect("pump"); }} className={`${s.stackBand} ${open ? "border-ink" : "border-danger"} ${pumpOn ? s.boxOn : s.boxOff}`}>
+      <span className={s.kicker}>Pump</span>
+      <b className={`${s.nodeValue} ml-auto`}>{pumpOn ? "ON" : "OFF"}</b>
+      {!open ? <span className={s.nodeWarn}>no path</span> : null}
+    </button>
+
+    <Drop live={routeSelected} flowing={flowing}/>
+
+    <button type="button" onClick={() => onSelect("flow")} className={`${s.stackBand} border-ink ${s.boxOff} ${selected === "flow" ? s.stackSelected : ""}`}>
+      <span className={s.kicker}>Flow</span>
+      <b className={`${s.nodeValue} ml-auto`}>{flowRate}</b>
+      <span className={s.nodeUnit}>L/min</span>
+    </button>
+
+    <Drop live={selectedZone > 0} flowing={flowing}/>
+
+    <span className={`${s.kicker} mb-[6px]`}>Zone</span>
+    <div className="grid grid-cols-2 gap-[6px]">
+      {zoneNumbers.map((zone) => {
+        const on = selectedZone === zone;
+        return <button key={zone} type="button" aria-pressed={on} onClick={() => { onSelectZone(on ? 0 : zone); onSelect(`zone_${zone}`); }} className={`${s.stackCell} ${on ? s.boxOn : s.boxOff} ${selected === `zone_${zone}` ? s.stackSelected : ""}`}>
+          <span className={s.stackLabel}>{zoneNames[zone] ?? `Zone ${zone}`}</span>
+          <b className={s.boxState}>{on ? "OPEN" : "SHUT"}</b>
+        </button>;
+      })}
+    </div>
+  </div>;
+}
+
+export function Schematic(props: SchematicProps) {
+  const { activeSource, selectedZone, pumpOn, flowRate, zoneNames, sourceLabels, selected, onSelect, onSelectSource, onSelectZone, onTogglePump, children } = props;
+  const narrow = useNarrow();
   const open = hasOpenPath(activeSource, selectedZone);
   const flowing = pumpOn && open;
   const activeSourceIndex = sourceIds.findIndex((id) => id === activeSource);
@@ -81,6 +165,12 @@ export function Schematic({ activeSource, selectedZone, pumpOn, flowRate, zoneNa
   // The spine is shared by every route, so one open valve on either side lights it.
   const routeSelected = activeSourceIndex >= 0 || activeZoneIndex >= 0;
   const s = variants.schematic;
+
+  if (narrow) return <div className="grid gap-5">
+    <StackedPipeline {...props}/>
+    <div aria-hidden="true" className="border-t-[2px] border-dashed border-gray"/>
+    <aside className={s.panel}>{children}</aside>
+  </div>;
 
   return <div className="grid gap-6 min-[1100px]:grid-cols-[auto_1px_232px]">
     <div className="justify-self-center">

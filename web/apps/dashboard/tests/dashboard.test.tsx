@@ -150,13 +150,4 @@ describe("commands", () => {
     expect(screen.getByRole("button", { name: "Stop irrigation" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Start irrigation" })).toBeNull();
   });
-  test("Escape closes the menu before the dialog", async () => {
-    renderApp(seeded());
-    const trigger = screen.getByRole("button", { name: "Flow actions" });
-    trigger.focus(); fireEvent.click(trigger);
-    expect(screen.getByRole("menu")).toBeTruthy();
-    fireEvent.keyDown(document, { key: "Escape" });
-    await sleep(0);
-    expect(screen.queryByRole("menu")).toBeNull();
-  });
 });

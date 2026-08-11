@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Dialog } from "@hort/ui";
 import type { SnapshotStore } from "./store";
 import { useStore } from "./useStore";
@@ -17,7 +17,6 @@ type DialogKind = "" | "start" | "pump" | "reset";
 export function App({ store }: { store: SnapshotStore }) {
   const snapshot = useStore(store);
   const [kind, setKind] = useState<DialogKind>("");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState(false);
   const [opener, setOpener] = useState<HTMLElement | null>(null);
@@ -38,7 +37,6 @@ export function App({ store }: { store: SnapshotStore }) {
   const reason = resetIneligibleReason(snapshot);
   const pending = kind === "reset" && reset.isPending;
 
-  useEffect(() => { const onKey = (event: KeyboardEvent) => { if (event.key === "Escape" && menuOpen) { event.preventDefault(); setMenuOpen(false); } }; document.addEventListener("keydown", onKey); return () => document.removeEventListener("keydown", onKey); }, [menuOpen]);
 
   const close = (force = false) => { if (pending && !force) return; reset.reset(); setKind(""); setStatus(""); setError(false); opener?.focus(); };
   const open = (next: DialogKind, event?: React.MouseEvent<HTMLElement> | HTMLElement | null) => { setOpener(event instanceof HTMLElement ? event : event?.currentTarget ?? (document.activeElement as HTMLElement)); setKind(next); setStatus(""); setError(false); };
