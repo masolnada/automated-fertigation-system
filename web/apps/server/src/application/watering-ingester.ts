@@ -43,7 +43,7 @@ export class WateringIngester {
 
   private parseEvent(deviceId: string, raw: unknown): IngestedWateringEvent | null {
     if (typeof raw !== "object" || raw === null) return null;
-    const { seq, start, end, litres, outcome, trigger, channel } = raw as Record<string, unknown>;
+    const { seq, start, end, litres, outcome, trigger, zone } = raw as Record<string, unknown>;
     if (!Number.isInteger(seq)) return null;
     if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
     if (!Number.isFinite(litres)) return null;
@@ -59,7 +59,8 @@ export class WateringIngester {
       litresDelivered: litres as number,
       outcome,
       trigger,
-      channel: typeof channel === "string" ? channel : null,
+      // 0 is the device's "no zone recorded" sentinel, mirroring the epoch-0 clock one.
+      zone: typeof zone === "number" && Number.isInteger(zone) && zone > 0 ? zone : null,
     };
   }
 }

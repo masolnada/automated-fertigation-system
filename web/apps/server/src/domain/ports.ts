@@ -19,7 +19,7 @@ export type IngestedWateringEvent = {
   litresDelivered: number;
   outcome: string;
   trigger: string;
-  channel: string | null;
+  zone: number | null;
 };
 
 // Persistence for watering events, behind which the SQLite/Drizzle adapter lives.
@@ -30,4 +30,15 @@ export interface WateringEventRepository {
   recent(limit: number): WateringEvent[];
   /** Events in a half-open range plus global watering-history metadata. */
   history(since: Date, until: Date): WateringHistory;
+}
+
+/**
+ * Zone names, stored append-only so history keeps the name in force when each
+ * event ran (web ADR-0010).
+ */
+export interface ZoneNameRepository {
+  /** Current name of every named zone. */
+  current(): Record<number, string>;
+  /** Record a new name, valid from now. No-op when unchanged. */
+  rename(zone: number, name: string, at?: Date): void;
 }

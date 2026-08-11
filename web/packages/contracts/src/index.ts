@@ -6,11 +6,22 @@ export type Severity = "normal" | "danger";
 export type EntityValue = { value: number | string; known: boolean };
 /** `time` is an ISO string on the wire; the client parses it to a Date for display. */
 export type LogEntry = { message: string; severity: Severity; time: string };
+/** The upstream valves. Exactly one is open at a time; which is which is fixed in firmware. */
+export type SourceId = "clean_water_valve" | "fertigation_valve" | "microbiology_valve";
+export const sourceIds: SourceId[] = ["clean_water_valve", "fertigation_valve", "microbiology_valve"];
+/** Downstream zone valves. Exactly one is open at a time; 0 means none. */
+export const zoneNumbers = [1, 2, 3, 4] as const;
+export type ZoneNumber = (typeof zoneNumbers)[number];
+
 export type Snapshot = {
   deviceOnline: boolean;
   brokerConnected: boolean;
   entities: Record<string, EntityValue>;
-  valves: { clean_water_valve: boolean; fertigation_valve: boolean };
+  valves: Record<SourceId, boolean>;
+  /** The open zone, or 0 when every zone valve is shut. */
+  selectedZone: number;
+  /** Operator-authored zone names, current values (see web ADR-0010). */
+  zoneNames: Record<number, string>;
   resetPending: boolean;
   log: LogEntry[];
 };
@@ -22,6 +33,7 @@ export const entityKinds: Record<string, StateKind> = {
   flow_rate: "sensor", total_water: "sensor",
   cycle_minutes: "number", cycle_liters: "number", "pre-wet_percent": "number", flush_minutes: "number", min_flow: "number",
   cycle_mode: "select",
+  zone_1: "switch", zone_2: "switch", zone_3: "switch", zone_4: "switch",
 };
 
 export type ResetResult =
@@ -47,7 +59,10 @@ export type WateringEvent = {
   litresDelivered: number;
   outcome: WateringOutcome;
   trigger: WateringTrigger;
-  channel: string | null;
+  /** Zone watered, or null when the controller recorded none (device sends 0). */
+  zone: number | null;
+  /** The zone's name when this event ran, not its name now (web ADR-0010). */
+  zoneName: string | null;
 };
 
 /** One consistent read of an event range plus global watering-history metadata. */
@@ -58,7 +73,8 @@ export type WateringHistory = {
 };
 
 // Command names (URL segment under POST /api/commands/<name>) and their request bodies.
-export type ValveSelection = "" | "clean_water_valve" | "fertigation_valve";
+/** "" closes every source. */
+export type ValveSelection = "" | SourceId;
 export type CycleMode = "Time" | "Volume";
 
 export type CommandBodies = {
@@ -72,5 +88,8 @@ export type CommandBodies = {
   "set-flush-duration": { value: number };
   "set-min-flow": { value: number };
   "reset-total-water": Record<string, never>;
+  /** 0 shuts every zone. */
+  "select-zone": { zone: number };
+  "set-zone-name": { zone: number; name: string };
 };
 export type CommandName = keyof CommandBodies;

@@ -28,8 +28,20 @@ snapshot, command bodies, entity kinds, reset-result union. Deliberately holds n
 presentation metadata.
 
 **Display metadata**:
-Labels, decimals and units — presentation only, kept client-side, never in the
-server or contracts.
+Developer-authored labels, decimals and units for entity *types* — identical in
+every deployment, shipped in the bundle, never in the server or contracts.
+Operator-authored data such as a Zone name is not display metadata.
+
+**Zone name**:
+The operator's free-text name for a zone ("Olive terrace"). Domain data, not
+display metadata: it is authored in the field, outlives any deploy, and must read
+the same on every browser — so the server owns it.
+
+**Zone name history**:
+The append-only record of what each zone has been called, each entry valid from
+the moment it was set. A watering event is labelled with the name in force when
+it ran, not the name now — the controller is routinely offline for weeks, so
+ingest time and run time are far apart.
 
 **Reset eligibility**:
 Whether a Total Water reset is currently allowed (`resetIneligibleReason`). The
@@ -40,7 +52,7 @@ the affordance.
 One completed pump-on span reported by the controller, which is the authoritative
 source (see the controller glossary). The server does not detect events — it
 ingests the controller's log and dedups by `(device_id, seq)`, storing the
-device's wall-clock start/end, litres, outcome and trigger in SQLite.
+device's wall-clock start/end, litres, outcome, trigger and zone in SQLite.
 _Avoid_: irrigation run, cycle, watering session.
 
 **Ingest**:
@@ -57,10 +69,31 @@ _Avoid_: last irrigation.
 **Daily water delivered**:
 The sum of litres from watering events whose end falls on one Europe/Madrid
 calendar day. Every outcome contributes its delivered litres; zero-litre events
-contribute nothing but remain errors when their outcome is not completed.
+contribute nothing but remain errors when their outcome is not completed. The
+heatmap shows this day total; the per-zone split is a breakdown of the same sum.
 _Avoid_: watering frequency when referring to the heatmap.
 
-**e-ink theme**:
-The single shipped visual theme, driving the hard design constraints (no motion,
-no rounded corners, no shadows, no gradients). Governed by
+**Schematic**:
+The dashboard's diagram of the physical system — sources, pump, flow sensor and
+zones, drawn left to right in the direction water flows. It is the control
+surface, not an illustration: selecting a node acts on it and reveals its
+settings in the adjacent info panel. It replaced the separate Relays and Flow
+cards; the presentational component lives in `@hort/ui` and holds no state.
+
+**Live route**:
+The path from the open source through pump and flow sensor to the open zone,
+drawn in `water` blue. It animates only while the pump is running and the path is
+open — colour marks the route, movement marks that water is actually moving.
+
+**Paper theme**:
+The single shipped visual theme: restrained palette, flat surfaces, sharp
+corners, no shadows or gradients, and motion only where movement carries
+information. A deliberate aesthetic, not a hardware constraint. Governed by
 [`packages/ui/DESIGN.md`](./packages/ui/DESIGN.md).
+_Avoid_: e-ink theme.
+
+**Semantic colour**:
+A palette entry that means exactly one thing and is never decorative: `action`
+(the one affirmative action), `danger` (warnings and destructive actions), and
+`water` (the path water takes). The meaning must also be readable without
+colour.

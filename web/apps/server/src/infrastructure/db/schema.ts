@@ -17,7 +17,22 @@ export const wateringEvents = sqliteTable(
     litresDelivered: real("litres_delivered").notNull(),
     outcome: text("outcome").notNull(),
     trigger: text("trigger").notNull(),
-    channel: text("channel"),
+    /** Zone watered; null when the controller recorded none. */
+    zone: integer("zone"),
   },
   (table) => [unique().on(table.deviceId, table.seq)],
 );
+
+/**
+ * Append-only history of what each zone has been called (web ADR-0010). A
+ * watering event is labelled with the name in force when it ran, resolved by
+ * finding the latest `validFrom` at or before the event's end — the controller
+ * is offline for weeks, so ingest time and run time are far apart. The latest
+ * row per zone is also the current name.
+ */
+export const zoneNames = sqliteTable("zone_names", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  zone: integer("zone").notNull(),
+  name: text("name").notNull(),
+  validFrom: integer("valid_from", { mode: "timestamp_ms" }).notNull(),
+});
