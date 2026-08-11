@@ -13,6 +13,7 @@ esphome:
     - features/watering_events.h
     - features/reset.h
     - features/watchdog.h
+    - features/interlock.h
   on_boot:
     priority: -100
     then:
@@ -108,18 +109,30 @@ switch:
       number: 7
       mode: OUTPUT
       inverted: true
+    # The open-path invariant is enforced here too, not only when a valve closes
+    # (ADR-0016): otherwise a start with nothing open would deadhead the pump for
+    # the watchdog's whole ~18 s priming-plus-confirm window. Refusing before
+    # watering_event_pump_on() also keeps junk zero-litre events out of the log.
     on_turn_on:
-      - lambda: 'watchdog_arm(); watering_event_pump_on();'
+      - if:
+          condition:
+            lambda: 'return !pump_has_open_path();'
+          then:
+            - lambda: 'ESP_LOGW("pump", "refusing to run: no open path");'
+            - switch.turn_off: pump
+          else:
+            - lambda: 'watchdog_arm(); watering_event_pump_on();'
     on_turn_off:
       - lambda: 'watering_event_pump_off();'
-  # Both valves may be open at once: the manual button opens both so a
-  # downstream mechanical valve selects the source. The mutual-exclusion
-  # interlock is therefore removed; the irrigation_sequence still opens only
-  # one valve at a time on its own.
+  # Sources (upstream). Exactly one is open at a time; which is which is fixed
+  # here because the Flush and the recovery flush depend on knowing which one is
+  # clean water. Closing one re-checks the pump's open path on both sides.
   - platform: gpio
     name: "Fertigation Valve"
     id: fertigation_valve
     restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - lambda: 'id(selected_source) = 2;'
     on_turn_off:
       - script.execute: stop_pump_without_path
     pin:
@@ -131,6 +144,8 @@ switch:
     name: "Clean Water Valve"
     id: clean_water_valve
     restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - lambda: 'id(selected_source) = 1;'
     on_turn_off:
       - script.execute: stop_pump_without_path
     pin:
@@ -138,44 +153,74 @@ switch:
       number: 5
       mode: OUTPUT
       inverted: true
+  # Third source: micro-organisms, kept separate from the humate so the two can
+  # be dosed independently. The irrigation sequence does not open it yet.
   - platform: gpio
-    name: "Relay 4"
-    id: relay_4
-    pin:
-      pcf8574: pcf8574_hub_out_1
-      number: 3
-      mode: OUTPUT
-      inverted: true
-  - platform: gpio
-    name: "Relay 5"
-    id: relay_5
+    name: "Microbiology Valve"
+    id: microbiology_valve
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - lambda: 'id(selected_source) = 3;'
+    on_turn_off:
+      - script.execute: stop_pump_without_path
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 4
       mode: OUTPUT
       inverted: true
+  # Zones (downstream). Exactly one is open at a time, so the single common-line
+  # flow sensor meters it unambiguously. Opening one records it as the selected
+  # zone, which survives reboot so the offline manual button knows where to water.
   - platform: gpio
-    name: "Relay 1"
-    id: relay_1
+    name: "Zone 1"
+    id: zone_1
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - lambda: 'id(selected_zone) = 1;'
+    on_turn_off:
+      - script.execute: stop_pump_without_path
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 0
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "Relay 2"
-    id: relay_2
+    name: "Zone 2"
+    id: zone_2
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - lambda: 'id(selected_zone) = 2;'
+    on_turn_off:
+      - script.execute: stop_pump_without_path
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 1
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "Relay 3"
-    id: relay_3
+    name: "Zone 3"
+    id: zone_3
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - lambda: 'id(selected_zone) = 3;'
+    on_turn_off:
+      - script.execute: stop_pump_without_path
     pin:
       pcf8574: pcf8574_hub_out_1
       number: 2
+      mode: OUTPUT
+      inverted: true
+  - platform: gpio
+    name: "Zone 4"
+    id: zone_4
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - lambda: 'id(selected_zone) = 4;'
+    on_turn_off:
+      - script.execute: stop_pump_without_path
+    pin:
+      pcf8574: pcf8574_hub_out_1
+      number: 3
       mode: OUTPUT
       inverted: true
 
@@ -289,6 +334,19 @@ globals:
     type: double
     restore_value: no
     initial_value: "0"
+  # Which zone the sequence and the manual button water (0 = none). Persisted so
+  # the button still knows where to send water with no wifi after a reboot, and
+  # read by watering_events.h to stamp the zone on each event.
+  - id: selected_zone
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  # Which source is in play: 0 none, 1 clean water, 2 fertigation, 3 microbiology.
+  # Persisted for the same reason. The sequence overrides it per phase.
+  - id: selected_source
+    type: int
+    restore_value: yes
+    initial_value: "1"
 
   # RAM-only working scalars are file-scoped in their feature header, not globals
   # (ADR-0014): the watchdog's pump_on_since_ms / low_flow_secs in watchdog.h; the
@@ -296,19 +354,43 @@ globals:
   # watering_events.h; reset_persistence_ok is a local in reset_finalize().
 
 script:
-  # The pump must never run without an open path, so closing the last valve
-  # stops it — whichever caller closed it: dashboard, sequence, or the manual
-  # button. Guarded on the pump already running so the sequence's own valve
-  # closes (pump already off) don't republish OFF each time.
+  # The pump must never run without an open path on BOTH sides (ADR-0016): one
+  # open source upstream and one open zone downstream. Closing the last valve on
+  # either side stops it — whichever caller closed it: dashboard, sequence, or
+  # the manual button. An open source with every zone shut deadheads the pump,
+  # which drives it toward its 3.8 bar cutoff current against a 10 A BMS.
+  # Guarded on the pump already running so the sequence's own valve closes
+  # (pump already off) don't republish OFF each time.
   - id: stop_pump_without_path
     then:
       - if:
           condition:
-            - switch.is_on: pump
-            - switch.is_off: clean_water_valve
-            - switch.is_off: fertigation_valve
+            and:
+              - switch.is_on: pump
+              - lambda: 'return !pump_has_open_path();'
           then:
             - switch.turn_off: pump
+
+  # Open the persisted zone before the pump runs. The sequence and the manual
+  # button both call this, so both honour the same selection; with none set
+  # (first boot) nothing opens and the interlock keeps the pump off.
+  - id: open_selected_zone
+    then:
+      - lambda: |-
+          switch (id(selected_zone)) {
+            case 1: id(zone_1).turn_on(); break;
+            case 2: id(zone_2).turn_on(); break;
+            case 3: id(zone_3).turn_on(); break;
+            case 4: id(zone_4).turn_on(); break;
+            default: ESP_LOGW("zone", "no zone selected; pump will stay off");
+          }
+
+  - id: close_all_zones
+    then:
+      - switch.turn_off: zone_1
+      - switch.turn_off: zone_2
+      - switch.turn_off: zone_3
+      - switch.turn_off: zone_4
 
   # The pump pauses across each valve handover — stop, swap the valve, start
   # again — so it never runs against closed valves, with its 3.8 bar pressure
@@ -319,6 +401,10 @@ script:
     mode: single
     then:
       - lambda: 'watering_set_next_trigger(0);'
+      # One run waters exactly one zone (ADR-0015), opened once up front and left
+      # open for the whole sequence — so no zone-side handover is needed.
+      - script.execute: open_selected_zone
+      - delay: 500ms
       # Phase 1: pre-wet with clean water — prime lines, moisten soil.
       - if:
           condition:
@@ -384,6 +470,7 @@ script:
       - lambda: 'id(current_phase) = 0;'
       - delay: 2s
       - switch.turn_off: clean_water_valve
+      - script.execute: close_all_zones
 
   # Watchdog recovery for an empty fertigation tank. This deliberately does
   # not use abort_irrigation: it preserves the required full safety flush.
@@ -406,6 +493,7 @@ script:
       - lambda: 'id(current_phase) = 0;'
       - delay: 2s
       - switch.turn_off: clean_water_valve
+      - script.execute: close_all_zones
 
   # Single shared interrupt path: the stop button, the MQTT stop topic,
   # and any future sensor (tank float switch, pump current) all execute
@@ -420,10 +508,13 @@ script:
       - delay: 2s
       - switch.turn_off: fertigation_valve
       - switch.turn_off: clean_water_valve
+      - switch.turn_off: microbiology_valve
+      - script.execute: close_all_zones
 
-  # Manual start/stop from the onboard button, no wifi needed. Opens both
-  # valves so the downstream mechanical valve selects the source, then runs
-  # the pump; pressing again stops the pump first, then closes both valves.
+  # Manual start/stop from the onboard button, no wifi needed. Opens the
+  # persisted source and zone — not everything — so tanks cannot back-feed each
+  # other and the held-valve current stays at one valve per side; pressing again
+  # stops the pump first, then closes them.
   - id: manual_pump_toggle
     mode: single
     then:
@@ -435,10 +526,18 @@ script:
             - delay: 2s
             - switch.turn_off: clean_water_valve
             - switch.turn_off: fertigation_valve
+            - switch.turn_off: microbiology_valve
+            - script.execute: close_all_zones
           else:
             - lambda: 'watering_set_next_trigger(1);'
-            - switch.turn_on: clean_water_valve
-            - switch.turn_on: fertigation_valve
+            - lambda: |-
+                switch (id(selected_source)) {
+                  case 2: id(fertigation_valve).turn_on(); break;
+                  case 3: id(microbiology_valve).turn_on(); break;
+                  case 1: id(clean_water_valve).turn_on(); break;
+                  default: ESP_LOGW("source", "no source selected; pump will stay off");
+                }
+            - script.execute: open_selected_zone
             - delay: 2s
             - switch.turn_on: pump
 
@@ -675,6 +774,17 @@ debug:
   update_interval: 30s
 
 text_sensor:
+  # Current wall-clock read from the I2C DS3231 at 0x68 through rtc_time.
+  # SNTP may correct the RTC when online, but this entity never reads SNTP directly.
+  - platform: template
+    name: "RTC Time"
+    id: rtc_time_display
+    update_interval: 10s
+    lambda: |-
+      auto now = id(rtc_time).now();
+      if (!now.is_valid())
+        return {"Time unavailable"};
+      return {now.strftime("%d-%m-%Y %H:%M:%S")};
   - platform: debug
     reset_reason:
       name: "Reset Reason"

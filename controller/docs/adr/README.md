@@ -21,6 +21,8 @@ in 1–3 sentences: the context, what was decided, and why. See
 | [0012](0012-device-authoritative-watering-log.md) | The controller is the authoritative source of watering events |
 | [0013](0013-ds3231-rtc-for-offline-timestamps.md) | A DS3231 RTC provides wall-clock time for offline event timestamps |
 | [0014](0014-esphome-coupled-feature-headers.md) | Feature logic lives in ESPHome-coupled headers, not pure/testable cores |
+| [0015](0015-eight-relays-three-sources-four-zones.md) | The relay budget fixes the system at three sources and four zones |
+| [0016](0016-pump-requires-open-path-both-sides.md) | The pump requires an open path on both sides, not just upstream |
 
 If a decision is reversed, add a new ADR that supersedes the old one rather than
 editing history.

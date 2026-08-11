@@ -11,14 +11,19 @@ The button toggles between two states via the `manual_pump_toggle` script
 
 | Press | Pump was | Action |
 |---|---|---|
-| Start | off | open **both** valves → wait 2s → pump on |
-| Stop | on | pump off → wait 2s → close **both** valves |
+| Start | off | open the selected source + selected zone → wait 2s → pump on |
+| Stop | on | pump off → wait 2s → close every source and zone |
 
-Both valves are opened together on start; a **downstream mechanical valve
-selects the source** (clean water vs. fertigation). This is why the firmware's
-valve interlock was removed — the two GPIO valves are no longer mutually
-exclusive. The automated `irrigation_sequence` still opens only one valve at a
-time on its own.
+The button opens **the persisted selection**, not everything: one source and one
+zone. Opening all of them would let the three tanks back-feed each other, and
+seven held valves at ~0.5 A each would put the normal running total near the
+10 A BMS limit. Ball valves still refine the path downstream of the open zone.
+
+Because `Selected Zone` and the selected source are stored with
+`restore_value`, the button works after a power cycle with no wifi — it waters
+wherever the system was last pointed. If nothing is selected (first boot) the
+button opens nothing and the pump is refused: it needs an open path on both
+sides ([ADR-0016](../controller/docs/adr/0016-pump-requires-open-path-both-sides.md)).
 
 The dry-run watchdog still applies: if the pump runs past its 15s priming grace
 with no flow, `abort_irrigation` shuts everything down (see

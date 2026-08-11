@@ -59,14 +59,24 @@ The firmware mirrors the same detection in the `Battery Charged` binary sensor a
 
 ## Relay mapping
 
-| Relay | Entity | Function |
-|---|---|---|
-| 1 | `Pump` | Seaflo diaphragm pump |
-| 2 | `Fertigation Valve` | Flow of water with the fertigation substance |
-| 3 | `Clean Water Valve` | Clean water supply, used to flush the system |
-| 4–8 | `Relay 4`–`Relay 8` | Spare |
+All 8 relays are in use: the pump, three sources upstream and four zones downstream. There is no spare, and a fifth zone needs a second PCF8574 (see [controller ADR-0015](controller/docs/adr/0015-eight-relays-three-sources-four-zones.md)).
 
-Pump and valve relays use `restore_mode: ALWAYS_OFF`: after a power loss everything comes up off.
+| Relay | PCF8574 pin | Entity | Function |
+|---|---|---|---|
+| 1 | 7 | `Pump` | Seaflo diaphragm pump |
+| 2 | 6 | `Fertigation Valve` | Source: water carrying the humate |
+| 3 | 5 | `Clean Water Valve` | Source: clean water, used to pre-wet and flush |
+| 4 | 4 | `Microbiology Valve` | Source: micro-organisms (manual only, not yet in the sequence) |
+| 5 | 0 | `Zone 1` | Zone valve |
+| 6 | 1 | `Zone 2` | Zone valve |
+| 7 | 2 | `Zone 3` | Zone valve |
+| 8 | 3 | `Zone 4` | Zone valve |
+
+Exactly one source and one zone are open at a time: one source so the tanks cannot back-feed each other, one zone so the single common-line flow sensor meters it unambiguously.
+
+All relays use `restore_mode: ALWAYS_OFF`: after a power loss everything comes up off.
+
+**The pump requires an open path on both sides** — one open source *and* one open zone ([ADR-0016](controller/docs/adr/0016-pump-requires-open-path-both-sides.md)). Closing the last valve on either side stops the pump, and a start with no path is refused outright rather than left to the dry-run watchdog: deadheading drives the pump toward its 3.8 bar cutoff current (~7.5 A) against a 10 A BMS. `Selected Zone` and the selected source persist across reboots, so the manual button still knows where to send water with no wifi.
 
 ## Automation
 
