@@ -4,7 +4,7 @@ export type LogEntry = { message: string; severity: Severity; time: Date };
 /** Client snapshot: wire snapshot with log times parsed to Date plus a client-only SSE indicator. */
 export type Snapshot = Omit<WireSnapshot, "log"> & { log: LogEntry[]; serverConnected: boolean };
 
-const empty = (): Snapshot => ({ brokerConnected: false, deviceOnline: false, entities: {}, valves: { clean_water_valve: false, fertigation_valve: false }, resetPending: false, log: [], serverConnected: false });
+const empty = (): Snapshot => ({ brokerConnected: false, deviceOnline: false, entities: {}, valves: { clean_water_valve: false, fertigation_valve: false, microbiology_valve: false }, selectedZone: 0, zoneNames: {}, resetPending: false, log: [], serverConnected: false });
 
 /** Holds the latest server snapshot fed over SSE; exposed via useSyncExternalStore. */
 export class SnapshotStore {

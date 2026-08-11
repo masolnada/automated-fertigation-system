@@ -15,16 +15,23 @@ const deterministic = (year: number, month: number, day: number) => {
   return (value ^ (value >>> 16)) >>> 0;
 };
 
+// PROTOTYPE: zone/source names live here so the schematic variants have real
+// data to render. Real implementation puts these on the server (web ADR-0010).
+export const zoneNames: Record<number, string> = { 1: "Olive terrace", 2: "Almond row", 3: "Vegetable beds", 4: "Young trees" };
+
 const snapshot = {
   deviceOnline: true,
   brokerConnected: true,
   resetPending: false,
-  valves: { clean_water_valve: false, fertigation_valve: false },
+  valves: { clean_water_valve: false, fertigation_valve: false, microbiology_valve: false },
+  zoneNames,
+  selectedZone: 1,
   entities: {
     battery_voltage: num(13.24), battery_current: num(1.42), battery_state_of_charge: num(87.5), battery_consumed_ah: num(4.2), battery_time_remaining: num(320), battery_charged: num("OFF"),
     flow_rate: num(0), total_water: num(128.6),
     cycle_mode: num("Time"), cycle_minutes: num(30), cycle_liters: num(45), "pre-wet_percent": num(20), flush_minutes: num(3), min_flow: num(0.5),
     irrigation_running: num("OFF"), pump: num("OFF"),
+    zone_1: num("ON"), zone_2: num("OFF"), zone_3: num("OFF"), zone_4: num("OFF"),
   } as Record<string, { value: number | string; known: boolean }>,
   log: [
     { message: "Snapshot restored from broker", severity: "normal", time: iso(42) },
@@ -73,21 +80,23 @@ function buildWateringEvents(): WateringEvent[] {
         litres = Math.round(litres * 10) / 10;
 
         const trigger: WateringEvent["trigger"] = hash % 11 === 0 ? "manual" : "sequence";
+        const zone = 1 + (hash % 4);
         const endedAt = new Date(Date.UTC(year, month - 1, day, 6, 30 + hash % 45));
         const durationMinutes = outcome === "dry_run" ? 4 : Math.max(8, Math.round(litres / 6.5));
         chronological.push({
           id: seq, deviceId: "kc868-a8", seq, startedAt: new Date(endedAt.getTime() - durationMinutes * 60_000).toISOString(), endedAt: endedAt.toISOString(),
-          litresDelivered: litres, outcome, trigger, channel: seq % 2 ? "row-a" : "row-b",
+          litresDelivered: litres, outcome, trigger, zone, zoneName: zoneNames[zone] ?? null,
         });
         seq++;
 
+        const secondZone = 1 + ((hash + 2) % 4);
         const secondPass = heatwave && outcome === "completed" && hash % 5 === 0;
         if (secondPass) {
           const secondLitres = Math.round(litres * (0.65 + (hash % 20) / 100) * 10) / 10;
           const secondEnd = new Date(Date.UTC(year, month - 1, day, 17, 15 + hash % 30));
           chronological.push({
             id: seq, deviceId: "kc868-a8", seq, startedAt: new Date(secondEnd.getTime() - Math.max(8, Math.round(secondLitres / 6.5)) * 60_000).toISOString(), endedAt: secondEnd.toISOString(),
-            litresDelivered: secondLitres, outcome: "completed", trigger: "sequence", channel: seq % 2 ? "row-a" : "row-b",
+            litresDelivered: secondLitres, outcome: "completed", trigger: "sequence", zone: secondZone, zoneName: zoneNames[secondZone] ?? null,
           });
           seq++;
         }
@@ -122,7 +131,19 @@ function applyCommand(name: string, body: Record<string, unknown>): { status: nu
     case "toggle-pump": e.pump = num(e.pump!.value === "ON" ? "OFF" : "ON"); break;
     case "select-valve": {
       const valve = body.valve;
-      snapshot.valves = { clean_water_valve: valve === "clean_water_valve", fertigation_valve: valve === "fertigation_valve" };
+      snapshot.valves = { clean_water_valve: valve === "clean_water_valve", fertigation_valve: valve === "fertigation_valve", microbiology_valve: valve === "microbiology_valve" };
+      break;
+    }
+    case "select-zone": {
+      const zone = Number(body.zone);
+      snapshot.selectedZone = zone;
+      for (let n = 1; n <= 4; n++) e[`zone_${n}`] = num(n === zone ? "ON" : "OFF");
+      break;
+    }
+    case "set-zone-name": {
+      const zone = Number(body.zone);
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (zone >= 1 && zone <= 4 && name) snapshot.zoneNames[zone] = name;
       break;
     }
     case "set-cycle-mode": e.cycle_mode = num(String(body.mode)); break;

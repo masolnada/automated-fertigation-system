@@ -85,3 +85,13 @@
   .watering-events-scroll li > :last-child { grid-column: 1 / -1; text-align: left; }
   .watering-month-grid > span, .watering-month-day { min-height: 2.8rem; }
 }
+
+/* Per-zone split for the selected day, and the year-wide zone filter. */
+.watering-zone-split { display: flex; flex-wrap: wrap; gap: 0 1.25rem; margin: 0 0 0.75rem; padding: 0.6rem 0 0; border-top: 2px dashed var(--color-gray); }
+.watering-zone-split div { display: flex; align-items: baseline; gap: 0.4rem; }
+.watering-zone-split dt { font-size: 0.72rem; font-weight: 700; }
+.watering-zone-split dd { margin: 0; font-family: var(--font-num); font-size: 0.85rem; font-weight: 800; }
+.watering-zone-split dd small { font-size: 0.6rem; font-weight: 800; }
+.watering-zone-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
+.watering-zone-filter button { padding: 0.35rem 0.7rem; border: 2px solid var(--color-ink); background: var(--color-paper); color: var(--color-ink); font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; }
+.watering-zone-filter button[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); }

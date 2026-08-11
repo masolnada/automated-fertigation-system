@@ -7,7 +7,7 @@ import { SnapshotStore } from "../src/store";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const entity = (value: number | string) => ({ value, known: true });
-const wire = (partial: Partial<WireSnapshot> = {}): WireSnapshot => ({ brokerConnected: true, deviceOnline: true, entities: {}, valves: { clean_water_valve: false, fertigation_valve: false }, resetPending: false, log: [], ...partial });
+const wire = (partial: Partial<WireSnapshot> = {}): WireSnapshot => ({ brokerConnected: true, deviceOnline: true, entities: {}, valves: { clean_water_valve: false, fertigation_valve: false, microbiology_valve: false }, selectedZone: 0, zoneNames: {}, resetPending: false, log: [], ...partial });
 const eligibleEntities = () => ({ pump: entity("OFF"), flow_rate: entity(0), total_water: entity(12.3) });
 
 type Call = { name: string; body: Record<string, unknown> };
@@ -65,17 +65,15 @@ describe("watering history", () => {
 });
 
 describe("reset", () => {
-  test("guard reason disables the menu item", () => {
+  test("guard reason disables the reset control", () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), flow_rate: entity(1) } }));
-    fireEvent.click(screen.getByRole("button", { name: "Flow actions" }));
-    expect(screen.getByRole("menuitem", { name: "Reset total water" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Reset total water" }).hasAttribute("disabled")).toBe(true);
   });
   test("pending cannot close; success posts and closes", async () => {
     let release!: (r: Response) => void;
     responders["reset-total-water"] = () => new Promise((resolve) => { release = resolve; });
     renderApp(seeded());
-    fireEvent.click(screen.getByRole("button", { name: "Flow actions" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Reset total water" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset total water" }));
     fireEvent.click(screen.getByRole("button", { name: "Reset total" }));
     await waitFor(() => expect(calls.at(-1)).toEqual({ name: "reset-total-water", body: {} }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" }).hasAttribute("disabled")).toBe(true));
@@ -87,8 +85,7 @@ describe("reset", () => {
   test("timeout surfaces the danger message with cancel enabled", async () => {
     responders["reset-total-water"] = async () => json({ result: "timeout" }, 504);
     renderApp(seeded());
-    fireEvent.click(screen.getByRole("button", { name: "Flow actions" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Reset total water" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset total water" }));
     fireEvent.click(screen.getByRole("button", { name: "Reset total" }));
     await waitFor(() => expect(screen.getByText("No response from device. Check its connection and current total before retrying.")).toBeTruthy());
     expect(screen.getByRole("button", { name: "Cancel" }).hasAttribute("disabled")).toBe(false);
@@ -96,14 +93,39 @@ describe("reset", () => {
 });
 
 describe("commands", () => {
-  test("valve selection is exclusive", async () => {
-    const store = seeded();
-    renderApp(store);
-    fireEvent.click(screen.getByRole("button", { name: "Clean" }));
+  test("selecting a source opens it; selecting the open one shuts it", async () => {
+    renderApp(seeded());
+    fireEvent.click(screen.getByRole("button", { name: /Clean water/ }));
     await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-valve", body: { valve: "clean_water_valve" } }));
-    expect(screen.getByText("Switching… both valves close for a moment")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Closed" }));
+    act(() => { /* device confirms */ });
+    const store = seeded({ valves: { clean_water_valve: true, fertigation_valve: false, microbiology_valve: false } });
+    cleanup();
+    renderApp(store);
+    fireEvent.click(screen.getByRole("button", { name: /Clean water/ }));
     await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-valve", body: { valve: "" } }));
+  });
+  test("selecting a zone opens it; selecting the open one shuts it", async () => {
+    renderApp(seeded());
+    fireEvent.click(screen.getByRole("button", { name: /Zone 2/ }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-zone", body: { zone: 2 } }));
+    cleanup();
+    renderApp(seeded({ selectedZone: 2 }));
+    fireEvent.click(screen.getByRole("button", { name: /Zone 2/ }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-zone", body: { zone: 0 } }));
+  });
+  test("renaming a zone requires confirmation", async () => {
+    renderApp(seeded({ selectedZone: 1, zoneNames: { 1: "Olive terrace" } }));
+    fireEvent.click(screen.getByRole("button", { name: /Olive terrace/ }));
+    const input = screen.getByLabelText("Name for zone 1") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Almond row" } });
+    expect(calls.some((c) => c.name === "set-zone-name")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    fireEvent.click(screen.getByRole("button", { name: "Rename zone" }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "set-zone-name", body: { zone: 1, name: "Almond row" } }));
+  });
+  test("warns when the pump has no open path", () => {
+    renderApp(seeded());
+    expect(screen.getByText("Pump cannot run")).toBeTruthy();
   });
   test("cycle mode posts immediately", async () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), cycle_mode: entity("Time") } }));

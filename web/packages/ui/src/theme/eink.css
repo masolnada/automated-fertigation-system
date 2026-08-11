@@ -1,8 +1,17 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
-@theme { --color-ink: #000; --color-paper: #fff; --color-gray: #808080; --color-action: #B7E4C7; --color-danger: #B00020; --font-ui: system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; --font-num: ui-monospace,"SF Mono",Menlo,Consolas,monospace; --border-heavy-width: 3px; --border-light-width: 2px; --divider-width: 2px; }
-* { box-sizing: border-box; animation: none !important; transition: none !important; border-radius: 0 !important; box-shadow: none !important; }
+@theme { --color-ink: #000; --color-paper: #fff; --color-gray: #808080; --color-action: #B7E4C7; --color-danger: #B00020; --color-water: #A8D8EA; --font-ui: system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; --font-num: ui-monospace,"SF Mono",Menlo,Consolas,monospace; --border-heavy-width: 3px; --border-light-width: 2px; --divider-width: 2px; }
+/* Motion is opt-in: everything is still stripped by default so no transition or
+   animation arrives by accident from a utility, but an element may opt back in
+   with `data-motion` where the movement itself carries information (DESIGN.md
+   §1, Purposeful Motion). */
+* { box-sizing: border-box; border-radius: 0 !important; box-shadow: none !important; }
+*:not([data-motion]) { animation: none !important; transition: none !important; }
 :focus-visible { outline: 3px solid var(--color-ink); outline-offset: 3px; }
+/* The schematic's flow dashes: motion here means water is moving right now, so
+   the element opts in with `data-motion` (DESIGN.md §1, Purposeful Motion). */
+@keyframes flow-dash { to { stroke-dashoffset: -24; } }
+.pipe-flowing { animation: flow-dash 0.9s linear infinite; }
 html { scroll-behavior: auto; }
 body { margin: 0; font-family: var(--font-ui); font-size: 1rem; line-height: 1.6; background: var(--color-paper); color: var(--color-ink); min-height: 100vh; }

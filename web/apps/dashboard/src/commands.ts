@@ -24,3 +24,5 @@ export const useSetCycleTarget = command("set-cycle-target");
 export const useSetFlushDuration = command("set-flush-duration");
 export const useSetMinFlow = command("set-min-flow");
 export const useResetTotalWater = command("reset-total-water");
+export const useSelectZone = command("select-zone");
+export const useSetZoneName = command("set-zone-name");

@@ -1,2 +1,8 @@
 [test]
 preload = ["./test-preload.ts"]
+
+# The dev servers are launched from this directory (`bun run dev`, `dev:dashboard`),
+# so Bun reads this bunfig, not apps/dashboard's. Without the plugin registered
+# here Tailwind never runs and the utilities layer is served empty.
+[serve.static]
+plugins = ["bun-plugin-tailwind"]

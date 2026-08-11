@@ -55,6 +55,9 @@
     "packages/ui": {
       "name": "@hort/ui",
       "version": "0.0.0",
+      "dependencies": {
+        "@hort/contracts": "workspace:*",
+      },
     },
   },
   "packages": {

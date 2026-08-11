@@ -4,11 +4,10 @@ import type { SnapshotStore } from "./store";
 import { useStore } from "./useStore";
 import { canReset, resetIneligibleReason } from "./guards";
 import { resetMessages } from "./display";
-import { CommandFailure, useResetTotalWater, useSelectValve, useSetCycleMode, useSetCycleTarget, useSetFlushDuration, useSetMinFlow, useSetPreWetPercent, useStartIrrigation, useStopIrrigation, useTogglePump } from "./commands";
+import { CommandFailure, useResetTotalWater, useSelectValve, useSelectZone, useSetCycleMode, useSetCycleTarget, useSetFlushDuration, useSetMinFlow, useSetPreWetPercent, useSetZoneName, useStartIrrigation, useStopIrrigation, useTogglePump } from "./commands";
 import { Irrigation } from "./cards/Irrigation";
 import { Battery } from "./cards/Battery";
-import { Relays } from "./cards/Relays";
-import { Flow } from "./cards/Flow";
+import { SchematicCard } from "./cards/Schematic";
 import { Watering } from "./cards/Watering";
 import { Events } from "./cards/Events";
 import { HeaderStatus } from "./HeaderStatus";
@@ -33,6 +32,8 @@ export function App({ store }: { store: SnapshotStore }) {
   const setFlush = useSetFlushDuration();
   const setMinFlow = useSetMinFlow();
   const reset = useResetTotalWater();
+  const selectZone = useSelectZone();
+  const setZoneName = useSetZoneName();
 
   const reason = resetIneligibleReason(snapshot);
   const pending = kind === "reset" && reset.isPending;
@@ -52,5 +53,5 @@ export function App({ store }: { store: SnapshotStore }) {
   };
 
   const message = kind === "pump" ? "If it starts, make sure a valve is open." : kind === "start" ? "Start the irrigation sequence?" : `This will reset the total from ${Number(snapshot.entities.total_water?.value).toFixed(1)} L to 0 L. This action cannot be undone.`;
-  return <><header><nav className="pill-nav"><span className="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg></span><div className="title"><h1>Hort</h1><span className="subtitle">automated fertigation</span></div><HeaderStatus status={{ deviceOnline: snapshot.deviceOnline, brokerConnected: snapshot.brokerConnected, serverConnected: snapshot.serverConnected }}/></nav></header><main><Irrigation snapshot={snapshot} onStart={() => open("start")} onStop={() => stop.mutate({})} onCycleMode={(mode) => setCycleMode.mutate({ mode })} onPreWet={(value) => setPreWet.mutate({ value })} onCycleTarget={(value) => setCycleTarget.mutate({ value })} onFlush={(value) => setFlush.mutate({ value })}/><Watering pumpOn={snapshot.entities.pump?.value === "ON"}/><Battery snapshot={snapshot}/><Relays snapshot={snapshot} onPump={() => open("pump")} onSelectValve={(valve) => selectValve.mutate({ valve })}/><Flow snapshot={snapshot} reason={reason} menuOpen={menuOpen} setMenuOpen={setMenuOpen} onMinFlow={(value) => setMinFlow.mutate({ value })} onReset={(opener) => open("reset", opener)}/><Events snapshot={snapshot}/></main><Dialog open={Boolean(kind)} title={kind === "pump" ? "Toggle pump?" : kind === "start" ? "Start irrigation?" : "Reset total water?"} message={message} status={status || (!pending && kind === "reset" && reason ? `Reset unavailable: ${reason}.` : "")} danger={kind === "reset" || error} pending={pending} confirmText={kind === "pump" ? "Toggle pump" : kind === "start" ? "Start irrigation" : "Reset total"} confirmDisabled={kind === "reset" && !pending && !canReset(snapshot)} onConfirm={confirm} onClose={() => close()} opener={opener}/></>;
+  return <><header><nav className="pill-nav"><span className="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg></span><div className="title"><h1>Hort</h1><span className="subtitle">automated fertigation</span></div><HeaderStatus status={{ deviceOnline: snapshot.deviceOnline, brokerConnected: snapshot.brokerConnected, serverConnected: snapshot.serverConnected }}/></nav></header><main><Irrigation snapshot={snapshot} onStart={() => open("start")} onStop={() => stop.mutate({})} onCycleMode={(mode) => setCycleMode.mutate({ mode })} onPreWet={(value) => setPreWet.mutate({ value })} onCycleTarget={(value) => setCycleTarget.mutate({ value })} onFlush={(value) => setFlush.mutate({ value })}/><Watering pumpOn={snapshot.entities.pump?.value === "ON"}/><Battery snapshot={snapshot}/><SchematicCard snapshot={snapshot} resetReason={reason} onSelectValve={(valve) => selectValve.mutate({ valve })} onSelectZone={(zone) => selectZone.mutate({ zone })} onTogglePump={() => open("pump")} onZoneName={(zone, name) => setZoneName.mutate({ zone, name })} onMinFlow={(value) => setMinFlow.mutate({ value })} onReset={(opener) => open("reset", opener)}/><Events snapshot={snapshot}/></main><Dialog open={Boolean(kind)} title={kind === "pump" ? "Toggle pump?" : kind === "start" ? "Start irrigation?" : "Reset total water?"} message={message} status={status || (!pending && kind === "reset" && reason ? `Reset unavailable: ${reason}.` : "")} danger={kind === "reset" || error} pending={pending} confirmText={kind === "pump" ? "Toggle pump" : kind === "start" ? "Start irrigation" : "Reset total"} confirmDisabled={kind === "reset" && !pending && !canReset(snapshot)} onConfirm={confirm} onClose={() => close()} opener={opener}/></>;
 }

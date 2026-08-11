@@ -1,8 +1,8 @@
-# Design System: Minimalist E-Ink Dashboard
+# Design System: Minimalist Paper Dashboard
 
-This document defines the constraints, styles, and implementation rules for the dashboard UI. Because this application is explicitly designed to target **e-ink (electronic paper) displays**, standard modern web design practices (such as shadows, gradients, and animations) are strictly prohibited.
+This document defines the constraints, styles, and implementation rules for the dashboard UI. The look is deliberately paper-like and minimal: high-contrast, flat, and structural. It is an aesthetic choice, not a hardware constraint — the dashboard renders on ordinary screens, so shadows, gradients and decorative flourishes are still avoided, but purely for visual discipline.
 
-The goal is absolute high-contrast legibility, zero layout shift, and minimal screen-refresh overhead.
+The goal is absolute high-contrast legibility, zero layout shift, and a calm, uncluttered surface.
 
 ---
 
@@ -10,10 +10,10 @@ The goal is absolute high-contrast legibility, zero layout shift, and minimal sc
 
 | Principle | Guideline | Why? |
 | :--- | :--- | :--- |
-| **Strict Monochrome** | Only pure black and pure white. A single mid-tone gray is allowed only for secondary borders or dividing lines. **Action Green (`#B7E4C7`) and Danger Red (`#B00020`) are the only semantic colour exceptions.** | E-ink screens have limited grayscale levels. Gradients look muddy and pixelated. |
-| **Zero Animation** | Disable all transitions, transforms, scrolling effects, and animations. | Screen refresh rates are too slow. Moving elements cause severe flickering and screen ghosting. |
-| **Sharp Geometry** | Use sharp, 90-degree corners for all containers. Avoid rounded corners. | Round, anti-aliased edges look fuzzy on low-DPI paper displays. |
-| **Negative Space** | Maintain generous, consistent padding around the screen edges and wide gaps between content blocks. | Prevents visual clutter, making the physical screen look like structured paper. |
+| **Restrained Palette** | Black, white and a single mid-tone gray carry the interface. Colour is reserved for meaning — see *Colour semantics* below — and is never decorative. No gradients. | Colour that always means something stays readable at a glance. |
+| **Purposeful Motion** | No transitions on ordinary state changes, and nothing that moves for decoration. Animation is allowed only where the movement itself carries information. | Motion is a strong signal; spending it on decoration makes it useless where it matters. |
+| **Sharp Geometry** | Use sharp, 90-degree corners for all containers. Avoid rounded corners. | Keeps the surface structural and paper-like. |
+| **Negative Space** | Maintain generous, consistent padding around the screen edges and wide gaps between content blocks. | Prevents visual clutter, making the screen look like structured paper. |
 
 ---
 
@@ -27,7 +27,19 @@ A watering-volume heatmap may use the following solid shades derived from Action
 
 ### Danger semantics
 
-`#B00020` may be used only for warnings and errors, offline states, destructive controls/actions, danger-dialog messages, and danger event rows. Pair it with a clear text label and an appropriate border or fill; colour alone must never convey the state. White text is permitted on a filled danger control for contrast. Do not add other colours or use red decoratively.
+`#B00020` may be used only for warnings and errors, offline states, destructive controls/actions, danger-dialog messages, and danger event rows. Pair it with a clear text label and an appropriate border or fill; colour alone must never convey the state. White text is permitted on a filled danger control for contrast. Do not use red decoratively.
+
+### Colour semantics
+
+Every colour in the palette must mean exactly one thing, and that meaning must also be available without colour (text, border, or fill). The palette is closed — adding a colour means adding a meaning, and belongs in this document first.
+
+| Token | Value | Meaning |
+| :--- | :--- | :--- |
+| `action` | `#B7E4C7` | The one primary, affirmative action on a surface |
+| `danger` | `#B00020` | Warnings, errors, offline and destructive actions |
+| `water` | `#A8D8EA` | The path water takes through the system |
+
+`water` marks the selected route on the schematic. The route is drawn in it whether or not the pump is running; movement — not colour — is what signals live flow. Do not use it for water *quantities* (the heatmap owns those), for status text, or as a surface colour.
 
 ## 2. Typography Rules
 

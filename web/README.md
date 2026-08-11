@@ -15,7 +15,7 @@ browser over SSE, and accepts commands over HTTP.
 - `apps/dashboard`: React/TypeScript static app. Consumes SSE via
   `useSyncExternalStore` and issues commands with react-query `useMutation`.
 - `packages/contracts`: shared wire types (`@hort/contracts`).
-- `packages/ui`: dashboard primitives and the e-ink theme.
+- `packages/ui`: dashboard primitives (including the reusable system `Schematic`) and the paper theme.
 
 ## Development
 
