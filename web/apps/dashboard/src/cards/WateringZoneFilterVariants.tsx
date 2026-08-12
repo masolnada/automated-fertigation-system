@@ -14,8 +14,11 @@ import type { WateringEvent } from "@hort/contracts";
  *   A  In the card title row, right-aligned — a card-level scope
  *   B  Directly under the heatmap, read as its legend
  *   C  A vertical rail beside the heatmap, read as row labels
+ *   D  A dropdown in the title row — the quietest possible control
  *
- * The tag treatment is identical in all three; only placement changes.
+ * The tag treatment is identical in A–C; only placement changes. D swaps the
+ * treatment itself, and is the one variant that cannot show every zone's total
+ * at once — the totals move into the options, visible only while open.
  *
  * Rendered on the existing dashboard route via `?variant=A|B|C`.
  */
@@ -24,6 +27,7 @@ export const zoneFilterVariants: Record<string, string> = {
   A: "Tags in the card title row",
   B: "Tags as a legend under the heatmap",
   C: "Tags as a vertical rail beside the heatmap",
+  D: "Dropdown in the title row",
 };
 
 /** 0 is every zone; -1 is the events the controller recorded no zone for. */
@@ -75,6 +79,22 @@ export function ZoneTags({ stats, active, direction = "row", onChange }: { stats
       {stat.label}<small>{stat.litres.toFixed(0)} L</small>
     </button>)}
   </div>;
+}
+
+/**
+ * The quietest control that can do the job: one line, fixed width, no matter how
+ * many zones. Options carry their totals so the comparison survives, but only
+ * while the menu is open — closed, it shows one number instead of five.
+ * `appearance: none` plus a drawn caret keeps the OS chrome off the paper.
+ */
+export function ZoneDropdown({ stats, active, onChange }: { stats: ZoneStat[]; active: number; onChange(zone: number): void }) {
+  const total = stats.reduce((sum, stat) => sum + stat.litres, 0);
+  return <span className="proto-select">
+    <select aria-label="Scope history to a zone" value={active} onChange={(event) => onChange(Number(event.target.value))}>
+      <option value={ALL_ZONES}>All zones — {total.toFixed(0)} L</option>
+      {stats.map((stat) => <option key={stat.zone} value={stat.zone}>{stat.label} — {stat.litres.toFixed(0)} L</option>)}
+    </select>
+  </span>;
 }
 
 /**

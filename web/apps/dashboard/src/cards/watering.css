@@ -107,6 +107,12 @@
    costs no vertical space at all: it fills the empty right half of the title. */
 .proto-title-tags { margin-left: auto; }
 
+/* D — dropdown in the title row. Sharp corners, ink border and a drawn caret,
+   since the native control's own chrome is rounded and gray. */
+.proto-select { position: relative; margin-left: auto; }
+.proto-select::after { position: absolute; top: 50%; right: 0.6rem; width: 0.42rem; height: 0.42rem; border-right: 2px solid var(--color-ink); border-bottom: 2px solid var(--color-ink); content: ""; pointer-events: none; transform: translateY(-70%) rotate(45deg); }
+.proto-select select { appearance: none; min-width: 13rem; padding: 0.3rem 1.9rem 0.3rem 0.6rem; border: 2px solid var(--color-ink); border-radius: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-ui); font-size: 0.72rem; font-weight: 700; text-transform: none; letter-spacing: normal; cursor: pointer; }
+
 /* B — directly under the heatmap, read as its legend. The heatmap is the thing
    being scoped, so the control sits with it rather than floating above. */
 .proto-B .proto-tags-row { margin-top: 0.9rem; padding-top: 0.9rem; border-top: 2px dashed var(--color-gray); }
@@ -120,6 +126,8 @@
 .proto-c-heatmap .watering-heatmap-shell { margin-top: 0; }
 @media (max-width: 640px) {
   .proto-title-tags { width: 100%; margin-top: 0.6rem; margin-left: 0; }
+  .proto-select { width: 100%; margin-left: 0; }
+  .proto-select select { width: 100%; }
   .proto-c-shell { flex-direction: column; gap: 0.8rem; }
   .proto-c-shell .proto-tags-column { width: 100%; flex: 1; flex-direction: row; flex-wrap: wrap; padding-top: 0; }
 }

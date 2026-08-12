@@ -4,7 +4,7 @@ import { Card, CardTitle } from "@hort/ui";
 import type { WateringEvent, WateringHistory } from "@hort/contracts";
 import { zoneNumbers } from "@hort/contracts";
 import { PrototypeSwitcher } from "../PrototypeSwitcher";
-import { ALL_ZONES, NO_ZONE, ZoneAliasNote, ZoneTags, matchesZone, useZoneFilterVariant, zoneFilterVariants, type ZoneStat } from "./WateringZoneFilterVariants";
+import { ALL_ZONES, NO_ZONE, ZoneAliasNote, ZoneDropdown, ZoneTags, matchesZone, useZoneFilterVariant, zoneFilterVariants, type ZoneStat } from "./WateringZoneFilterVariants";
 import "./watering.css";
 
 const TIME_ZONE = "Europe/Madrid";
@@ -295,7 +295,10 @@ export function Watering({ pumpOn, zoneNames = {} }: { pumpOn: boolean; zoneName
   const heatmap = <YearHeatmap year={year} selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>;
 
   return <Card className={`card-watering watering-history proto-${variant}`}>
-    <CardTitle icon={icon}>Watering history{variant === "A" ? <span className="proto-title-tags">{tags}</span> : null}</CardTitle>
+    <CardTitle icon={icon}>Watering history
+      {variant === "A" ? <span className="proto-title-tags">{tags}</span> : null}
+      {variant === "D" ? <span className="proto-title-tags"><ZoneDropdown stats={stats} active={zoneFilter} onChange={setZoneFilter}/></span> : null}
+    </CardTitle>
     <div className="watering-history-header">
       <div className="watering-last"><span>Last watering</span><strong aria-live="polite">{lastValue}</strong>{lastDetail ? <small>{lastDetail}</small> : null}</div>
       <div className="watering-year-heading"><span className="watering-kicker">Year overview</span><YearControl year={year} currentYear={currentYear} earliestYear={earliestYear} onYear={changeYear}/></div>
@@ -310,6 +313,6 @@ export function Watering({ pumpOn, zoneNames = {} }: { pumpOn: boolean; zoneName
       <MonthFocus selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>
       <DailyInspector selectedKey={selectedKey} summary={selectedSummary} loading={initialLoading} unavailable={unavailable}/>
     </div>
-    <PrototypeSwitcher variants={["A", "B", "C"]} current={variant} names={zoneFilterVariants} onChange={setVariant}/>
+    <PrototypeSwitcher variants={["A", "B", "C", "D"]} current={variant} names={zoneFilterVariants} onChange={setVariant}/>
   </Card>;
 }
