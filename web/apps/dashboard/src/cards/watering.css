@@ -92,6 +92,46 @@
 .watering-zone-split dt { font-size: 0.72rem; font-weight: 700; }
 .watering-zone-split dd { margin: 0; font-family: var(--font-num); font-size: 0.85rem; font-weight: 800; }
 .watering-zone-split dd small { font-size: 0.6rem; font-weight: 800; }
-.watering-zone-filter { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1rem; }
-.watering-zone-filter button { padding: 0.35rem 0.7rem; border: 2px solid var(--color-ink); background: var(--color-paper); color: var(--color-ink); font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; }
-.watering-zone-filter button[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); }
+/* PROTOTYPE ONLY — delete with WateringZoneFilterVariants.tsx once one wins. */
+
+/* A — segmented control on zone identity. */
+.proto-a { margin-bottom: 1rem; }
+.proto-a-bar { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; border: 2px solid var(--color-ink); }
+.proto-a-bar button { display: grid; gap: 0.2rem; min-height: 3rem; padding: 0.45rem 0.6rem; border: 0; border-right: 2px dashed var(--color-ink); background: var(--color-paper); color: var(--color-ink); text-align: left; cursor: pointer; }
+.proto-a-bar button:last-child { border-right: 0; }
+.proto-a-bar button span { overflow: hidden; font-size: 0.68rem; font-weight: 900; line-height: 1.2; text-transform: uppercase; letter-spacing: 0.06em; text-overflow: ellipsis; white-space: nowrap; }
+.proto-a-bar button small { font-family: var(--font-num); font-size: 0.72rem; font-weight: 900; line-height: 1; }
+.proto-a-bar button[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); }
+.proto-a-alias { margin: 0.5rem 0 0; font-size: 0.72rem; font-weight: 700; font-style: italic; line-height: 1.4; }
+
+/* B — one weekly strip per zone, no filter. */
+.proto-b { width: 100%; margin-top: 1.2rem; padding-bottom: 0.8rem; }
+.proto-b-months { display: grid; width: calc(100% - 9.5rem); min-height: 1.3rem; margin-left: 9.5rem; gap: 3px; }
+.proto-b-months span { overflow: visible; font-family: var(--font-num); font-size: 0.62rem; font-weight: 900; text-transform: uppercase; white-space: nowrap; }
+.proto-b-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0; border-bottom: 2px dashed var(--color-gray); }
+.proto-b-row:last-child { border-bottom: 0; }
+.proto-b-label { display: grid; gap: 0.1rem; width: 8.9rem; flex: 0 0 8.9rem; padding: 0.35rem 0.4rem; border: 2px solid var(--color-paper); background: var(--color-paper); color: var(--color-ink); text-align: left; cursor: pointer; }
+.proto-b-label span { overflow: hidden; font-size: 0.68rem; font-weight: 900; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.proto-b-label small { font-family: var(--font-num); font-size: 0.62rem; font-weight: 900; }
+.proto-b-label[aria-pressed="true"] { border-color: var(--color-ink); }
+.proto-b-row-active { border-bottom-color: var(--color-ink); }
+.proto-b-strip { display: grid; flex: 1; gap: 3px; }
+.proto-b-cell { height: 22px; padding: 0; border: 1px solid var(--color-gray); cursor: pointer; }
+.proto-b-cell:disabled { border-style: dashed; background: var(--color-paper); cursor: not-allowed; }
+
+/* C — drill-down from the Daily Inspector, no standing filter chrome. */
+.proto-c-banner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; padding: 0.6rem 0.75rem; border: 2px solid var(--color-ink); font-size: 0.78rem; font-weight: 700; }
+.proto-c-banner button { flex: 0 0 auto; padding: 0.3rem 0.6rem; border: 2px solid var(--color-ink); background: var(--color-paper); color: var(--color-ink); font-size: 0.64rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; }
+.proto-c-split { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.proto-c-split button { display: flex; align-items: baseline; gap: 0.45rem; padding: 0.3rem 0.5rem; border: 2px solid var(--color-gray); background: var(--color-paper); color: var(--color-ink); cursor: pointer; }
+.proto-c-split button span { font-size: 0.72rem; font-weight: 700; }
+.proto-c-split button strong { font-family: var(--font-num); font-size: 0.85rem; font-weight: 800; }
+.proto-c-split button strong small { font-size: 0.6rem; font-weight: 800; }
+.proto-c-split button[aria-pressed="true"] { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-paper); }
+@media (max-width: 640px) {
+  .proto-a-bar { grid-auto-flow: row; }
+  .proto-a-bar button { border-right: 0; border-bottom: 2px dashed var(--color-ink); }
+  .proto-b-months { width: calc(100% - 6rem); margin-left: 6rem; }
+  .proto-b-label { width: 5.4rem; flex: 0 0 5.4rem; }
+  .proto-c-banner { align-items: flex-start; flex-direction: column; gap: 0.6rem; }
+}

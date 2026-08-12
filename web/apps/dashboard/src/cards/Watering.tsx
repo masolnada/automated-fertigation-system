@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardTitle } from "@hort/ui";
 import type { WateringEvent, WateringHistory } from "@hort/contracts";
+import { zoneNumbers } from "@hort/contracts";
+import { PrototypeSwitcher } from "../PrototypeSwitcher";
+import { ALL_ZONES, NO_ZONE, ZoneScopeBanner, ZoneSegments, ZoneStrips, matchesZone, useZoneFilterVariant, zoneFilterVariants, type ZoneStat } from "./WateringZoneFilterVariants";
 import "./watering.css";
 
 const TIME_ZONE = "Europe/Madrid";
@@ -71,17 +74,53 @@ function validHistory(value: unknown): value is WateringHistory {
     && (history.lastWatering === null || typeof history.lastWatering === "object")
     && (history.earliestEventAt === null || (typeof history.earliestEventAt === "string" && Number.isFinite(new Date(history.earliestEventAt).getTime())));
 }
-/** Per-zone litres for one day, largest first. */
-function byZone(events: WateringEvent[]): Array<{ label: string; litres: number; count: number }> {
-  const totals = new Map<string, { label: string; litres: number; count: number }>();
+/**
+ * Per-zone litres for one day, largest first. Grouped by numeric zone, so a day
+ * spanning a rename shows one row; the label is the event's own historical name
+ * (web ADR-0010), taken from the latest event of that zone in the day.
+ */
+function byZone(events: WateringEvent[]): Array<{ zone: number; label: string; litres: number; count: number }> {
+  const totals = new Map<number, { zone: number; label: string; litres: number; count: number }>();
   for (const event of events) {
-    const label = zoneLabel(event);
-    const entry = totals.get(label) ?? { label, litres: 0, count: 0 };
+    const zone = event.zone ?? NO_ZONE;
+    const entry = totals.get(zone) ?? { zone, label: zoneLabel(event), litres: 0, count: 0 };
+    entry.label = zoneLabel(event);
     entry.litres += event.litresDelivered;
     entry.count++;
-    totals.set(label, entry);
+    totals.set(zone, entry);
   }
   return [...totals.values()].sort((a, b) => b.litres - a.litres);
+}
+
+/**
+ * PROTOTYPE: per-zone totals for the loaded year, keyed on the numeric zone.
+ * `label` is the zone's current name (from the live snapshot where known, else
+ * the most recent event's name); `aliases` are the other names its events ran
+ * under this year, which is what makes the rename behaviour visible.
+ */
+function zoneStats(events: WateringEvent[], currentNames: Record<number, string>): ZoneStat[] {
+  const stats = new Map<number, ZoneStat & { latestAt: number }>();
+  for (const zone of zoneNumbers) stats.set(zone, { zone, label: currentNames[zone] ?? `Zone ${zone}`, litres: 0, events: 0, aliases: [], latestAt: -Infinity });
+  const seen = new Map<number, Set<string>>();
+  for (const event of events) {
+    const zone = event.zone ?? NO_ZONE;
+    const stat = stats.get(zone) ?? { zone, label: zoneLabel(event), litres: 0, events: 0, aliases: [], latestAt: -Infinity };
+    stat.litres += event.litresDelivered;
+    stat.events++;
+    const at = event.endedAt ? new Date(event.endedAt).getTime() : -Infinity;
+    // No live name for a zone the controller no longer reports: fall back to the
+    // most recent name its own events carry.
+    if (at > stat.latestAt && !currentNames[zone]) { stat.label = zoneLabel(event); stat.latestAt = at; }
+    const names = seen.get(zone) ?? new Set<string>();
+    if (event.zoneName) names.add(event.zoneName);
+    seen.set(zone, names);
+    stats.set(zone, stat);
+  }
+  for (const [zone, names] of seen) {
+    const stat = stats.get(zone);
+    if (stat) stat.aliases = [...names].filter((name) => name !== stat.label).sort();
+  }
+  return [...stats.values()].map(({ latestAt: _latestAt, ...stat }) => stat).sort((a, b) => a.zone - b.zone);
 }
 
 function summarize(events: WateringEvent[]): Map<string, DaySummary> {
@@ -174,7 +213,7 @@ function MonthFocus({ selectedKey, todayKey, days, disabled, onSelect }: { selec
   </section>;
 }
 
-function DailyInspector({ selectedKey, summary, loading, unavailable }: { selectedKey: string; summary: DaySummary | undefined; loading: boolean; unavailable: boolean }) {
+function DailyInspector({ selectedKey, summary, loading, unavailable, drillDown, activeZone, onZone }: { selectedKey: string; summary: DaySummary | undefined; loading: boolean; unavailable: boolean; drillDown: boolean; activeZone: number; onZone(zone: number): void }) {
   const events = summary?.events ?? [];
   const zones = byZone(events);
   return <section className="watering-inspector" aria-labelledby="watering-inspector-title">
@@ -187,9 +226,15 @@ function DailyInspector({ selectedKey, summary, loading, unavailable }: { select
       <div><dt>Waterings</dt><dd>{loading || unavailable ? "–" : summary?.waterings ?? 0}</dd></div>
       <div className={!loading && !unavailable && summary?.issues ? "watering-metric-danger" : ""}><dt>Errors</dt><dd>{loading || unavailable ? "–" : summary?.issues ?? 0}</dd></div>
     </dl>
-    {zones.length && !loading && !unavailable ? <dl className="watering-zone-split">
-      {zones.map((zone) => <div key={zone.label}><dt>{zone.label}</dt><dd>{zone.litres.toFixed(1)} <small>L</small></dd></div>)}
-    </dl> : null}
+    {zones.length && !loading && !unavailable ? drillDown
+      ? <div className="watering-zone-split proto-c-split">
+        {zones.map((zone) => <button type="button" key={zone.zone} aria-pressed={activeZone === zone.zone} onClick={() => onZone(activeZone === zone.zone ? ALL_ZONES : zone.zone)}>
+          <span>{zone.label}</span><strong>{zone.litres.toFixed(1)} <small>L</small></strong>
+        </button>)}
+      </div>
+      : <dl className="watering-zone-split">
+        {zones.map((zone) => <div key={zone.zone}><dt>{zone.label}</dt><dd>{zone.litres.toFixed(1)} <small>L</small></dd></div>)}
+      </dl> : null}
     {loading ? <p className="watering-history-message">Loading daily history…</p>
       : unavailable ? <p className="watering-history-message watering-history-message-error">Watering history unavailable</p>
       : events.length ? <ul className="watering-events-scroll">
@@ -205,17 +250,10 @@ function DailyInspector({ selectedKey, summary, loading, unavailable }: { select
   </section>;
 }
 
-function ZoneFilter({ zones, active, onChange }: { zones: string[]; active: string; onChange(zone: string): void }) {
-  if (zones.length < 2) return null;
-  return <div className="watering-zone-filter" role="group" aria-label="Filter by zone">
-    <button type="button" aria-pressed={active === ""} onClick={() => onChange("")}>All zones</button>
-    {zones.map((zone) => <button key={zone} type="button" aria-pressed={active === zone} onClick={() => onChange(zone)}>{zone}</button>)}
-  </div>;
-}
-
-export function Watering({ pumpOn }: { pumpOn: boolean }) {
+export function Watering({ pumpOn, zoneNames = {} }: { pumpOn: boolean; zoneNames?: Record<number, string> }) {
   const [now, setNow] = useState(() => Date.now());
-  const [zoneFilter, setZoneFilter] = useState("");
+  const [zoneFilter, setZoneFilter] = useState(ALL_ZONES);
+  const [variant, setVariant] = useZoneFilterVariant();
   const todayKey = keyInTimeZone(new Date(now));
   const currentYear = Number(todayKey.slice(0, 4));
   const [year, setYear] = useState(currentYear);
@@ -242,10 +280,11 @@ export function Watering({ pumpOn }: { pumpOn: boolean }) {
 
   const history = query.data;
   const allEvents = history?.chartEvents ?? [];
-  // Names come from the events themselves, so a zone renamed mid-year offers
-  // both labels — each filtering exactly the events that ran under it.
-  const zones = useMemo(() => [...new Set(allEvents.map(zoneLabel))].sort(), [allEvents]);
-  const filtered = useMemo(() => (zoneFilter ? allEvents.filter((event) => zoneLabel(event) === zoneFilter) : allEvents), [allEvents, zoneFilter]);
+  // PROTOTYPE: scoping keys on the numeric zone, so renaming a zone keeps its
+  // history in one place. Labels stay temporal per ADR-0010.
+  const stats = useMemo(() => zoneStats(allEvents, zoneNames), [allEvents, zoneNames]);
+  const activeStat = stats.find((stat) => stat.zone === zoneFilter);
+  const filtered = useMemo(() => allEvents.filter((event) => matchesZone(event, zoneFilter)), [allEvents, zoneFilter]);
   const days = useMemo(() => summarize(filtered), [filtered]);
   const selectedSummary = days.get(selectedKey);
   const initialLoading = query.isPending && !history;
@@ -263,12 +302,16 @@ export function Watering({ pumpOn }: { pumpOn: boolean }) {
       <div className="watering-last"><span>Last watering</span><strong aria-live="polite">{lastValue}</strong>{lastDetail ? <small>{lastDetail}</small> : null}</div>
       <div className="watering-year-heading"><span className="watering-kicker">Year overview</span><YearControl year={year} currentYear={currentYear} earliestYear={earliestYear} onYear={changeYear}/></div>
     </div>
-    <ZoneFilter zones={zones} active={zoneFilter} onChange={setZoneFilter}/>
-    <YearHeatmap year={year} selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>
+    {variant === "A" ? <ZoneSegments stats={stats} active={zoneFilter} onChange={setZoneFilter}/> : null}
+    {variant === "C" && activeStat ? <ZoneScopeBanner label={activeStat.label} onClear={() => setZoneFilter(ALL_ZONES)}/> : null}
+    {variant === "B"
+      ? <ZoneStrips year={year} stats={stats} events={allEvents} todayKey={todayKey} selectedZone={zoneFilter} selectedKey={selectedKey} disabled={initialLoading || unavailable} onSelect={(zone, key) => { setZoneFilter(zone); setSelectedKey(key); }}/>
+      : <YearHeatmap year={year} selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>}
     {query.isError && history ? <p className="watering-refresh-warning" role="status">Refresh failed; showing previous history.</p> : null}
     <div className="watering-history-detail">
       <MonthFocus selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>
-      <DailyInspector selectedKey={selectedKey} summary={selectedSummary} loading={initialLoading} unavailable={unavailable}/>
+      <DailyInspector selectedKey={selectedKey} summary={selectedSummary} loading={initialLoading} unavailable={unavailable} drillDown={variant === "C"} activeZone={zoneFilter} onZone={setZoneFilter}/>
     </div>
+    <PrototypeSwitcher variants={["A", "B", "C"]} current={variant} names={zoneFilterVariants} onChange={setVariant}/>
   </Card>;
 }

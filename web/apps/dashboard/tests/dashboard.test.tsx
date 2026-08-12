@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Snapshot as WireSnapshot } from "@hort/contracts";
 import { App } from "../src/App";
 import { SnapshotStore } from "../src/store";
@@ -30,6 +30,8 @@ function renderApp(store: SnapshotStore) { const client = new QueryClient({ defa
 function seeded(partial: Partial<WireSnapshot> = {}) { const store = new SnapshotStore(); act(() => store.replace(wire({ entities: eligibleEntities(), ...partial }))); return store; }
 /** The info panel starts empty, so flow detail has to be selected first. */
 function selectFlow() { fireEvent.click(screen.getAllByRole("button", { name: /Flow/ })[0]!); }
+/** Zone names appear on the schematic and in the watering history, so scope by card. */
+function schematic() { return within(document.querySelector(".card-schematic") as HTMLElement); }
 
 describe("snapshot rendering", () => {
   test("formats values and shows – after invalidation", () => {
@@ -112,16 +114,16 @@ describe("commands", () => {
   });
   test("selecting a zone opens it; selecting the open one shuts it", async () => {
     renderApp(seeded());
-    fireEvent.click(screen.getByRole("button", { name: /Zone 2/ }));
+    fireEvent.click(schematic().getByRole("button", { name: /Zone 2/ }));
     await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-zone", body: { zone: 2 } }));
     cleanup();
     renderApp(seeded({ selectedZone: 2 }));
-    fireEvent.click(screen.getByRole("button", { name: /Zone 2/ }));
+    fireEvent.click(schematic().getByRole("button", { name: /Zone 2/ }));
     await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-zone", body: { zone: 0 } }));
   });
   test("renaming a zone requires confirmation", async () => {
     renderApp(seeded({ selectedZone: 1, zoneNames: { 1: "Olive terrace" } }));
-    fireEvent.click(screen.getByRole("button", { name: /Olive terrace/ }));
+    fireEvent.click(schematic().getByRole("button", { name: /Olive terrace/ }));
     const input = screen.getByLabelText("Name for zone 1") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "Almond row" } });
     expect(calls.some((c) => c.name === "set-zone-name")).toBe(false);

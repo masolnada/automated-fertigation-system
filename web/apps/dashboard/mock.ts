@@ -19,6 +19,13 @@ const deterministic = (year: number, month: number, day: number) => {
 // data to render. Real implementation puts these on the server (web ADR-0010).
 export const zoneNames: Record<number, string> = { 1: "Olive terrace", 2: "Almond row", 3: "Vegetable beds", 4: "Young trees" };
 
+// PROTOTYPE: an append-only name history (web ADR-0010) so the zone-filter
+// variants have a real mid-year rename to render. Zone 3 was "Tomato patch"
+// until 1 May of the current year.
+const renameAt = Date.UTC(new Date().getUTCFullYear(), 4, 1);
+const nameAt = (zone: number, endedAt: Date): string =>
+  (zone === 3 && endedAt.getTime() < renameAt ? "Tomato patch" : zoneNames[zone]!);
+
 const snapshot = {
   deviceOnline: true,
   brokerConnected: true,
@@ -85,7 +92,7 @@ function buildWateringEvents(): WateringEvent[] {
         const durationMinutes = outcome === "dry_run" ? 4 : Math.max(8, Math.round(litres / 6.5));
         chronological.push({
           id: seq, deviceId: "kc868-a8", seq, startedAt: new Date(endedAt.getTime() - durationMinutes * 60_000).toISOString(), endedAt: endedAt.toISOString(),
-          litresDelivered: litres, outcome, trigger, zone, zoneName: zoneNames[zone] ?? null,
+          litresDelivered: litres, outcome, trigger, zone, zoneName: nameAt(zone, endedAt),
         });
         seq++;
 
@@ -96,7 +103,7 @@ function buildWateringEvents(): WateringEvent[] {
           const secondEnd = new Date(Date.UTC(year, month - 1, day, 17, 15 + hash % 30));
           chronological.push({
             id: seq, deviceId: "kc868-a8", seq, startedAt: new Date(secondEnd.getTime() - Math.max(8, Math.round(secondLitres / 6.5)) * 60_000).toISOString(), endedAt: secondEnd.toISOString(),
-            litresDelivered: secondLitres, outcome: "completed", trigger: "sequence", zone: secondZone, zoneName: zoneNames[secondZone] ?? null,
+            litresDelivered: secondLitres, outcome: "completed", trigger: "sequence", zone: secondZone, zoneName: nameAt(secondZone, secondEnd),
           });
           seq++;
         }
