@@ -92,46 +92,34 @@
 .watering-zone-split dt { font-size: 0.72rem; font-weight: 700; }
 .watering-zone-split dd { margin: 0; font-family: var(--font-num); font-size: 0.85rem; font-weight: 800; }
 .watering-zone-split dd small { font-size: 0.6rem; font-weight: 800; }
-/* PROTOTYPE ONLY — delete with WateringZoneFilterVariants.tsx once one wins. */
+/* PROTOTYPE ONLY — delete with WateringZoneFilterVariants.tsx once one wins.
+   Round two asks only where the tags go; the tag treatment below is settled
+   and identical in every variant. */
+.proto-tags { display: flex; gap: 0.4rem; }
+.proto-tags-row { flex-wrap: wrap; }
+.proto-tags-column { flex-direction: column; }
+.proto-tags button { display: inline-flex; align-items: baseline; gap: 0.45rem; padding: 0.25rem 0.55rem; border: 1px solid var(--color-gray); background: var(--color-paper); color: var(--color-ink); font-size: 0.72rem; font-weight: 700; line-height: 1.4; text-transform: none; letter-spacing: normal; cursor: pointer; }
+.proto-tags button small { font-family: var(--font-num); font-size: 0.68rem; font-weight: 900; }
+.proto-tags button[aria-pressed="true"] { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-paper); }
+.proto-alias { margin: 0.6rem 0 0; font-size: 0.72rem; font-weight: 700; font-style: italic; line-height: 1.4; }
 
-/* A — segmented control on zone identity. */
-.proto-a { margin-bottom: 1rem; }
-.proto-a-bar { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; border: 2px solid var(--color-ink); }
-.proto-a-bar button { display: grid; gap: 0.2rem; min-height: 3rem; padding: 0.45rem 0.6rem; border: 0; border-right: 2px dashed var(--color-ink); background: var(--color-paper); color: var(--color-ink); text-align: left; cursor: pointer; }
-.proto-a-bar button:last-child { border-right: 0; }
-.proto-a-bar button span { overflow: hidden; font-size: 0.68rem; font-weight: 900; line-height: 1.2; text-transform: uppercase; letter-spacing: 0.06em; text-overflow: ellipsis; white-space: nowrap; }
-.proto-a-bar button small { font-family: var(--font-num); font-size: 0.72rem; font-weight: 900; line-height: 1; }
-.proto-a-bar button[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); }
-.proto-a-alias { margin: 0.5rem 0 0; font-size: 0.72rem; font-weight: 700; font-style: italic; line-height: 1.4; }
+/* A — in the card title row, right-aligned. Reads as a card-level scope, and
+   costs no vertical space at all: it fills the empty right half of the title. */
+.proto-title-tags { margin-left: auto; }
 
-/* B — one weekly strip per zone, no filter. */
-.proto-b { width: 100%; margin-top: 1.2rem; padding-bottom: 0.8rem; }
-.proto-b-months { display: grid; width: calc(100% - 9.5rem); min-height: 1.3rem; margin-left: 9.5rem; gap: 3px; }
-.proto-b-months span { overflow: visible; font-family: var(--font-num); font-size: 0.62rem; font-weight: 900; text-transform: uppercase; white-space: nowrap; }
-.proto-b-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0; border-bottom: 2px dashed var(--color-gray); }
-.proto-b-row:last-child { border-bottom: 0; }
-.proto-b-label { display: grid; gap: 0.1rem; width: 8.9rem; flex: 0 0 8.9rem; padding: 0.35rem 0.4rem; border: 2px solid var(--color-paper); background: var(--color-paper); color: var(--color-ink); text-align: left; cursor: pointer; }
-.proto-b-label span { overflow: hidden; font-size: 0.68rem; font-weight: 900; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
-.proto-b-label small { font-family: var(--font-num); font-size: 0.62rem; font-weight: 900; }
-.proto-b-label[aria-pressed="true"] { border-color: var(--color-ink); }
-.proto-b-row-active { border-bottom-color: var(--color-ink); }
-.proto-b-strip { display: grid; flex: 1; gap: 3px; }
-.proto-b-cell { height: 22px; padding: 0; border: 1px solid var(--color-gray); cursor: pointer; }
-.proto-b-cell:disabled { border-style: dashed; background: var(--color-paper); cursor: not-allowed; }
+/* B — directly under the heatmap, read as its legend. The heatmap is the thing
+   being scoped, so the control sits with it rather than floating above. */
+.proto-B .proto-tags-row { margin-top: 0.9rem; padding-top: 0.9rem; border-top: 2px dashed var(--color-gray); }
 
-/* C — drill-down from the Daily Inspector, no standing filter chrome. */
-.proto-c-banner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; padding: 0.6rem 0.75rem; border: 2px solid var(--color-ink); font-size: 0.78rem; font-weight: 700; }
-.proto-c-banner button { flex: 0 0 auto; padding: 0.3rem 0.6rem; border: 2px solid var(--color-ink); background: var(--color-paper); color: var(--color-ink); font-size: 0.64rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer; }
-.proto-c-split { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.proto-c-split button { display: flex; align-items: baseline; gap: 0.45rem; padding: 0.3rem 0.5rem; border: 2px solid var(--color-gray); background: var(--color-paper); color: var(--color-ink); cursor: pointer; }
-.proto-c-split button span { font-size: 0.72rem; font-weight: 700; }
-.proto-c-split button strong { font-family: var(--font-num); font-size: 0.85rem; font-weight: 800; }
-.proto-c-split button strong small { font-size: 0.6rem; font-weight: 800; }
-.proto-c-split button[aria-pressed="true"] { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-paper); }
+/* C — a vertical rail beside the heatmap, read as row labels. Puts each zone's
+   total next to the grid it describes. */
+.proto-c-shell { display: flex; align-items: flex-start; gap: 1.1rem; margin-top: 1.2rem; }
+.proto-c-shell .proto-tags-column { width: 9.5rem; flex: 0 0 9.5rem; padding-top: 1.5rem; }
+.proto-c-shell .proto-tags-column button { justify-content: space-between; }
+.proto-c-heatmap { min-width: 0; flex: 1; }
+.proto-c-heatmap .watering-heatmap-shell { margin-top: 0; }
 @media (max-width: 640px) {
-  .proto-a-bar { grid-auto-flow: row; }
-  .proto-a-bar button { border-right: 0; border-bottom: 2px dashed var(--color-ink); }
-  .proto-b-months { width: calc(100% - 6rem); margin-left: 6rem; }
-  .proto-b-label { width: 5.4rem; flex: 0 0 5.4rem; }
-  .proto-c-banner { align-items: flex-start; flex-direction: column; gap: 0.6rem; }
+  .proto-title-tags { width: 100%; margin-top: 0.6rem; margin-left: 0; }
+  .proto-c-shell { flex-direction: column; gap: 0.8rem; }
+  .proto-c-shell .proto-tags-column { width: 100%; flex: 1; flex-direction: row; flex-wrap: wrap; padding-top: 0; }
 }

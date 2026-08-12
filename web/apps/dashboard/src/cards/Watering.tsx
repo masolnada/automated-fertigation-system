@@ -4,7 +4,7 @@ import { Card, CardTitle } from "@hort/ui";
 import type { WateringEvent, WateringHistory } from "@hort/contracts";
 import { zoneNumbers } from "@hort/contracts";
 import { PrototypeSwitcher } from "../PrototypeSwitcher";
-import { ALL_ZONES, NO_ZONE, ZoneScopeBanner, ZoneSegments, ZoneStrips, matchesZone, useZoneFilterVariant, zoneFilterVariants, type ZoneStat } from "./WateringZoneFilterVariants";
+import { ALL_ZONES, NO_ZONE, ZoneAliasNote, ZoneTags, matchesZone, useZoneFilterVariant, zoneFilterVariants, type ZoneStat } from "./WateringZoneFilterVariants";
 import "./watering.css";
 
 const TIME_ZONE = "Europe/Madrid";
@@ -213,7 +213,7 @@ function MonthFocus({ selectedKey, todayKey, days, disabled, onSelect }: { selec
   </section>;
 }
 
-function DailyInspector({ selectedKey, summary, loading, unavailable, drillDown, activeZone, onZone }: { selectedKey: string; summary: DaySummary | undefined; loading: boolean; unavailable: boolean; drillDown: boolean; activeZone: number; onZone(zone: number): void }) {
+function DailyInspector({ selectedKey, summary, loading, unavailable }: { selectedKey: string; summary: DaySummary | undefined; loading: boolean; unavailable: boolean }) {
   const events = summary?.events ?? [];
   const zones = byZone(events);
   return <section className="watering-inspector" aria-labelledby="watering-inspector-title">
@@ -226,15 +226,9 @@ function DailyInspector({ selectedKey, summary, loading, unavailable, drillDown,
       <div><dt>Waterings</dt><dd>{loading || unavailable ? "–" : summary?.waterings ?? 0}</dd></div>
       <div className={!loading && !unavailable && summary?.issues ? "watering-metric-danger" : ""}><dt>Errors</dt><dd>{loading || unavailable ? "–" : summary?.issues ?? 0}</dd></div>
     </dl>
-    {zones.length && !loading && !unavailable ? drillDown
-      ? <div className="watering-zone-split proto-c-split">
-        {zones.map((zone) => <button type="button" key={zone.zone} aria-pressed={activeZone === zone.zone} onClick={() => onZone(activeZone === zone.zone ? ALL_ZONES : zone.zone)}>
-          <span>{zone.label}</span><strong>{zone.litres.toFixed(1)} <small>L</small></strong>
-        </button>)}
-      </div>
-      : <dl className="watering-zone-split">
-        {zones.map((zone) => <div key={zone.zone}><dt>{zone.label}</dt><dd>{zone.litres.toFixed(1)} <small>L</small></dd></div>)}
-      </dl> : null}
+    {zones.length && !loading && !unavailable ? <dl className="watering-zone-split">
+      {zones.map((zone) => <div key={zone.zone}><dt>{zone.label}</dt><dd>{zone.litres.toFixed(1)} <small>L</small></dd></div>)}
+    </dl> : null}
     {loading ? <p className="watering-history-message">Loading daily history…</p>
       : unavailable ? <p className="watering-history-message watering-history-message-error">Watering history unavailable</p>
       : events.length ? <ul className="watering-events-scroll">
@@ -297,20 +291,24 @@ export function Watering({ pumpOn, zoneNames = {} }: { pumpOn: boolean; zoneName
     setSelectedKey((current) => clampSelection(nextYear, current, todayKey));
   };
 
-  return <Card className="card-watering watering-history"><CardTitle icon={icon}>Watering history</CardTitle>
+  const tags = <ZoneTags stats={stats} active={zoneFilter} direction={variant === "C" ? "column" : "row"} onChange={setZoneFilter}/>;
+  const heatmap = <YearHeatmap year={year} selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>;
+
+  return <Card className={`card-watering watering-history proto-${variant}`}>
+    <CardTitle icon={icon}>Watering history{variant === "A" ? <span className="proto-title-tags">{tags}</span> : null}</CardTitle>
     <div className="watering-history-header">
       <div className="watering-last"><span>Last watering</span><strong aria-live="polite">{lastValue}</strong>{lastDetail ? <small>{lastDetail}</small> : null}</div>
       <div className="watering-year-heading"><span className="watering-kicker">Year overview</span><YearControl year={year} currentYear={currentYear} earliestYear={earliestYear} onYear={changeYear}/></div>
     </div>
-    {variant === "A" ? <ZoneSegments stats={stats} active={zoneFilter} onChange={setZoneFilter}/> : null}
-    {variant === "C" && activeStat ? <ZoneScopeBanner label={activeStat.label} onClear={() => setZoneFilter(ALL_ZONES)}/> : null}
-    {variant === "B"
-      ? <ZoneStrips year={year} stats={stats} events={allEvents} todayKey={todayKey} selectedZone={zoneFilter} selectedKey={selectedKey} disabled={initialLoading || unavailable} onSelect={(zone, key) => { setZoneFilter(zone); setSelectedKey(key); }}/>
-      : <YearHeatmap year={year} selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>}
+    {variant === "C"
+      ? <div className="proto-c-shell">{tags}<div className="proto-c-heatmap">{heatmap}</div></div>
+      : heatmap}
+    {variant === "B" ? tags : null}
+    <ZoneAliasNote stats={stats} active={zoneFilter}/>
     {query.isError && history ? <p className="watering-refresh-warning" role="status">Refresh failed; showing previous history.</p> : null}
     <div className="watering-history-detail">
       <MonthFocus selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>
-      <DailyInspector selectedKey={selectedKey} summary={selectedSummary} loading={initialLoading} unavailable={unavailable} drillDown={variant === "C"} activeZone={zoneFilter} onZone={setZoneFilter}/>
+      <DailyInspector selectedKey={selectedKey} summary={selectedSummary} loading={initialLoading} unavailable={unavailable}/>
     </div>
     <PrototypeSwitcher variants={["A", "B", "C"]} current={variant} names={zoneFilterVariants} onChange={setVariant}/>
   </Card>;
