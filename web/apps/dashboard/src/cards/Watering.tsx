@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardTitle } from "@hort/ui";
+import { Card, CardTitle, Select } from "@hort/ui";
 import type { WateringEvent, WateringHistory } from "@hort/contracts";
 import { zoneNumbers } from "@hort/contracts";
-import { PrototypeSwitcher } from "../PrototypeSwitcher";
-import { ALL_ZONES, NO_ZONE, ZoneAliasNote, ZoneSelectBand, ZoneSelectBoxed, ZoneSelectInline, ZoneTags, matchesZone, useZoneFilterVariant, zoneFilterVariants, type ZoneStat } from "./WateringZoneFilterVariants";
 import "./watering.css";
 
 const TIME_ZONE = "Europe/Madrid";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const OUTCOME_LABEL: Record<WateringEvent["outcome"], string> = { completed: "Completed", aborted: "Aborted", dry_run: "Dry run", recovery: "Recovery" };
+/** Scope covering every zone, including events the controller recorded none for. */
+const ALL_ZONES = 0;
+/** The scope for events the controller recorded no zone for (device sends 0). */
+const NO_ZONE = -1;
 const icon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/><path d="M12 8v8"/><path d="M8.5 12.5 12 16l3.5-3.5"/></svg>;
 
 type DaySummary = { key: string; litres: number; waterings: number; issues: number; events: WateringEvent[] };
@@ -92,35 +94,29 @@ function byZone(events: WateringEvent[]): Array<{ zone: number; label: string; l
   return [...totals.values()].sort((a, b) => b.litres - a.litres);
 }
 
+/** A zone the history can be scoped to, plus the other names it ran under. */
+type ZoneScope = { zone: number; label: string; aliases: string[] };
+
 /**
- * PROTOTYPE: per-zone totals for the loaded year, keyed on the numeric zone.
- * `label` is the zone's current name (from the live snapshot where known, else
- * the most recent event's name); `aliases` are the other names its events ran
- * under this year, which is what makes the rename behaviour visible.
+ * The zones on offer, keyed on the numeric zone so scoping survives a rename
+ * (web ADR-0010) — filtering on the label would split a renamed zone in two.
+ * Every zone is always offered, whether or not it ran this year, so the option
+ * list never reshuffles. `label` is the zone's name now; `aliases` are the
+ * other names its events in this year carry.
  */
-function zoneStats(events: WateringEvent[], currentNames: Record<number, string>): ZoneStat[] {
-  const stats = new Map<number, ZoneStat & { latestAt: number }>();
-  for (const zone of zoneNumbers) stats.set(zone, { zone, label: currentNames[zone] ?? `Zone ${zone}`, litres: 0, events: 0, aliases: [], latestAt: -Infinity });
-  const seen = new Map<number, Set<string>>();
+function zoneScopes(events: WateringEvent[], currentNames: Record<number, string>): ZoneScope[] {
+  const names = new Map<number, Set<string>>();
   for (const event of events) {
     const zone = event.zone ?? NO_ZONE;
-    const stat = stats.get(zone) ?? { zone, label: zoneLabel(event), litres: 0, events: 0, aliases: [], latestAt: -Infinity };
-    stat.litres += event.litresDelivered;
-    stat.events++;
-    const at = event.endedAt ? new Date(event.endedAt).getTime() : -Infinity;
-    // No live name for a zone the controller no longer reports: fall back to the
-    // most recent name its own events carry.
-    if (at > stat.latestAt && !currentNames[zone]) { stat.label = zoneLabel(event); stat.latestAt = at; }
-    const names = seen.get(zone) ?? new Set<string>();
-    if (event.zoneName) names.add(event.zoneName);
-    seen.set(zone, names);
-    stats.set(zone, stat);
+    const seen = names.get(zone) ?? new Set<string>();
+    if (event.zoneName) seen.add(event.zoneName);
+    names.set(zone, seen);
   }
-  for (const [zone, names] of seen) {
-    const stat = stats.get(zone);
-    if (stat) stat.aliases = [...names].filter((name) => name !== stat.label).sort();
-  }
-  return [...stats.values()].map(({ latestAt: _latestAt, ...stat }) => stat).sort((a, b) => a.zone - b.zone);
+  const zones = [...new Set([...zoneNumbers, ...names.keys()])].sort((a, b) => a - b);
+  return zones.map((zone) => {
+    const label = currentNames[zone] ?? (zone === NO_ZONE ? "No zone" : `Zone ${zone}`);
+    return { zone, label, aliases: [...(names.get(zone) ?? [])].filter((name) => name !== label).sort() };
+  });
 }
 
 function summarize(events: WateringEvent[]): Map<string, DaySummary> {
@@ -247,7 +243,6 @@ function DailyInspector({ selectedKey, summary, loading, unavailable }: { select
 export function Watering({ pumpOn, zoneNames = {} }: { pumpOn: boolean; zoneNames?: Record<number, string> }) {
   const [now, setNow] = useState(() => Date.now());
   const [zoneFilter, setZoneFilter] = useState(ALL_ZONES);
-  const [variant, setVariant] = useZoneFilterVariant();
   const todayKey = keyInTimeZone(new Date(now));
   const currentYear = Number(todayKey.slice(0, 4));
   const [year, setYear] = useState(currentYear);
@@ -274,11 +269,9 @@ export function Watering({ pumpOn, zoneNames = {} }: { pumpOn: boolean; zoneName
 
   const history = query.data;
   const allEvents = history?.chartEvents ?? [];
-  // PROTOTYPE: scoping keys on the numeric zone, so renaming a zone keeps its
-  // history in one place. Labels stay temporal per ADR-0010.
-  const stats = useMemo(() => zoneStats(allEvents, zoneNames), [allEvents, zoneNames]);
-  const activeStat = stats.find((stat) => stat.zone === zoneFilter);
-  const filtered = useMemo(() => allEvents.filter((event) => matchesZone(event, zoneFilter)), [allEvents, zoneFilter]);
+  const scopes = useMemo(() => zoneScopes(allEvents, zoneNames), [allEvents, zoneNames]);
+  const activeScope = scopes.find((scope) => scope.zone === zoneFilter);
+  const filtered = useMemo(() => (zoneFilter === ALL_ZONES ? allEvents : allEvents.filter((event) => (event.zone ?? NO_ZONE) === zoneFilter)), [allEvents, zoneFilter]);
   const days = useMemo(() => summarize(filtered), [filtered]);
   const selectedSummary = days.get(selectedKey);
   const initialLoading = query.isPending && !history;
@@ -291,26 +284,20 @@ export function Watering({ pumpOn, zoneNames = {} }: { pumpOn: boolean; zoneName
     setSelectedKey((current) => clampSelection(nextYear, current, todayKey));
   };
 
-  const scope = { stats, active: zoneFilter, onChange: setZoneFilter };
+  const zoneOptions = [{ value: String(ALL_ZONES), label: "All zones" }, ...scopes.map((scope) => ({ value: String(scope.zone), label: scope.label }))];
 
-  return <Card className={`card-watering watering-history proto-${variant}`}>
-    <CardTitle icon={icon}>Watering history
-      {variant === "A" ? <ZoneSelectInline {...scope}/> : null}
-      {variant === "T" ? <span className="proto-title-tags"><ZoneTags {...scope}/></span> : null}
-    </CardTitle>
+  return <Card className="card-watering watering-history">
+    <CardTitle icon={icon}>Watering history<Select label="Scope history to a zone" value={String(zoneFilter)} options={zoneOptions} onChange={(value) => setZoneFilter(Number(value))}/></CardTitle>
     <div className="watering-history-header">
       <div className="watering-last"><span>Last watering</span><strong aria-live="polite">{lastValue}</strong>{lastDetail ? <small>{lastDetail}</small> : null}</div>
-      {variant === "B" ? <ZoneSelectBoxed {...scope}/> : null}
       <div className="watering-year-heading"><span className="watering-kicker">Year overview</span><YearControl year={year} currentYear={currentYear} earliestYear={earliestYear} onYear={changeYear}/></div>
     </div>
-    {variant === "C" ? <ZoneSelectBand {...scope}/> : null}
     <YearHeatmap year={year} selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>
-    <ZoneAliasNote stats={stats} active={zoneFilter}/>
+    {activeScope?.aliases.length ? <p className="watering-zone-alias">Earlier this year this zone was recorded as {activeScope.aliases.join(", ")}. Renaming moves the whole zone; event rows keep the name they ran under.</p> : null}
     {query.isError && history ? <p className="watering-refresh-warning" role="status">Refresh failed; showing previous history.</p> : null}
     <div className="watering-history-detail">
       <MonthFocus selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>
       <DailyInspector selectedKey={selectedKey} summary={selectedSummary} loading={initialLoading} unavailable={unavailable}/>
     </div>
-    <PrototypeSwitcher variants={["A", "B", "C", "T"]} current={variant} names={zoneFilterVariants} onChange={setVariant}/>
   </Card>;
 }

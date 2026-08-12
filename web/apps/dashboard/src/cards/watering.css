@@ -92,48 +92,6 @@
 .watering-zone-split dt { font-size: 0.72rem; font-weight: 700; }
 .watering-zone-split dd { margin: 0; font-family: var(--font-num); font-size: 0.85rem; font-weight: 800; }
 .watering-zone-split dd small { font-size: 0.6rem; font-weight: 800; }
-/* PROTOTYPE ONLY — delete with WateringZoneFilterVariants.tsx once one wins.
-   Round three: the same select in three sizes and positions, plus the tag row
-   kept as a baseline. Every select strips the rounded gray OS chrome and draws
-   its own caret, since the native one is off-palette. */
-.proto-select { position: relative; display: inline-flex; }
-.proto-select select { appearance: none; border-radius: 0; background: var(--color-paper); color: var(--color-ink); font-family: var(--font-ui); text-transform: none; letter-spacing: normal; cursor: pointer; }
-.proto-select::after { position: absolute; content: ""; pointer-events: none; border-right: 2px solid var(--color-ink); border-bottom: 2px solid var(--color-ink); transform: translateY(-70%) rotate(45deg); }
-
-/* A — hairline text select in the title row. No box: an underline and a caret,
-   sized to the title's own type, so it reads as a caption not a control. */
-.proto-select-inline { margin-left: auto; }
-.proto-select-inline select { padding: 0.1rem 1.05rem 0.1rem 0; border: 0; border-bottom: 2px solid var(--color-ink); font-size: 0.72rem; font-weight: 800; }
-.proto-select-inline::after { top: 50%; right: 0.2rem; width: 0.34rem; height: 0.34rem; }
-
-/* B — boxed select in the header, matched to the year stepper it sits beside. */
-.proto-scope-heading { display: grid; justify-items: start; gap: 0.4rem; margin-left: auto; }
-.proto-select-boxed select { min-width: 11rem; min-height: 2.6rem; padding: 0 2.1rem 0 0.7rem; border: 2px solid var(--color-ink); font-size: 0.78rem; font-weight: 800; }
-.proto-select-boxed::after { top: 50%; right: 0.85rem; width: 0.42rem; height: 0.42rem; }
-
-/* C — full-width band under the header. A dropdown cannot show four totals at
-   once, so it buys the quantitative reading back with one hero number. */
-.proto-band { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; margin-top: 1.1rem; padding: 0.85rem 1rem; border: 2px solid var(--color-ink); }
-.proto-band-control { display: grid; justify-items: start; gap: 0.35rem; min-width: 0; }
-.proto-select-band select { min-width: 12rem; max-width: 100%; padding: 0.15rem 1.6rem 0.15rem 0; border: 0; font-size: 1.15rem; font-weight: 900; line-height: 1.2; }
-.proto-select-band::after { top: 60%; right: 0.45rem; width: 0.46rem; height: 0.46rem; }
-.proto-band-total { flex: 0 0 auto; display: grid; justify-items: end; gap: 0.35rem; }
-.proto-band-total strong { font-family: var(--font-num); font-size: 1.7rem; font-weight: 900; line-height: 1; }
-.proto-band-total strong small { font-family: var(--font-ui); font-size: 0.7rem; }
-
-/* T — baseline tag row from round two, in the title. */
-.proto-title-tags { margin-left: auto; }
-.proto-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.proto-tags button { display: inline-flex; align-items: baseline; gap: 0.45rem; padding: 0.25rem 0.55rem; border: 1px solid var(--color-gray); background: var(--color-paper); color: var(--color-ink); font-size: 0.72rem; font-weight: 700; line-height: 1.4; text-transform: none; letter-spacing: normal; cursor: pointer; }
-.proto-tags button small { font-family: var(--font-num); font-size: 0.68rem; font-weight: 900; }
-.proto-tags button[aria-pressed="true"] { border-color: var(--color-ink); background: var(--color-ink); color: var(--color-paper); }
-
-.proto-alias { margin: 0.6rem 0 0; font-size: 0.72rem; font-weight: 700; font-style: italic; line-height: 1.4; }
-@media (max-width: 640px) {
-  .proto-select-inline, .proto-title-tags { width: 100%; margin-top: 0.6rem; margin-left: 0; }
-  .proto-select-inline select { width: 100%; }
-  .proto-scope-heading { width: 100%; margin-left: 0; }
-  .proto-select-boxed, .proto-select-boxed select { width: 100%; }
-  .proto-band { align-items: flex-start; flex-direction: column; gap: 0.9rem; }
-  .proto-band-total { justify-items: start; }
-}
+/* A renamed zone keeps one scope; only the label moved (web ADR-0010). Shown
+   only while scoped to a zone whose events carry another name. */
+.watering-zone-alias { margin: 0.75rem 0 0; font-size: 0.72rem; font-weight: 700; font-style: italic; line-height: 1.4; }

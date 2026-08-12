@@ -67,6 +67,25 @@ describe("watering history", () => {
     await waitFor(() => expect(screen.getByText("Watering history unavailable")).toBeTruthy());
     expect(screen.queryByText("No watering recorded")).toBeNull();
   });
+  // Zone names are temporal (web ADR-0010), so scoping has to key on the numeric
+  // zone: filtering by label would split a renamed zone into two scopes.
+  test("a renamed zone stays one scope, offered under its current name", async () => {
+    const at = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
+    const event = (id: number, litres: number, zoneName: string, minutesAgo: number) =>
+      ({ id, deviceId: "kc868-a8", seq: id, startedAt: at(minutesAgo + 10), endedAt: at(minutesAgo), litresDelivered: litres, outcome: "completed", trigger: "sequence", zone: 3, zoneName });
+    const chartEvents = [event(1, 10, "Tomato patch", 90), event(2, 5, "Vegetable beds", 30)];
+    responders["watering-history"] = async () => json({ chartEvents, lastWatering: chartEvents[1], earliestEventAt: chartEvents[0]!.endedAt }, 200);
+    renderApp(seeded({ zoneNames: { 3: "Vegetable beds" } }));
+
+    const select = await screen.findByLabelText("Scope history to a zone") as HTMLSelectElement;
+    // One option per zone, under the name it has now — not one per historical name.
+    expect([...select.options].map((option) => option.textContent)).toEqual(["All zones", "Zone 1", "Zone 2", "Vegetable beds", "Zone 4"]);
+
+    fireEvent.change(select, { target: { value: "3" } });
+    // Both events survive the scope, so the day keeps all 15 L.
+    await waitFor(() => expect(screen.getByRole("gridcell", { name: /15.0 litres, 2 watering events/ })).toBeTruthy());
+    expect(screen.getByText(/recorded as Tomato patch/)).toBeTruthy();
+  });
 });
 
 describe("reset", () => {

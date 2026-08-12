@@ -19,9 +19,9 @@ const deterministic = (year: number, month: number, day: number) => {
 // data to render. Real implementation puts these on the server (web ADR-0010).
 export const zoneNames: Record<number, string> = { 1: "Olive terrace", 2: "Almond row", 3: "Vegetable beds", 4: "Young trees" };
 
-// PROTOTYPE: an append-only name history (web ADR-0010) so the zone-filter
-// variants have a real mid-year rename to render. Zone 3 was "Tomato patch"
-// until 1 May of the current year.
+// A mid-year rename, so the dev dashboard exercises the temporal names of web
+// ADR-0010: zone 3 was "Tomato patch" until 1 May of the current year. Events
+// before then keep that label, while the zone itself stays one scope.
 const renameAt = Date.UTC(new Date().getUTCFullYear(), 4, 1);
 const nameAt = (zone: number, endedAt: Date): string =>
   (zone === 3 && endedAt.getTime() < renameAt ? "Tomato patch" : zoneNames[zone]!);
