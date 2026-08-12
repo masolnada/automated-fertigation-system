@@ -1,6 +1,6 @@
 import { describe, expect, test, afterEach } from "bun:test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Schematic } from "@hort/ui";
 import { SchematicCard } from "../src/cards/SchematicCard/SchematicCard";
 import { SnapshotStore } from "../src/store";
@@ -61,6 +61,7 @@ describe("schematic card on a phone", () => {
     const { container } = render(<QueryClientProvider client={new QueryClient()}><SchematicCard snapshot={snap()} onSelectValve={noop} onSelectZone={noop} onTogglePump={noop} onZoneName={noop} onMinFlow={noop}/></QueryClientProvider>);
     for (const label of ["Clean water", "Fertigation", "Microbiology", "Olive terrace", "Zone 2", "Zone 3", "Zone 4"]) expect(screen.getByText(label)).toBeTruthy();
     expect(screen.getByText("no path")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Flow/ }));
     expect(screen.getByRole("button", { name: "Reset total water" })).toBeTruthy();
     const wide = [...container.querySelectorAll<HTMLElement>("[style]")].filter((el) => /width:\s*(1[5-9][0-9]|[2-9][0-9][0-9])px/.test(el.getAttribute("style") ?? ""));
     expect(wide).toHaveLength(0);

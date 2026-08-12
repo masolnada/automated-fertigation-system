@@ -35,7 +35,8 @@ export type SchematicProps = {
   flowRate: string;
   zoneNames: Record<number, string>;
   sourceLabels: Record<SourceId, string>;
-  selected: SchematicNode;
+  /** The node whose detail fills the info panel; empty means nothing is selected. */
+  selected: SchematicNode | "";
   onSelect(node: SchematicNode): void;
   onSelectSource(source: SourceId | ""): void;
   onSelectZone(zone: number): void;
@@ -261,7 +262,7 @@ export function Schematic(props: SchematicProps) {
   </div>;
 }
 
-/** Selection state for the diagram, defaulting to the flow sensor. */
-export function useSchematicSelection(initial: SchematicNode = "flow") {
-  return useState<SchematicNode>(initial);
+/** Selection state for the diagram, starting with nothing selected. */
+export function useSchematicSelection(initial: SchematicNode | "" = "") {
+  return useState<SchematicNode | "">(initial);
 }

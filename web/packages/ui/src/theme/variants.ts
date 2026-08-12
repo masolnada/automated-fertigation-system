@@ -35,7 +35,7 @@ export const variants = {
     stackLabel: "text-[0.62rem] font-extrabold uppercase tracking-[0.06em] overflow-hidden text-ellipsis whitespace-nowrap",
     stackBand: "flex min-h-[52px] w-full items-center gap-2 border-[2px] px-3 py-2 text-left cursor-pointer",
     stackSelected: "outline outline-[2px] outline-offset-[2px] outline-ink",
-    panel: "border-[2px] border-ink p-3 min-h-[190px]",
+    panel: "p-3 min-h-[190px]",
     panelTitle: "text-[0.56rem] font-extrabold uppercase tracking-[0.1em] block border-b-[2px] border-dashed border-gray pb-2",
     fieldLabel: "text-[0.62rem] font-extrabold uppercase tracking-[0.1em]",
     fieldInput: "h-[38px] w-full border-[2px] border-ink bg-paper px-2 font-ui text-[0.8rem] font-bold text-ink",

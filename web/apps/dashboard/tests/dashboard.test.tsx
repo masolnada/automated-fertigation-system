@@ -28,11 +28,14 @@ afterEach(async () => { await act(async () => { await sleep(0); }); cleanup(); }
 
 function renderApp(store: SnapshotStore) { const client = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } }); return render(<QueryClientProvider client={client}><App store={store}/></QueryClientProvider>); }
 function seeded(partial: Partial<WireSnapshot> = {}) { const store = new SnapshotStore(); act(() => store.replace(wire({ entities: eligibleEntities(), ...partial }))); return store; }
+/** The info panel starts empty, so flow detail has to be selected first. */
+function selectFlow() { fireEvent.click(screen.getAllByRole("button", { name: /Flow/ })[0]!); }
 
 describe("snapshot rendering", () => {
   test("formats values and shows – after invalidation", () => {
     const store = seeded({ entities: { ...eligibleEntities(), battery_voltage: entity(12.345) } });
     renderApp(store);
+    selectFlow();
     expect(screen.getByText("12.35")).toBeTruthy();
     expect(screen.getByText("12.3")).toBeTruthy();
     act(() => store.replace(wire({ deviceOnline: false, brokerConnected: false, entities: {} })));
@@ -67,12 +70,14 @@ describe("watering history", () => {
 describe("reset", () => {
   test("guard reason disables the reset control", () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), flow_rate: entity(1) } }));
+    selectFlow();
     expect(screen.getByRole("button", { name: "Reset total water" }).hasAttribute("disabled")).toBe(true);
   });
   test("pending cannot close; success posts and closes", async () => {
     let release!: (r: Response) => void;
     responders["reset-total-water"] = () => new Promise((resolve) => { release = resolve; });
     renderApp(seeded());
+    selectFlow();
     fireEvent.click(screen.getByRole("button", { name: "Reset total water" }));
     fireEvent.click(screen.getByRole("button", { name: "Reset total" }));
     await waitFor(() => expect(calls.at(-1)).toEqual({ name: "reset-total-water", body: {} }));
@@ -85,6 +90,7 @@ describe("reset", () => {
   test("timeout surfaces the danger message with cancel enabled", async () => {
     responders["reset-total-water"] = async () => json({ result: "timeout" }, 504);
     renderApp(seeded());
+    selectFlow();
     fireEvent.click(screen.getByRole("button", { name: "Reset total water" }));
     fireEvent.click(screen.getByRole("button", { name: "Reset total" }));
     await waitFor(() => expect(screen.getByText("No response from device. Check its connection and current total before retrying.")).toBeTruthy());

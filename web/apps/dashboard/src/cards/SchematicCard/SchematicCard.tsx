@@ -77,21 +77,23 @@ export function SchematicCard({ snapshot, onSelectValve, onSelectZone, onToggleP
       onTogglePump={() => { if (pumpOn) onTogglePump(); else setConfirming("pump"); }}
       blockedReason={blockedReason}
     >
-      <span className={s.panelTitle}>{title}</span>
-      <div className="pt-3">
-        {selected === "flow" ? <div className="grid gap-2">
-          <dl className={variants.metric.list}>
-            <div className={variants.metric.row}><dt className={variants.metric.term}>Flow rate</dt><dd className={variants.metric.definition}><span className="font-num text-[1.1rem] font-extrabold tabular-nums">{value("flow_rate")}</span><i className={variants.metric.unit}>L/min</i></dd></div>
-            <div className={variants.metric.row}><dt className={variants.metric.term}>Total</dt><dd className={variants.metric.definition}><span className="font-num text-[1.1rem] font-extrabold tabular-nums">{value("total_water")}</span><i className={variants.metric.unit}>L</i></dd></div>
-          </dl>
-          <label className={variants.durations.label}>Min flow <input ref={minFlowRef} className={`${variants.durations.input} h-[38px] w-[4.4rem]`} aria-label="Min Flow" type="number" min="0" max="10" step="0.1" defaultValue={minFlow === undefined ? "" : String(minFlow)} onChange={(event) => commitMinFlow(event.target.value)}/></label>
-          <Button variant="danger" className="w-full" style={{ height: 40, paddingInline: 12, fontSize: "0.7rem" }} disabled={Boolean(resetReason)} onClick={() => setConfirming("reset")}>Reset total water</Button>
-          {resetReason ? <p className="m-0 text-[0.62rem] font-extrabold uppercase tracking-[0.06em]">{resetReason}</p> : null}
-        </div> : null}
-        {selected === "pump" ? <p className={s.note}>{open ? "Path is open; the pump may run." : "The pump needs one open source and one open zone."}</p> : null}
-        {zone ? <ZoneName zone={zone} name={snapshot.zoneNames[zone] ?? `Zone ${zone}`} onRename={onZoneName}/> : null}
-        {sourceIds.includes(selected as SourceId) ? <p className={s.note}>Fixed in firmware. Exactly one source is open at a time.</p> : null}
-      </div>
+      {selected === "" ? null : <>
+        <span className={s.panelTitle}>{title}</span>
+        <div className="pt-3">
+          {selected === "flow" ? <div className="grid gap-2">
+            <dl className={variants.metric.list}>
+              <div className={variants.metric.row}><dt className={variants.metric.term}>Flow rate</dt><dd className={variants.metric.definition}><span className="font-num text-[1.1rem] font-extrabold tabular-nums">{value("flow_rate")}</span><i className={variants.metric.unit}>L/min</i></dd></div>
+              <div className={variants.metric.row}><dt className={variants.metric.term}>Total</dt><dd className={variants.metric.definition}><span className="font-num text-[1.1rem] font-extrabold tabular-nums">{value("total_water")}</span><i className={variants.metric.unit}>L</i></dd></div>
+            </dl>
+            <label className={variants.durations.label}>Min flow <input ref={minFlowRef} className={`${variants.durations.input} h-[38px] w-[4.4rem]`} aria-label="Min Flow" type="number" min="0" max="10" step="0.1" defaultValue={minFlow === undefined ? "" : String(minFlow)} onChange={(event) => commitMinFlow(event.target.value)}/></label>
+            <Button variant="danger" className="w-full" style={{ height: 40, paddingInline: 12, fontSize: "0.7rem" }} disabled={Boolean(resetReason)} onClick={() => setConfirming("reset")}>Reset total water</Button>
+            {resetReason ? <p className="m-0 text-[0.62rem] font-extrabold uppercase tracking-[0.06em]">{resetReason}</p> : null}
+          </div> : null}
+          {selected === "pump" ? <p className={s.note}>{open ? "Path is open; the pump may run." : "The pump needs one open source and one open zone."}</p> : null}
+          {zone ? <ZoneName zone={zone} name={snapshot.zoneNames[zone] ?? `Zone ${zone}`} onRename={onZoneName}/> : null}
+          {sourceIds.includes(selected as SourceId) ? <p className={s.note}>Fixed in firmware. Exactly one source is open at a time.</p> : null}
+        </div>
+      </>}
     </Schematic>
     <ConfirmPumpStart open={confirming === "pump"} onConfirm={() => { onTogglePump(); setConfirming(""); }} onCancel={() => setConfirming("")}/>
     <ConfirmTotalWaterReset open={confirming === "reset"} snapshot={snapshot} onClose={() => setConfirming("")}/>
