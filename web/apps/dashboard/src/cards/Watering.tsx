@@ -4,7 +4,7 @@ import { Card, CardTitle } from "@hort/ui";
 import type { WateringEvent, WateringHistory } from "@hort/contracts";
 import { zoneNumbers } from "@hort/contracts";
 import { PrototypeSwitcher } from "../PrototypeSwitcher";
-import { ALL_ZONES, NO_ZONE, ZoneAliasNote, ZoneDropdown, ZoneTags, matchesZone, useZoneFilterVariant, zoneFilterVariants, type ZoneStat } from "./WateringZoneFilterVariants";
+import { ALL_ZONES, NO_ZONE, ZoneAliasNote, ZoneSelectBand, ZoneSelectBoxed, ZoneSelectInline, ZoneTags, matchesZone, useZoneFilterVariant, zoneFilterVariants, type ZoneStat } from "./WateringZoneFilterVariants";
 import "./watering.css";
 
 const TIME_ZONE = "Europe/Madrid";
@@ -291,28 +291,26 @@ export function Watering({ pumpOn, zoneNames = {} }: { pumpOn: boolean; zoneName
     setSelectedKey((current) => clampSelection(nextYear, current, todayKey));
   };
 
-  const tags = <ZoneTags stats={stats} active={zoneFilter} direction={variant === "C" ? "column" : "row"} onChange={setZoneFilter}/>;
-  const heatmap = <YearHeatmap year={year} selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>;
+  const scope = { stats, active: zoneFilter, onChange: setZoneFilter };
 
   return <Card className={`card-watering watering-history proto-${variant}`}>
     <CardTitle icon={icon}>Watering history
-      {variant === "A" ? <span className="proto-title-tags">{tags}</span> : null}
-      {variant === "D" ? <span className="proto-title-tags"><ZoneDropdown stats={stats} active={zoneFilter} onChange={setZoneFilter}/></span> : null}
+      {variant === "A" ? <ZoneSelectInline {...scope}/> : null}
+      {variant === "T" ? <span className="proto-title-tags"><ZoneTags {...scope}/></span> : null}
     </CardTitle>
     <div className="watering-history-header">
       <div className="watering-last"><span>Last watering</span><strong aria-live="polite">{lastValue}</strong>{lastDetail ? <small>{lastDetail}</small> : null}</div>
+      {variant === "B" ? <ZoneSelectBoxed {...scope}/> : null}
       <div className="watering-year-heading"><span className="watering-kicker">Year overview</span><YearControl year={year} currentYear={currentYear} earliestYear={earliestYear} onYear={changeYear}/></div>
     </div>
-    {variant === "C"
-      ? <div className="proto-c-shell">{tags}<div className="proto-c-heatmap">{heatmap}</div></div>
-      : heatmap}
-    {variant === "B" ? tags : null}
+    {variant === "C" ? <ZoneSelectBand {...scope}/> : null}
+    <YearHeatmap year={year} selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>
     <ZoneAliasNote stats={stats} active={zoneFilter}/>
     {query.isError && history ? <p className="watering-refresh-warning" role="status">Refresh failed; showing previous history.</p> : null}
     <div className="watering-history-detail">
       <MonthFocus selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>
       <DailyInspector selectedKey={selectedKey} summary={selectedSummary} loading={initialLoading} unavailable={unavailable}/>
     </div>
-    <PrototypeSwitcher variants={["A", "B", "C", "D"]} current={variant} names={zoneFilterVariants} onChange={setVariant}/>
+    <PrototypeSwitcher variants={["A", "B", "C", "T"]} current={variant} names={zoneFilterVariants} onChange={setVariant}/>
   </Card>;
 }
