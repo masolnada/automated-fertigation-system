@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { sourceIds, zoneNumbers, type SourceId } from "@hort/contracts";
+import { HoverDialog } from "./HoverDialog/HoverDialog";
 import { variants } from "./theme/variants";
 
 /**
@@ -12,7 +13,8 @@ import { variants } from "./theme/variants";
  * - exactly one source and one zone are open at a time, so the live route is a
  *   single continuous path;
  * - the pump needs an open path on both sides (controller ADR-0016), so the box
- *   is marked when it cannot run.
+ *   is marked in `warning` when it cannot run: an amber border and corner mark
+ *   on the node, with the reason itself in a hover dialog.
  *
  * Geometry constants below drive both the box sizes and the SVG coordinates, so
  * connectors always meet box centres; changing a size keeps them aligned.
@@ -38,6 +40,8 @@ export type SchematicProps = {
   onSelectSource(source: SourceId | ""): void;
   onSelectZone(zone: number): void;
   onTogglePump(): void;
+  /** Why the pump cannot run, shown on the node when the path is shut. */
+  blockedReason: string;
   /** Rendered in the info panel beside the diagram. */
   children?: ReactNode;
 };
@@ -78,6 +82,26 @@ function ZoneManifold({ activeIndex, flowing }: { activeIndex: number; flowing: 
 }
 
 export const hasOpenPath = (activeSource: string, selectedZone: number) => activeSource !== "" && selectedZone > 0;
+
+const DEADHEAD = "Running against a closed line deadheads the pump.";
+const reasonSentence = (reason: string) => `${reason} ${DEADHEAD}`;
+
+/**
+ * The pump box plus its blocked-state dialog.
+ *
+ * The dialog is supplementary: a device with no pointer never opens it, so the
+ * reason is also carried in the button's own accessible name.
+ */
+function PumpNode({ blocked, reason, children }: { blocked: boolean; reason: string; children: ReactElement }) {
+  if (!blocked) return <div className="shrink-0">{children}</div>;
+  return <HoverDialog
+    placement="right"
+    className="shrink-0"
+    content={<><span className={variants.hoverDialog.title}>Pump cannot run</span><p className={variants.hoverDialog.body}>{reasonSentence(reason)}</p></>}
+  >
+    {children}
+  </HoverDialog>;
+}
 
 /** True while the viewport is too narrow for the fixed-width diagram. */
 function useNarrow(): boolean {
@@ -126,7 +150,9 @@ function StackedPipeline({ activeSource, selectedZone, pumpOn, flowRate, zoneNam
 
     <Drop live={activeSource !== ""} flowing={flowing}/>
 
-    <button type="button" onClick={() => { onTogglePump(); onSelect("pump"); }} className={`${s.stackBand} ${open ? "border-ink" : "border-danger"} ${pumpOn ? s.boxOn : s.boxOff}`}>
+    {/* The stacked layout keeps its inline caption: there is no pointer on a
+        phone, so a hover dialog would hide the reason entirely. */}
+    <button type="button" disabled={!pumpOn && !open} onClick={() => { onTogglePump(); onSelect("pump"); }} className={`${s.stackBand} ${open ? "border-ink" : "border-warning"} ${pumpOn ? s.boxOn : s.boxOff}`}>
       <span className={s.kicker}>Pump</span>
       <b className={`${s.nodeValue} ml-auto`}>{pumpOn ? "ON" : "OFF"}</b>
       {!open ? <span className={s.nodeWarn}>no path</span> : null}
@@ -156,7 +182,7 @@ function StackedPipeline({ activeSource, selectedZone, pumpOn, flowRate, zoneNam
 }
 
 export function Schematic(props: SchematicProps) {
-  const { activeSource, selectedZone, pumpOn, flowRate, zoneNames, sourceLabels, selected, onSelect, onSelectSource, onSelectZone, onTogglePump, children } = props;
+  const { activeSource, selectedZone, pumpOn, flowRate, zoneNames, sourceLabels, selected, onSelect, onSelectSource, onSelectZone, onTogglePump, blockedReason, children } = props;
   const narrow = useNarrow();
   const open = hasOpenPath(activeSource, selectedZone);
   const flowing = pumpOn && open;
@@ -194,11 +220,17 @@ export function Schematic(props: SchematicProps) {
         <SourceManifold activeIndex={activeSourceIndex} flowing={flowing}/>
 
         <div className="flex items-center shrink-0" style={{ height: DIAGRAM_H }}>
-          <button type="button" style={{ width: NODE, height: NODE_H }} onClick={() => { onTogglePump(); onSelect("pump"); }} className={`${s.node} ${open ? "border-ink" : "border-danger"} ${pumpOn ? s.boxOn : s.boxOff}`}>
-            <span className={s.kicker}>Pump</span>
-            <b className={s.nodeValue}>{pumpOn ? "ON" : "OFF"}</b>
-            {!open ? <span className={s.nodeWarn}>no path</span> : null}
-          </button>
+          {/* The square must stay centred on SPINE_Y for the manifolds to meet
+              it, so the blocked state is marked inside the box and explained in
+              a hover dialog rather than by anything that changes its size. */}
+          <PumpNode blocked={!open} reason={blockedReason}>
+            <button type="button" style={{ width: NODE, height: NODE_H }} disabled={!pumpOn && !open} onClick={() => { onTogglePump(); onSelect("pump"); }} className={`${s.node} relative ${open ? "border-ink" : "border-warning"} ${pumpOn ? s.boxOn : s.boxOff}`}>
+              <span className={s.kicker}>Pump</span>
+              <b className={s.nodeValue}>{pumpOn ? "ON" : "OFF"}</b>
+              {!open ? <span className={s.nodeWarnDot} aria-hidden="true"/> : null}
+              {!open ? <span className={s.srOnly}>Cannot run. {reasonSentence(blockedReason)}</span> : null}
+            </button>
+          </PumpNode>
           <svg width={MID_PIPE} height={8} className="shrink-0" aria-hidden="true">
             <line x1={0} y1={4} x2={MID_PIPE} y2={4} strokeWidth={3} stroke={IDLE}/>
             {routeSelected ? <line x1={0} y1={4} x2={MID_PIPE} y2={4} strokeWidth={3} stroke={WATER} strokeDasharray="8 4" data-motion={flowing ? "" : undefined} className={flowing ? s.flowing : ""}/> : null}

@@ -125,7 +125,7 @@ describe("commands", () => {
   });
   test("warns when the pump has no open path", () => {
     renderApp(seeded());
-    expect(screen.getByText("Pump cannot run")).toBeTruthy();
+    expect(screen.getAllByText("no path").length).toBeGreaterThan(0);
   });
   test("cycle mode posts immediately", async () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), cycle_mode: entity("Time") } }));

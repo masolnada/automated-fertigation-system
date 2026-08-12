@@ -1,7 +1,8 @@
 import { describe, expect, test, afterEach } from "bun:test";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import { Schematic } from "@hort/ui";
-import { SchematicCard } from "../src/cards/Schematic";
+import { SchematicCard } from "../src/cards/SchematicCard/SchematicCard";
 import { SnapshotStore } from "../src/store";
 
 
@@ -16,6 +17,7 @@ const props = {
   activeSource: "" as const, selectedZone: 0, pumpOn: false, flowRate: "0.0",
   zoneNames: { 1: "Olive terrace" }, sourceLabels: { clean_water_valve: "Clean water", fertigation_valve: "Fertigation", microbiology_valve: "Microbiology" },
   selected: "flow" as const, onSelect() {}, onSelectSource() {}, onSelectZone() {}, onTogglePump() {},
+  blockedReason: "Open one source and one zone.",
 };
 afterEach(cleanup);
 
@@ -38,14 +40,27 @@ describe("schematic layouts", () => {
     expect(container.querySelectorAll("svg").length).toBeGreaterThan(1);
     expect(screen.getByText("Sources")).toBeTruthy();
   });
+  // The hover dialog needs a pointer, so the blocked reason must also reach the
+  // button's accessible name or it is lost on a touch screen.
+  test("the blocked pump names its reason without opening the dialog", () => {
+    setWidth(1400);
+    render(<Schematic {...props}><p>panel</p></Schematic>);
+    expect(screen.queryByRole("tooltip")).toBeNull();
+    expect(screen.getByRole("button", { name: /Pump/ }).textContent).toContain("Cannot run. Open one source and one zone.");
+  });
+  test("an open path leaves no warning on the pump", () => {
+    setWidth(1400);
+    render(<Schematic {...props} activeSource="clean_water_valve" selectedZone={1}><p>panel</p></Schematic>);
+    expect(screen.getByRole("button", { name: /Pump/ }).textContent).not.toContain("Cannot run");
+  });
 });
 
 describe("schematic card on a phone", () => {
   test("renders every control and the panel with no fixed-width element", () => {
     setWidth(390);
-    const { container } = render(<SchematicCard snapshot={snap()} resetReason="" onSelectValve={noop} onSelectZone={noop} onTogglePump={noop} onZoneName={noop} onMinFlow={noop} onReset={noop}/>);
+    const { container } = render(<QueryClientProvider client={new QueryClient()}><SchematicCard snapshot={snap()} onSelectValve={noop} onSelectZone={noop} onTogglePump={noop} onZoneName={noop} onMinFlow={noop}/></QueryClientProvider>);
     for (const label of ["Clean water", "Fertigation", "Microbiology", "Olive terrace", "Zone 2", "Zone 3", "Zone 4"]) expect(screen.getByText(label)).toBeTruthy();
-    expect(screen.getByText("Pump cannot run")).toBeTruthy();
+    expect(screen.getByText("no path")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reset total water" })).toBeTruthy();
     const wide = [...container.querySelectorAll<HTMLElement>("[style]")].filter((el) => /width:\s*(1[5-9][0-9]|[2-9][0-9][0-9])px/.test(el.getAttribute("style") ?? ""));
     expect(wide).toHaveLength(0);

@@ -24,7 +24,11 @@ export const variants = {
     node: "flex flex-col items-center justify-center border-[2px] cursor-pointer",
     nodeValue: "font-num text-[1.15rem] font-extrabold leading-tight",
     nodeUnit: "text-[0.56rem] font-extrabold uppercase tracking-[0.06em]",
-    nodeWarn: "text-[0.5rem] font-extrabold uppercase tracking-[0.06em] text-danger",
+    nodeWarn: "text-[0.56rem] font-extrabold uppercase tracking-[0.06em] text-warning",
+    // Inside the box, so marking the blocked pump never changes its size and
+    // the square stays centred on the spine.
+    nodeWarnDot: "absolute right-[3px] top-[3px] h-[6px] w-[6px] bg-warning",
+    srOnly: "absolute h-px w-px overflow-hidden whitespace-nowrap [clip-path:inset(50%)]",
     divider: "border-t-[2px] border-dashed border-gray min-[1100px]:border-t-0 min-[1100px]:border-l-[2px] min-[1100px]:h-full",
     // Small-screen stacked pipeline. Tap targets stay at least 48px tall.
     stackCell: "flex min-h-[52px] flex-col justify-center border-[2px] border-ink px-2 py-1 text-left cursor-pointer min-w-0",
@@ -35,10 +39,22 @@ export const variants = {
     panelTitle: "text-[0.56rem] font-extrabold uppercase tracking-[0.1em] block border-b-[2px] border-dashed border-gray pb-2",
     fieldLabel: "text-[0.62rem] font-extrabold uppercase tracking-[0.1em]",
     fieldInput: "h-[38px] w-full border-[2px] border-ink bg-paper px-2 font-ui text-[0.8rem] font-bold text-ink",
-    warn: "mt-3 border-[2px] border-danger p-2",
-    warnTitle: "block text-[0.62rem] font-extrabold uppercase tracking-[0.1em] text-danger",
+    warn: "mt-3 border-[2px] border-warning p-2",
+    warnTitle: "block text-[0.62rem] font-extrabold uppercase tracking-[0.1em] text-warning",
     note: "m-0 text-[0.78rem] font-bold leading-snug",
     flowing: "pipe-flowing",
   },
-  dialog: { backdrop: "fixed z-10 inset-0 grid place-items-center p-4 bg-paper", panel: "w-[min(100%,480px)] p-6 border-[3px] border-ink bg-paper", title: "mb-4", text: "m-0 font-bold", status: "min-h-[1.6em] mt-4 font-bold", danger: "text-danger", actions: "flex justify-end gap-[0.8rem] mt-5 [&>button]:h-[46px]" },
+  // Absolutely positioned so revealing it shifts no layout (DESIGN.md §3).
+  hoverDialog: {
+    base: "absolute z-[3] w-[184px] border-[2px] border-warning bg-paper p-2 text-left",
+    top: "bottom-full left-1/2 -translate-x-1/2 mb-2",
+    bottom: "top-full left-1/2 -translate-x-1/2 mt-2",
+    right: "left-full top-1/2 -translate-y-1/2 ml-2",
+    title: "block text-[0.58rem] font-extrabold uppercase tracking-[0.1em] text-warning",
+    body: "m-0 mt-1 text-[0.7rem] font-bold leading-snug text-ink",
+  },
+  // The scrim is a structural layer, not a palette entry (DESIGN.md), and it
+  // must stay translucent: an opaque backdrop turns the Confirmation into a
+  // full-page takeover instead of an overlay.
+  dialog: { backdrop: "m-auto max-w-[min(100%-2rem,480px)] p-0 border-0 bg-transparent text-ink backdrop:bg-ink/40", panel: "p-6 border-[3px] border-ink bg-paper", title: "m-0 mb-4 text-[0.85rem] font-extrabold uppercase tracking-[0.16em]", text: "m-0 font-bold", status: "min-h-[1.6em] mt-4 font-bold", danger: "text-danger", actions: "flex justify-end gap-[0.8rem] mt-5 [&>button]:h-[46px]" },
 } as const;

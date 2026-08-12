@@ -27,7 +27,13 @@ A watering-volume heatmap may use the following solid shades derived from Action
 
 ### Danger semantics
 
-`#B00020` may be used only for warnings and errors, offline states, destructive controls/actions, danger-dialog messages, and danger event rows. Pair it with a clear text label and an appropriate border or fill; colour alone must never convey the state. White text is permitted on a filled danger control for contrast. Do not use red decoratively.
+`#B00020` may be used only for errors, offline states, destructive controls/actions, danger-dialog messages, and danger event rows. Pair it with a clear text label and an appropriate border or fill; colour alone must never convey the state. White text is permitted on a filled danger control for contrast. Do not use red decoratively.
+
+### Warning semantics
+
+`#8A5A00` marks a blocked precondition: an act the system refuses because something the operator can change is not yet true. Nothing is broken and nothing is lost — the operator clears it by acting on the system. Use it for the pump with no open path and for a Total Water reset that is not yet eligible.
+
+The line against Danger Red is one test: **if the operator can clear it right now by acting on the system, it is a warning; if something has failed, gone offline, or will be destroyed, it is danger.** Amber never marks harm and red never marks a mere precondition. Pair warning with a clear text label and a border or fill; colour alone must never convey the state. Do not use amber decoratively, and do not use it as a softer red.
 
 ### Colour semantics
 
@@ -36,7 +42,8 @@ Every colour in the palette must mean exactly one thing, and that meaning must a
 | Token | Value | Meaning |
 | :--- | :--- | :--- |
 | `action` | `#B7E4C7` | The one primary, affirmative action on a surface |
-| `danger` | `#B00020` | Warnings, errors, offline and destructive actions |
+| `warning` | `#8A5A00` | A blocked precondition the operator can clear |
+| `danger` | `#B00020` | Errors, offline and destructive actions |
 | `water` | `#A8D8EA` | The path water takes through the system |
 
 `water` marks the selected route on the schematic. The route is drawn in it whether or not the pump is running; movement — not colour — is what signals live flow. Do not use it for water *quantities* (the heatmap owns those), for status text, or as a surface colour.
@@ -59,6 +66,7 @@ Do not use gray text to establish visual hierarchy. Use size, weight, and layout
 
 * **Layout Grid:** Use a structured, rigid grid. Do not overlap elements or allow elements to shift dynamically on load.
 * **High-Contrast Containers:** Use thick, solid black borders to enclose widgets instead of background colors or drop shadows.
+* **Modal Scrim:** A modal dims the page behind it with a translucent ink layer. This is a structural device, not a palette entry — it adds no new meaning and is the only permitted translucency. The page must stay visible through it: an opaque backdrop reads as a full-page takeover rather than an overlay. Opening a modal must shift no layout, so the scrollbar gutter is reserved permanently rather than appearing and disappearing with the scroll lock.
 * **Dashed Dividers:** Use thick, dashed lines rather than thin solid lines for internal section dividers. Dashed patterns render much cleaner on e-paper.
 
 ---

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { variants } from "./variants";
 
-const palette = /^(?:(active|disabled):)?(bg|text|border)-(ink|paper|gray|action|danger|water)$/;
+const palette = /^(?:(active|disabled):)?(bg|text|border)-(ink|paper|gray|action|warning|danger|water)$/;
 function expectUnambiguousPalette(classes: string) {
   const properties = new Set<string>();
   for (const token of classes.split(/\s+/)) {

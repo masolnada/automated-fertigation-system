@@ -1,8 +1,9 @@
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Badge, Button, Card, CardTitle, variants } from "@hort/ui";
 import type { CycleMode } from "@hort/contracts";
-import type { Snapshot } from "../store";
-import { useDebounced } from "../debounce";
+import type { Snapshot } from "../../store";
+import { useDebounced } from "../../debounce";
+import { ConfirmStartIrrigation } from "./ConfirmStartIrrigation/ConfirmStartIrrigation";
 
 const icon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 16.3c2.2 0 4-1.8 4-4 0-1.5-.7-2.6-2-3.8-.9-.8-1.7-2-2-3.5-.3 1.5-1.1 2.7-2 3.5-1.3 1.2-2 2.3-2 3.8 0 2.2 1.8 4 4 4z"/><path d="M16.8 20c2.3 0 4.2-1.9 4.2-4.2 0-1.6-.8-2.8-2.1-4-.9-.9-1.8-2.1-2.1-3.8-.3 1.7-1.2 2.9-2.1 3.8-1.3 1.2-2.1 2.4-2.1 4 0 2.3 1.9 4.2 4.2 4.2z"/></svg>;
 
@@ -40,6 +41,7 @@ function SequenceOverview({ phases, percent }: { phases: Phase[]; percent: numbe
 type Props = { snapshot: Snapshot; onStart(): void; onStop(): void; onCycleMode(mode: CycleMode): void; onPreWet(value: number): void; onCycleTarget(value: number): void; onFlush(value: number): void };
 
 export function Irrigation({ snapshot, onStart, onStop, onCycleMode, onPreWet, onCycleTarget, onFlush }: Props) {
+  const [confirming, setConfirming] = useState(false);
   const mode = snapshot.entities.cycle_mode?.value === "Volume" ? "Volume" : "Time";
   const totalId = mode === "Volume" ? "cycle_liters" : "cycle_minutes";
   const total = Number(snapshot.entities[totalId]?.value);
@@ -66,7 +68,8 @@ export function Irrigation({ snapshot, onStart, onStop, onCycleMode, onPreWet, o
       <section className="border-[2px] border-ink p-4"><h3 className="mb-3 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]">Pre-wet allocation</h3><PresetGrid percent={percent} onChange={onPreWet} /></section>
       <section className="border-[2px] border-ink p-4"><h3 className="m-0 mb-4 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]">Flush</h3>{flushControl}</section>
       <SequenceOverview phases={phases} percent={percent} />
-      <div className="irrigation-programme-actions mt-4">{running ? <Button className="w-full min-[900px]:w-auto" variant="danger" onClick={onStop}>Stop irrigation</Button> : <Button className="w-full min-[900px]:w-auto" variant="primary" onClick={onStart}>Start irrigation</Button>}</div>
+      <div className="irrigation-programme-actions mt-4">{running ? <Button className="w-full min-[900px]:w-auto" variant="danger" onClick={onStop}>Stop irrigation</Button> : <Button className="w-full min-[900px]:w-auto" variant="primary" onClick={() => setConfirming(true)}>Start irrigation</Button>}</div>
     </div>
+    <ConfirmStartIrrigation open={confirming} onConfirm={() => { onStart(); setConfirming(false); }} onCancel={() => setConfirming(false)}/>
   </Card>;
 }

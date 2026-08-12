@@ -16,3 +16,4 @@ in 1–3 sentences. See [../../CONTEXT.md](../../CONTEXT.md) for the glossary.
 | [0009](0009-server-ingests-device-authoritative-events.md) | Server ingests device-authoritative events (supersedes 0008's detector) |
 | [0010](0010-zone-names-are-server-owned-and-temporal.md) | Zone names are server-owned and resolved as of the event that used them |
 | [0011](0011-paper-theme-is-aesthetic-not-hardware.md) | The paper theme is an aesthetic choice, not an e-ink hardware constraint |
+| [0012](0012-confirmations-are-native-top-layer-dialogs.md) | Confirmations are native top-layer `<dialog>` elements |

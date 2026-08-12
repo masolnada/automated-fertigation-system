@@ -13,5 +13,7 @@
 /web/**/dist/
 /web/.env
 
-# SQLite dev database (WAL/SHM sidecars included)
+# SQLite dev database (WAL/SHM sidecars included). DB_PATH defaults to
+# ./data/hort.db, so the location depends on the server's working directory.
 /web/apps/server/data/
+/web/data/

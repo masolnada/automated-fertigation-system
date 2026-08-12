@@ -22,6 +22,14 @@ An intent-named operation the browser asks of the server
 HTTP. The server validates and enforces it, then translates it to MQTT.
 _Avoid_: action, message, event.
 
+**Confirmation**:
+A modal the operator must accept before a consequential act proceeds — starting
+the pump, starting irrigation, resetting Total Water, and renaming a zone. It
+guards an *act*, not a Command: `toggle-pump` is confirmed when starting and
+unconfirmed when stopping, because only one direction is hazardous. An act that
+*cannot* proceed is disabled rather than confirmed and then refused.
+_Avoid_: modal, prompt, alert.
+
 **Contracts**:
 The shared wire types (`@hort/contracts`) used by both server and browser — the
 snapshot, command bodies, entity kinds, reset-result union. Deliberately holds no
@@ -94,6 +102,14 @@ _Avoid_: e-ink theme.
 
 **Semantic colour**:
 A palette entry that means exactly one thing and is never decorative: `action`
-(the one affirmative action), `danger` (warnings and destructive actions), and
-`water` (the path water takes). The meaning must also be readable without
-colour.
+(the one affirmative action), `warning` (a blocked precondition), `danger`
+(harm, loss or failure), and `water` (the path water takes). The meaning must
+also be readable without colour.
+
+**Blocked precondition**:
+A state the system refuses to leave because something the operator can change is
+not yet true — the pump with no open path, a Total Water reset that is not yet
+eligible. Nothing is broken and nothing is lost. Carries `warning`, and is told
+apart from harm by one test: if the operator can clear it right now by acting on
+the system, it is a blocked precondition and not a danger.
+_Avoid_: error, fault, alarm.
