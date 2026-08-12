@@ -77,11 +77,13 @@ describe("watering history", () => {
     responders["watering-history"] = async () => json({ chartEvents, lastWatering: chartEvents[1], earliestEventAt: chartEvents[0]!.endedAt }, 200);
     renderApp(seeded({ zoneNames: { 3: "Vegetable beds" } }));
 
-    const select = await screen.findByLabelText("Scope history to a zone") as HTMLSelectElement;
+    const select = await screen.findByRole("button", { name: "Scope history to a zone" });
+    fireEvent.click(select);
     // One option per zone, under the name it has now — not one per historical name.
-    expect([...select.options].map((option) => option.textContent)).toEqual(["All zones", "Zone 1", "Zone 2", "Vegetable beds", "Zone 4"]);
+    const listbox = within(screen.getByRole("listbox", { name: "Scope history to a zone" }));
+    expect(listbox.getAllByRole("option").map((option) => option.textContent)).toEqual(["All zones", "Zone 1", "Zone 2", "Vegetable beds", "Zone 4"]);
 
-    fireEvent.change(select, { target: { value: "3" } });
+    fireEvent.click(listbox.getByRole("option", { name: "Vegetable beds" }));
     // Both events survive the scope, so the day keeps all 15 L.
     await waitFor(() => expect(screen.getByRole("gridcell", { name: /15.0 litres, 2 watering events/ })).toBeTruthy());
     expect(screen.getByText(/recorded as Tomato patch/)).toBeTruthy();

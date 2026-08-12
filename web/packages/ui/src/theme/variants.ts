@@ -7,8 +7,19 @@ export const variants = {
   button: { default: `${baseButton} border-ink bg-paper text-ink active:border-ink active:bg-ink active:text-paper disabled:border-gray disabled:bg-paper disabled:text-gray`, primary: `${baseButton} border-ink bg-action text-ink active:border-ink active:bg-paper active:text-ink disabled:border-gray disabled:bg-paper disabled:text-gray`, danger: `${baseButton} border-danger bg-danger text-paper active:border-danger active:bg-paper active:text-danger disabled:border-gray disabled:bg-paper disabled:text-gray`, relay: "font-ui font-extrabold text-[0.72rem] uppercase tracking-[0.08em] cursor-pointer border-[2px] border-ink bg-paper text-ink h-[38px] px-4 ml-auto" },
   controls: "flex flex-wrap gap-[0.9rem] mb-6 [&>button]:flex-1",
   // A hairline select: underline and caret, no box, so scoping a surface stays
-  // subordinate to the data it filters. Padding-right clears the caret.
-  select: { wrap: "relative inline-flex items-center max-[640px]:w-full", field: "appearance-none w-full cursor-pointer border-0 border-b-[2px] border-ink bg-paper py-[0.1rem] pl-0 pr-5 font-ui text-[0.72rem] font-extrabold normal-case tracking-normal text-ink", caret: "pointer-events-none absolute right-0 grid place-items-center [&>svg]:h-[0.85rem] [&>svg]:w-[0.85rem]" },
+  // subordinate to the data it filters. The panel is absolutely positioned, so
+  // opening it shifts no layout (DESIGN.md §3).
+  select: {
+    wrap: "relative inline-flex max-[640px]:w-full",
+    trigger: "flex w-full cursor-pointer items-center gap-2 border-0 border-b-[2px] border-ink bg-paper py-[0.15rem] pl-0 pr-0 font-ui text-[0.72rem] font-extrabold normal-case tracking-normal text-ink",
+    value: "overflow-hidden text-ellipsis whitespace-nowrap",
+    caret: "ml-auto grid shrink-0 place-items-center [&>svg]:h-[0.85rem] [&>svg]:w-[0.85rem]",
+    panel: "absolute z-[3] right-0 top-[calc(100%+4px)] m-0 max-h-[15rem] min-w-full list-none overflow-y-auto border-[2px] border-ink bg-paper p-0",
+    option: "cursor-pointer whitespace-nowrap px-[0.6rem] py-[0.4rem] font-ui text-[0.72rem] font-bold normal-case tracking-normal",
+    optionOff: "bg-paper text-ink",
+    optionOn: "bg-ink text-paper",
+    optionActive: "outline outline-[2px] -outline-offset-[2px] outline-ink",
+  },
   phases: "flex gap-[6px] mb-6 min-h-24",
   phase: { base: "relative flex flex-col justify-center min-w-0 border-[2px] py-2 px-[0.8rem] max-[640px]:py-[0.4rem] max-[640px]:px-[0.6rem]", normal: "bg-paper text-ink border-ink", fertigation: "bg-ink text-paper border-ink", flush: "basis-[7rem] grow-0 shrink-0", label: "text-[0.66rem] font-extrabold tracking-[0.1em] uppercase overflow-hidden text-ellipsis whitespace-nowrap", value: "font-num font-extrabold text-[1.4rem] max-[640px]:text-[1.1rem] leading-[1.3] [&>small]:ml-1 [&>small]:font-ui [&>small]:text-[0.65rem] [&>small]:font-extrabold [&>small]:tracking-[0.06em]", slider: "absolute z-[1] -right-4 top-0 h-full w-8 cursor-ew-resize appearance-none bg-transparent accent-ink [writing-mode:vertical-lr] [direction:rtl]" },
   durations: { container: "grid gap-[0.8rem]", label: "flex items-center gap-2 text-[0.9rem] font-bold", input: "w-[5.2rem] h-[46px] ml-auto px-[0.6rem] font-num text-[1.05rem] font-extrabold text-ink text-center bg-paper border-[2px] border-ink" },
@@ -16,7 +27,6 @@ export const variants = {
   valve: { heading: "m-0 mb-[0.7rem] text-[0.72rem] font-extrabold uppercase tracking-[0.14em]", select: "grid grid-cols-3 gap-[6px] mb-2", button: "font-ui font-extrabold text-[0.7rem] uppercase tracking-[0.08em] cursor-pointer h-[46px] px-[0.4rem] border-[2px]", inactive: "bg-paper text-ink border-ink", active: "bg-ink text-paper border-ink", pending: "bg-paper text-ink border-ink border-dashed", status: "m-0 mb-6 min-h-[2.4em] text-[0.68rem] font-bold leading-[1.2] tracking-[0.06em] uppercase" },
   relay: { list: "list-none m-0 p-0", row: "flex items-center gap-[0.8rem] py-[0.6rem] text-[0.95rem] font-bold border-b-[2px] border-dashed border-gray last:border-b-0", dot: "w-4 h-4 shrink-0 border-[2px]", off: "bg-paper border-ink", on: "bg-ink border-ink" },
   events: { list: "list-none m-0 p-0 text-[0.9rem] max-h-60 overflow-y-auto empty:after:content-['Nothing_yet_—_events_appear_here_as_the_system_reports_them.'] empty:after:block empty:after:py-2 empty:after:italic", row: "py-[0.4rem] border-b-[2px] border-dashed", normal: "text-ink border-gray", time: "font-num tabular-nums font-extrabold mr-[0.8rem]", danger: "text-danger border-danger font-bold" },
-  menu: { wrap: "relative ml-auto", trigger: "w-[42px] h-9 p-0 leading-none tracking-normal text-[1.1rem] border-[2px] border-ink bg-paper text-ink", panel: "absolute z-[2] right-0 top-[calc(100%+6px)] w-[250px] p-[0.7rem] border-[3px] border-ink bg-paper", item: "w-full h-11 px-[0.7rem] text-left border-[2px] border-ink bg-paper text-ink font-ui font-extrabold uppercase tracking-[0.08em]", reason: "min-h-[1.5em] m-[0.5rem_0_0] text-[0.72rem] font-extrabold uppercase tracking-[0.06em]" },
   schematic: {
     kicker: "text-[0.56rem] font-extrabold uppercase tracking-[0.1em]",
     box: "flex flex-col justify-center border-[2px] border-ink px-2 text-left cursor-pointer min-w-0",

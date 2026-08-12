@@ -47,7 +47,9 @@ describe("paper theme", () => {
       variants.relay.on,
       variants.events.normal,
       variants.events.danger,
-      variants.select.field,
+      variants.select.trigger,
+      variants.select.optionOff,
+      variants.select.optionOn,
     ];
     for (const state of states) expectUnambiguousPalette(state);
   });
