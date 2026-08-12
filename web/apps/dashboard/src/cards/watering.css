@@ -23,11 +23,11 @@
 .watering-heatmap-cell { position: relative; padding: 0; border: 1px solid var(--color-gray); cursor: pointer; }
 .watering-heatmap-cell:disabled { border-style: dashed; border-color: var(--color-gray); background: var(--color-paper); cursor: not-allowed; }
 .watering-level-0 { background: var(--color-paper); }
-.watering-level-1 { background: #EAF6EE; }
-.watering-level-2 { background: #D2EEDA; }
-.watering-level-3 { background: #B7E4C7; }
-.watering-level-4 { background: #78C494; }
-.watering-level-5 { background: #2F7D4F; }
+.watering-level-1 { background: #E8F1F8; }
+.watering-level-2 { background: #CBE0EF; }
+.watering-level-3 { background: #9FC7E2; }
+.watering-level-4 { background: #5B95C4; }
+.watering-level-5 { background: #1B4F7E; }
 .watering-cell-error { border: 2px solid var(--color-danger); }
 .watering-cell-selected { z-index: 2; outline: 3px solid var(--color-ink); outline-offset: 2px; }
 .watering-cell-today::after { position: absolute; right: 1px; bottom: 1px; left: 1px; height: 2px; background: var(--color-ink); content: ""; }

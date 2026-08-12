@@ -23,7 +23,7 @@ The goal is absolute high-contrast legibility, zero layout shift, and a calm, un
 
 ### Quantitative heatmap exception
 
-A watering-volume heatmap may use the following solid shades derived from Action Green as its only quantitative colour scale: `#EAF6EE`, `#D2EEDA`, `#B7E4C7`, `#78C494`, and `#2F7D4F`. This exception applies only to fixed daily-litre bands, must provide equivalent accessible text for every cell, and must never use gradients. A visible legend may be omitted when selecting a cell exposes its exact litres in the adjacent Daily Inspector. Zero litres remain white. A day containing any non-completed watering event retains its volume fill and uses a Danger Red border.
+A watering-volume heatmap may use the following solid blue shades as its only quantitative colour scale: `#E8F1F8`, `#CBE0EF`, `#9FC7E2`, `#5B95C4`, and `#1B4F7E`. This exception applies only to fixed daily-litre bands, must provide equivalent accessible text for every cell, and must never use gradients. A visible legend may be omitted when selecting a cell exposes its exact litres in the adjacent Daily Inspector. Zero litres remain white. A day containing any non-completed watering event retains its volume fill and uses a Danger Red border.
 
 ### Danger semantics
 
