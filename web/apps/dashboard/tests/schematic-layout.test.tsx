@@ -6,6 +6,7 @@ import { SchematicCard } from "../src/cards/SchematicCard/SchematicCard";
 import { SnapshotStore } from "../src/store";
 
 
+const realMatchMedia = window.matchMedia;
 function setWidth(px: number) {
   (window as any).innerWidth = px;
   window.matchMedia = ((q: string) => {
@@ -13,6 +14,9 @@ function setWidth(px: number) {
     return { matches: m ? px <= Number(m[1]) : false, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false } as unknown as MediaQueryList;
   }) as typeof window.matchMedia;
 }
+// The stub is global, so leaving it in place decides the viewport for every
+// later file.
+afterEach(() => { window.matchMedia = realMatchMedia; });
 const props = {
   activeSource: "" as const, selectedZone: 0, pumpOn: false, flowRate: "0.0",
   zoneNames: { 1: "Olive terrace" }, sourceLabels: { clean_water_valve: "Clean water", fertigation_valve: "Fertigation", microbiology_valve: "Microbiology" },

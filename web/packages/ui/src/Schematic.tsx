@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { sourceIds, zoneNumbers, type SourceId } from "@hort/contracts";
 import { HoverDialog } from "./HoverDialog/HoverDialog";
+import { useMediaQuery } from "./useMediaQuery";
 import { variants } from "./theme/variants";
 
 /**
@@ -105,18 +106,7 @@ function PumpNode({ blocked, reason, children }: { blocked: boolean; reason: str
 }
 
 /** True while the viewport is too narrow for the fixed-width diagram. */
-function useNarrow(): boolean {
-  const query = `(max-width: ${SCHEMATIC_MIN_WIDTH - 1}px)`;
-  const [narrow, setNarrow] = useState(() => (typeof window === "undefined" ? false : window.matchMedia(query).matches));
-  useEffect(() => {
-    const media = window.matchMedia(query);
-    const onChange = (event: MediaQueryListEvent) => setNarrow(event.matches);
-    setNarrow(media.matches);
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, [query]);
-  return narrow;
-}
+const useNarrow = () => useMediaQuery(`(max-width: ${SCHEMATIC_MIN_WIDTH - 1}px)`);
 
 /** A vertical connector between two stacked bands, inked while a route runs through it. */
 function Drop({ live, flowing }: { live: boolean; flowing: boolean }) {

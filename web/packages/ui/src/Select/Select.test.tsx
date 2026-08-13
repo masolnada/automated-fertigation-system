@@ -1,7 +1,16 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
-import { Select } from "./Select";
+import { SELECT_SHEET_MAX_WIDTH, Select } from "./Select";
+
+const realMatchMedia = window.matchMedia;
+/** The sheet and the dropdown are chosen by media query, so each test picks one. */
+function setWidth(px: number) {
+  window.matchMedia = ((query: string) => {
+    const max = /max-width:\s*(\d+)px/.exec(query);
+    return { matches: max ? px <= Number(max[1]) : false, media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, onchange: null, dispatchEvent: () => false } as unknown as MediaQueryList;
+  }) as typeof window.matchMedia;
+}
 
 const options = [
   { value: "0", label: "All zones" },
@@ -16,9 +25,10 @@ function Harness() {
 
 const trigger = () => screen.getByRole("button", { name: "Scope history to a zone" });
 const list = () => within(screen.getByRole("listbox", { name: "Scope history to a zone" }));
-const highlighted = () => trigger().getAttribute("aria-activedescendant");
+const highlighted = () => screen.getByRole("listbox", { name: "Scope history to a zone" }).getAttribute("aria-activedescendant");
 
-afterEach(cleanup);
+beforeEach(() => setWidth(SELECT_SHEET_MAX_WIDTH + 1));
+afterEach(() => { cleanup(); window.matchMedia = realMatchMedia; });
 
 describe("Select", () => {
   test("shows the selected label and keeps the list closed until asked", () => {
@@ -85,5 +95,38 @@ describe("Select", () => {
     fireEvent.click(list().getByRole("option", { name: "Olive terrace" }));
     fireEvent.click(trigger());
     expect(list().getByRole("option", { selected: true }).textContent).toBe("Olive terrace");
+  });
+});
+
+// A panel hanging off the trigger lands under the thumb that opened it and is
+// sized by the trigger's caption type, so a phone gets a centred sheet instead.
+describe("Select on a phone", () => {
+  beforeEach(() => setWidth(SELECT_SHEET_MAX_WIDTH));
+
+  test("opens the options in a centred dialog, titled by the control", () => {
+    render(<Harness/>);
+    expect(document.querySelector("dialog")).toBeNull();
+    fireEvent.click(trigger());
+    const dialog = document.querySelector("dialog")!;
+    expect(dialog).toBeTruthy();
+    expect(within(dialog).getByRole("heading").textContent).toBe("Scope history to a zone");
+    expect(within(dialog).getAllByRole("option").length).toBe(options.length);
+  });
+
+  test("picking an option selects it and closes the sheet", () => {
+    render(<Harness/>);
+    fireEvent.click(trigger());
+    fireEvent.click(list().getByRole("option", { name: "Almond row" }));
+    expect(trigger().textContent).toBe("Almond row");
+    expect(document.querySelector("dialog")).toBeNull();
+  });
+
+  test("the keyboard still drives the list from inside the sheet", () => {
+    render(<Harness/>);
+    fireEvent.click(trigger());
+    const listbox = screen.getByRole("listbox", { name: "Scope history to a zone" });
+    fireEvent.keyDown(listbox, { key: "ArrowDown" });
+    fireEvent.keyDown(listbox, { key: "Enter" });
+    expect(trigger().textContent).toBe("Olive terrace");
   });
 });

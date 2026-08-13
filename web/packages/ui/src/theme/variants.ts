@@ -19,6 +19,11 @@ export const variants = {
     optionOff: "bg-paper text-ink",
     optionOn: "bg-ink text-paper",
     optionActive: "outline outline-[2px] -outline-offset-[2px] outline-ink",
+    // Phone sheet: rows are tap targets, so they carry the 52px minimum used by
+    // the schematic's stacked cells rather than the dropdown's caption size.
+    sheetTitle: "m-0 mb-4 text-[0.85rem] font-extrabold uppercase tracking-[0.16em]",
+    sheetList: "m-0 max-h-[60vh] list-none overflow-y-auto p-0",
+    sheetOption: "flex min-h-[52px] cursor-pointer items-center border-[2px] border-ink px-3 font-ui text-[0.9rem] font-bold normal-case tracking-normal [&+&]:mt-2",
   },
   phases: "flex gap-[6px] mb-6 min-h-24",
   phase: { base: "relative flex flex-col justify-center min-w-0 border-[2px] py-2 px-[0.8rem] max-[640px]:py-[0.4rem] max-[640px]:px-[0.6rem]", normal: "bg-paper text-ink border-ink", fertigation: "bg-ink text-paper border-ink", flush: "basis-[7rem] grow-0 shrink-0", label: "text-[0.66rem] font-extrabold tracking-[0.1em] uppercase overflow-hidden text-ellipsis whitespace-nowrap", value: "font-num font-extrabold text-[1.4rem] max-[640px]:text-[1.1rem] leading-[1.3] [&>small]:ml-1 [&>small]:font-ui [&>small]:text-[0.65rem] [&>small]:font-extrabold [&>small]:tracking-[0.06em]", slider: "absolute z-[1] -right-4 top-0 h-full w-8 cursor-ew-resize appearance-none bg-transparent accent-ink [writing-mode:vertical-lr] [direction:rtl]" },
