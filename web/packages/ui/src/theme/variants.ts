@@ -6,6 +6,9 @@ export const variants = {
   badge: { base: "text-[0.72rem] font-extrabold uppercase tracking-[0.1em] px-[0.7rem] py-[0.35rem] whitespace-nowrap border-[2px]", on: "text-paper bg-ink border-ink", off: "text-ink bg-paper border-ink", online: "text-paper bg-ink border-ink", offline: "text-danger bg-paper border-danger border-dashed", hidden: "hidden" },
   button: { default: `${baseButton} border-ink bg-paper text-ink active:border-ink active:bg-ink active:text-paper disabled:border-gray disabled:bg-paper disabled:text-gray`, primary: `${baseButton} border-ink bg-action text-ink active:border-ink active:bg-paper active:text-ink disabled:border-gray disabled:bg-paper disabled:text-gray`, danger: `${baseButton} border-danger bg-danger text-paper active:border-danger active:bg-paper active:text-danger disabled:border-gray disabled:bg-paper disabled:text-gray`, relay: "font-ui font-extrabold text-[0.72rem] uppercase tracking-[0.08em] cursor-pointer border-[2px] border-ink bg-paper text-ink h-[38px] px-4 ml-auto" },
   controls: "flex flex-wrap gap-[0.9rem] mb-6 [&>button]:flex-1",
+  // Filled when dark is active, per DESIGN.md §4: a solid icon is reserved for
+  // the on state of a toggle.
+  themeToggle: "grid place-items-center w-9 h-9 shrink-0 cursor-pointer border-[2px] border-ink bg-paper text-ink [&>svg]:w-[18px] [&>svg]:h-[18px] [&>svg]:stroke-[2.25] aria-pressed:bg-ink aria-pressed:text-paper",
   // A hairline select: underline and caret, no box, so scoping a surface stays
   // subordinate to the data it filters. The panel is absolutely positioned, so
   // opening it shifts no layout (DESIGN.md §3).
@@ -73,6 +76,8 @@ export const variants = {
   },
   // The scrim is a structural layer, not a palette entry (DESIGN.md), and it
   // must stay translucent: an opaque backdrop turns the Confirmation into a
-  // full-page takeover instead of an overlay.
-  dialog: { backdrop: "m-auto max-w-[min(100%-2rem,480px)] p-0 border-0 bg-transparent text-ink backdrop:bg-ink/40", panel: "p-6 border-[3px] border-ink bg-paper", title: "m-0 mb-4 text-[0.85rem] font-extrabold uppercase tracking-[0.16em]", text: "m-0 font-bold", status: "min-h-[1.6em] mt-4 font-bold", danger: "text-danger", actions: "flex justify-end gap-[0.8rem] mt-5 [&>button]:h-[46px]" },
+  // full-page takeover instead of an overlay. It is painted in eink.css rather
+  // than here because it is the one thing that does not invert (web ADR-0013):
+  // dimming is dark on either substrate, so it cannot track `ink`.
+  dialog: { backdrop: "m-auto max-w-[min(100%-2rem,480px)] p-0 border-0 bg-transparent text-ink", panel: "p-6 border-[3px] border-ink bg-paper", title: "m-0 mb-4 text-[0.85rem] font-extrabold uppercase tracking-[0.16em]", text: "m-0 font-bold", status: "min-h-[1.6em] mt-4 font-bold", danger: "text-danger", actions: "flex justify-end gap-[0.8rem] mt-5 [&>button]:h-[46px]" },
 } as const;

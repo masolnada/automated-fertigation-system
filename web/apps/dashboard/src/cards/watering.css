@@ -28,6 +28,15 @@
 .watering-level-3 { background: #9FC7E2; }
 .watering-level-4 { background: #5B95C4; }
 .watering-level-5 { background: #1B4F7E; }
+/* The heatmap encodes volume as ink density, and density runs the other way on
+   dark paper: zero is the substrate and the bands climb toward light blue, so a
+   fuller day still reads as the louder cell (web ADR-0013). Same five fixed
+   litre bands, mirrored direction. */
+[data-theme="dark"] .watering-level-1 { background: #12303F; }
+[data-theme="dark"] .watering-level-2 { background: #194A63; }
+[data-theme="dark"] .watering-level-3 { background: #22637F; }
+[data-theme="dark"] .watering-level-4 { background: #7FB6D9; }
+[data-theme="dark"] .watering-level-5 { background: #CDE6F6; }
 .watering-cell-error { border: 2px solid var(--color-danger); }
 .watering-cell-selected { z-index: 2; outline: 3px solid var(--color-ink); outline-offset: 2px; }
 .watering-cell-today::after { position: absolute; right: 1px; bottom: 1px; left: 1px; height: 2px; background: var(--color-ink); content: ""; }
@@ -44,6 +53,10 @@
 .watering-month-day > span { font-family: var(--font-num); font-size: 0.78rem; font-weight: 900; }
 .watering-month-day > small { font-family: var(--font-num); font-size: 0.58rem; font-weight: 900; text-align: right; }
 .watering-month-day.watering-level-5 { color: var(--color-paper); }
+/* The ramp mirrors with the substrate, so the loudest bands are always the ones
+   furthest from the page and take `paper`. In dark that is the top two, not the
+   top one. */
+[data-theme="dark"] .watering-month-day.watering-level-4, [data-theme="dark"] .watering-month-day.watering-level-5 { color: var(--color-paper); }
 .watering-month-day.watering-cell-error { border: 2px solid var(--color-danger); }
 .watering-month-day:disabled { border-style: dashed; color: var(--color-gray); background: var(--color-paper); cursor: not-allowed; }
 .watering-inspector { min-width: 0; }

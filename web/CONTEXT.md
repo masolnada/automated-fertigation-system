@@ -94,17 +94,36 @@ drawn in `water` blue. It animates only while the pump is running and the path i
 open — colour marks the route, movement marks that water is actually moving.
 
 **Paper theme**:
-The single shipped visual theme: restrained palette, flat surfaces, sharp
+The dashboard's design language: restrained palette, flat surfaces, sharp
 corners, no shadows or gradients, and motion only where movement carries
-information. A deliberate aesthetic, not a hardware constraint. Governed by
+information. A deliberate aesthetic, not a hardware constraint. Names the
+language, not the colour of the page — it ships in two substrates. Governed by
 [`packages/ui/DESIGN.md`](./packages/ui/DESIGN.md).
-_Avoid_: e-ink theme.
+_Avoid_: e-ink theme, light theme.
+
+**Substrate**:
+Which way round the page is drawn — **Light** (dark ink on a light page) or
+**Dark** (light ink on a dark page). Dark is a mode of the Paper theme, not a
+second theme: the design language is identical in both and only the substrate
+inverts. Chosen by the operator per browser and remembered there; the system
+setting seeds only a browser's first visit and never overrides the choice
+afterwards.
+_Avoid_: dark theme, colour scheme.
+
+**Ink** / **Paper**:
+Foreground and substrate as *roles*, not colours: `ink` is whatever the page is
+written in and `paper` whatever it is written on, so both swap in Dark. Every
+fill inverts with them, so a label on a fill is always one or the other — `ink`
+when the fill sits near the page, `paper` when it sits opposite.
+_Avoid_: black, white.
 
 **Semantic colour**:
 A palette entry that means exactly one thing and is never decorative: `action`
 (the one affirmative action), `warning` (a blocked precondition), `danger`
 (harm, loss or failure), and `water` (the path water takes). The meaning must
-also be readable without colour.
+also be readable without colour. One meaning, one entry — an entry may still be
+rendered in two values, one per substrate, where a single value would either be
+illegible on one of them or carry the wrong loudness there.
 
 **Blocked precondition**:
 A state the system refuses to leave because something the operator can change is

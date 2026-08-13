@@ -21,7 +21,9 @@ type Props = {
  * The shape every Confirmation takes; it holds no domain knowledge of its own.
  * `danger` colours the confirm button for a destructive act, `statusDanger` the
  * result line — they move independently, since a reset is destructive from the
- * outset but only reports in red once the device refuses.
+ * outset but only reports in red once the device refuses. Otherwise the confirm
+ * button is the affirmative one on the dialog and carries `action`; Cancel is
+ * always the plain one, so the pair never shows two primaries.
  */
 export function ConfirmDialog({ open, title, message, confirmText, danger = false, status = "", statusDanger = false, pending = false, confirmDisabled = false, onConfirm, onCancel }: Props) {
   const id = useId();
@@ -33,7 +35,7 @@ export function ConfirmDialog({ open, title, message, confirmText, danger = fals
     <p className={`${variants.dialog.status}${statusDanger ? ` ${variants.dialog.danger}` : ""}`} aria-live="polite">{status}</p>
     <div className={variants.dialog.actions}>
       <Button onClick={onCancel} disabled={pending}>Cancel</Button>
-      <Button variant={danger ? "danger" : "default"} onClick={onConfirm} disabled={confirmDisabled || pending}>{confirmText}</Button>
+      <Button variant={danger ? "danger" : "primary"} onClick={onConfirm} disabled={confirmDisabled || pending}>{confirmText}</Button>
     </div>
   </Modal>;
 }

@@ -4,6 +4,8 @@ This document defines the constraints, styles, and implementation rules for the 
 
 The goal is absolute high-contrast legibility, zero layout shift, and a calm, uncluttered surface.
 
+The theme ships in two substrates, **Light** and **Dark**. Dark is a *mode* of this design system, not a second theme: every rule below applies unchanged to both, and only the substrate inverts. `ink` and `paper` are therefore roles — foreground and substrate — not literal black and white. A token takes a per-mode value **only where the substrate forces it** — which means where it becomes illegible *or* where it stops carrying the weight it is supposed to have; see *Colour semantics*.
+
 ---
 
 ## 1. Core Visual Principles
@@ -19,11 +21,15 @@ The goal is absolute high-contrast legibility, zero layout shift, and a calm, un
 
 ### Action semantics
 
-`#B7E4C7` is reserved for the one primary, affirmative action on a surface: for example, **Start irrigation**. Pair it with a direct verb label, black text, and a black border. Do not use it for status, decorative elements, secondary controls, or more than one action in the same control group.
+`action` is reserved for the one primary, affirmative action on a surface: for example, **Start irrigation**. Pair it with a direct verb label, `ink` text and an `ink` border. Do not use it for status, decorative elements, secondary controls, or more than one action in the same control group.
+
+A Confirmation is a surface in its own right, so its confirm button is that one action and carries `action` — unless the act is destructive, in which case it carries `danger` instead and the dialog has no `action` at all. Cancel is always the plain control, so the pair never shows two primaries.
 
 ### Quantitative heatmap exception
 
-A watering-volume heatmap may use the following solid blue shades as its only quantitative colour scale: `#E8F1F8`, `#CBE0EF`, `#9FC7E2`, `#5B95C4`, and `#1B4F7E`. This exception applies only to fixed daily-litre bands, must provide equivalent accessible text for every cell, and must never use gradients. A visible legend may be omitted when selecting a cell exposes its exact litres in the adjacent Daily Inspector. Zero litres remain white. A day containing any non-completed watering event retains its volume fill and uses a Danger Red border.
+A watering-volume heatmap may use the following solid blue shades as its only quantitative colour scale: `#E8F1F8`, `#CBE0EF`, `#9FC7E2`, `#5B95C4`, and `#1B4F7E`. This exception applies only to fixed daily-litre bands, must provide equivalent accessible text for every cell, and must never use gradients. A visible legend may be omitted when selecting a cell exposes its exact litres in the adjacent Daily Inspector. Zero litres remain the substrate. A day containing any non-completed watering event retains its volume fill and uses a Danger Red border.
+
+The scale reads volume as *ink density*, and density runs the other way on dark paper — so Dark mirrors the ramp rather than reusing it: `#12303F`, `#194A63`, `#22637F`, `#7FB6D9`, `#CDE6F6`, climbing from the substrate toward light blue. Same five fixed litre bands, same rules. Because the ramp mirrors along with the substrate, the loudest bands are always the ones furthest from the page and take `paper` for their text — the top band in Light, the top two in Dark.
 
 ### Danger semantics
 
@@ -39,12 +45,26 @@ The line against Danger Red is one test: **if the operator can clear it right no
 
 Every colour in the palette must mean exactly one thing, and that meaning must also be available without colour (text, border, or fill). The palette is closed — adding a colour means adding a meaning, and belongs in this document first.
 
-| Token | Value | Meaning |
-| :--- | :--- | :--- |
-| `action` | `#B7E4C7` | The one primary, affirmative action on a surface |
-| `warning` | `#8A5A00` | A blocked precondition the operator can clear |
-| `danger` | `#B00020` | Errors, offline and destructive actions |
-| `water` | `#A8D8EA` | The path water takes through the system |
+| Token | Light | Dark | Meaning |
+| :--- | :--- | :--- | :--- |
+| `ink` | `#000` | `#E8E8E8` | Foreground |
+| `paper` | `#fff` | `#121212` | Substrate |
+| `gray` | `#808080` | `#808080` | Dividers and disabled state |
+| `action` | `#B7E4C7` | `#153821` | The one primary, affirmative action on a surface |
+| `warning` | `#8A5A00` | `#E0A33A` | A blocked precondition the operator can clear |
+| `danger` | `#B00020` | `#FF6B7A` | Errors, offline and destructive actions |
+| `water` | `#A8D8EA` | `#A8D8EA` | The path water takes through the system |
+
+A meaning has one row, whichever substrate is showing. A token takes a second value only when the first fails on the other substrate. Dark is softened rather than a true inversion — pure white on pure black haloes at night, which is when the mode is used.
+
+There are two distinct ways to fail, and both count:
+
+* **Illegible** — too close to the substrate to read. `danger` (2.8:1 on dark) and `warning` (3.5:1) are lightened for this reason.
+* **Wrong weight** — legible, but no longer sitting at the right loudness. `action` is a *quiet* fill: in light it lifts off the page by only 1.41:1 and lets the black border carry the structure. Reused unchanged on a dark substrate it inverts into the brightest thing on the screen (13.32:1) and its `ink` border vanishes into its own fill (1.15:1) — legible, and wrong. Dark takes the same hue and saturation at a lightness that restores the original relationship: 1.44:1 off the page, 10.58:1 for border and label.
+
+A fill that inverts with the substrate is always labelled with `ink` or `paper` — `ink` when the fill sits near the page, `paper` when it sits opposite. Never hard-code a foreground to defeat a fill that failed to invert; fix the fill.
+
+`water` is the exception that keeps one value: it is a stroke on the schematic, never a filled surface carrying a label, so it has no foreground to pair with and needs only to stay visible against either page (1.54:1 light, 12.2:1 dark).
 
 `water` marks the selected route on the schematic. The route is drawn in it whether or not the pump is running; movement — not colour — is what signals live flow. Do not use it for water *quantities* (the heatmap owns those), for status text, or as a surface colour.
 
@@ -66,7 +86,7 @@ Do not use gray text to establish visual hierarchy. Use size, weight, and layout
 
 * **Layout Grid:** Use a structured, rigid grid. Do not overlap elements or allow elements to shift dynamically on load.
 * **High-Contrast Containers:** Use thick, solid black borders to enclose widgets instead of background colors or drop shadows.
-* **Modal Scrim:** A modal dims the page behind it with a translucent ink layer. This is a structural device, not a palette entry — it adds no new meaning and is the only permitted translucency. The page must stay visible through it: an opaque backdrop reads as a full-page takeover rather than an overlay. Opening a modal must shift no layout, so the scrollbar gutter is reserved permanently rather than appearing and disappearing with the scroll lock.
+* **Modal Scrim:** A modal dims the page behind it with a translucent black layer. This is a structural device, not a palette entry — it adds no new meaning and is the only permitted translucency. Being structural rather than a token, it is **the one element that does not invert**: dimming is dark on either substrate, so the scrim stays black in Dark rather than tracking `ink` and washing the page pale. The page must stay visible through it: an opaque backdrop reads as a full-page takeover rather than an overlay. Opening a modal must shift no layout, so the scrollbar gutter is reserved permanently rather than appearing and disappearing with the scroll lock.
 * **Dashed Dividers:** Use thick, dashed lines rather than thin solid lines for internal section dividers. Dashed patterns render much cleaner on e-paper.
 
 ---

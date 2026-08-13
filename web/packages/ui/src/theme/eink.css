@@ -1,7 +1,18 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities);
+/* `ink` and `paper` are roles — foreground and substrate — not literal black and
+   white: in dark they swap places (web ADR-0013). A fill that inverts with the
+   substrate is therefore always labelled with one of the two: `ink` on a fill
+   near the page, `paper` on a fill opposite it. */
 @theme { --color-ink: #000; --color-paper: #fff; --color-gray: #808080; --color-action: #B7E4C7; --color-warning: #8A5A00; --color-danger: #B00020; --color-water: #A8D8EA; --font-ui: system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; --font-num: ui-monospace,"SF Mono",Menlo,Consolas,monospace; --border-heavy-width: 3px; --border-light-width: 2px; --divider-width: 2px; }
+/* Dark is a mode of the paper theme, not a second theme (web ADR-0013): the
+   design language is untouched and only the substrate inverts. A token changes
+   value only where contrast forces it — `danger` (2.8:1) and `warning` (3.5:1)
+   are illegible on a dark substrate, while `action`, `water` and `gray` are not
+   and so keep their values. Softened rather than a true inversion: pure white
+   on pure black haloes at night, which is when this mode is used. */
+[data-theme="dark"] { color-scheme: dark; --color-ink: #E8E8E8; --color-paper: #121212; --color-danger: #FF6B7A; --color-warning: #E0A33A; --color-action: #153821; }
 /* Motion is opt-in: everything is still stripped by default so no transition or
    animation arrives by accident from a utility, but an element may opt back in
    with `data-motion` where the movement itself carries information (DESIGN.md
@@ -14,6 +25,11 @@
 @keyframes flow-dash { to { stroke-dashoffset: -24; } }
 .pipe-flowing { animation: flow-dash 0.9s linear infinite; }
 html { scroll-behavior: auto; scrollbar-gutter: stable; }
+/* The scrim dims the page behind a Confirmation, and dimming is dark on either
+   substrate — so it is the one thing that does not invert (web ADR-0013). It is
+   a structural layer rather than a palette entry (DESIGN.md §3), so it is free
+   not to track `ink`, which in dark would wash the page pale instead. */
+dialog::backdrop { background: rgb(0 0 0 / 0.45); }
 /* Scroll lock while a Confirmation is open (web ADR-0012). Pure CSS, so no
    effect can strand a locked page by unmounting mid-command. The gutter above
    is reserved permanently and on this same element, so removing the scrollbar
