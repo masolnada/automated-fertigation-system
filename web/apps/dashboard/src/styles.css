@@ -13,8 +13,17 @@ header { max-width: 1100px; margin: 2rem auto 0; padding: 0 1.5rem; }
 .title { flex: 1; min-width: 0; }
 .header-status { flex-shrink: 0; font-size: 0.68rem; font-weight: 900; line-height: 1; text-transform: uppercase; letter-spacing: 0.1em; }
 .header-status-mark { display: block; width: 0.7rem; height: 0.7rem; border: 2px solid var(--color-ink); }
-.header-status-mark-connected { background: var(--color-action); }
-.header-status-mark-disconnected { background: var(--color-danger); border-color: var(--color-danger); }
+/* Connected is status, not an action, so the mark is not green (DESIGN.md
+   §Action semantics) — it is inked, the way every other on/off state in the
+   interface is drawn, and it inverts with the substrate.
+
+   Fill alone cannot carry the difference once green is gone: inked and danger
+   are both dark on light paper and both light on dark paper, so they would be
+   near-identical without colour perception. The states are therefore told apart
+   by shape as well — connected is solid, disconnected is hollow with a heavier
+   danger border — which survives greyscale, and by the label beside them. */
+.header-status-mark-connected { background: var(--color-ink); }
+.header-status-mark-disconnected { background: var(--color-paper); border-color: var(--color-danger); }
 .header-status-strip { display: flex; align-items: stretch; border: 2px solid var(--color-ink); }
 .header-status-strip-item { display: flex; align-items: center; gap: 0.45rem; padding: 0.55rem 0.65rem; border-right: 2px dashed var(--color-ink); white-space: nowrap; }
 .header-status-strip-item:last-child { border-right: 0; }
