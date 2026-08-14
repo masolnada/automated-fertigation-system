@@ -119,8 +119,11 @@ _Avoid_: black, white.
 
 **Semantic colour**:
 A palette entry that means exactly one thing and is never decorative: `action`
-(the one affirmative action), `warning` (a blocked precondition), `danger`
-(harm, loss or failure), and `water` (the path water takes). The meaning must
+(the one affirmative action), `connected` (a live connection in the header
+status strip), `warning` (a blocked precondition), `danger` (harm, loss or
+failure), and `water` (the path water takes). Two entries may share a value and
+still be two entries — `action` and `connected` are both green but behave
+differently across substrates. The meaning must
 also be readable without colour. One meaning, one entry — an entry may still be
 rendered in two values, one per substrate, where a single value would either be
 illegible on one of them or carry the wrong loudness there.

@@ -5,7 +5,7 @@
    white: in dark they swap places (web ADR-0013). A fill that inverts with the
    substrate is therefore always labelled with one of the two: `ink` on a fill
    near the page, `paper` on a fill opposite it. */
-@theme { --color-ink: #000; --color-paper: #fff; --color-gray: #808080; --color-action: #B7E4C7; --color-warning: #8A5A00; --color-danger: #B00020; --color-water: #A8D8EA; --font-ui: system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; --font-num: ui-monospace,"SF Mono",Menlo,Consolas,monospace; --border-heavy-width: 3px; --border-light-width: 2px; --divider-width: 2px; }
+@theme { --color-ink: #000; --color-paper: #fff; --color-gray: #808080; --color-action: #B7E4C7; --color-connected: #B7E4C7; --color-warning: #8A5A00; --color-danger: #B00020; --color-water: #A8D8EA; --font-ui: system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; --font-num: ui-monospace,"SF Mono",Menlo,Consolas,monospace; --border-heavy-width: 3px; --border-light-width: 2px; --divider-width: 2px; }
 /* Dark is a mode of the paper theme, not a second theme (web ADR-0013): the
    design language is untouched and only the substrate inverts. A token changes
    value only where contrast forces it — `danger` (2.8:1) and `warning` (3.5:1)
@@ -13,6 +13,12 @@
    and so keep their values. Softened rather than a true inversion: pure white
    on pure black haloes at night, which is when this mode is used. */
 [data-theme="dark"] { color-scheme: dark; --color-ink: #E8E8E8; --color-paper: #121212; --color-danger: #FF6B7A; --color-warning: #E0A33A; --color-action: #153821; }
+/* `connected` deliberately does not appear above: it is the one fill that keeps a
+   single value on both substrates. It shares Action Green's value but not its
+   meaning or its behaviour — `action` is a wide bordered surface and is darkened
+   in dark so it does not glare, whereas `connected` is a bare 12px mark whose
+   fill is the whole signal, so darkening it would erase it (1.44:1 on the dark
+   page). Framed by the mark's ink border, one pale value reads on both. */
 /* Motion is opt-in: everything is still stripped by default so no transition or
    animation arrives by accident from a utility, but an element may opt back in
    with `data-motion` where the movement itself carries information (DESIGN.md

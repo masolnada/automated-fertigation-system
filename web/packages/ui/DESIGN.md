@@ -21,9 +21,17 @@ The theme ships in two substrates, **Light** and **Dark**. Dark is a *mode* of t
 
 ### Action semantics
 
-`action` is reserved for the one primary, affirmative action on a surface: for example, **Start irrigation**. Pair it with a direct verb label, `ink` text and an `ink` border. Do not use it for status, decorative elements, secondary controls, or more than one action in the same control group.
+`action` is reserved for the one primary, affirmative action on a surface: for example, **Start irrigation**. Pair it with a direct verb label, `ink` text and an `ink` border. Do not use it for decorative elements, secondary controls, or more than one action in the same control group. Do not use it for status — status green is `connected`, a separate entry with its own rules below.
 
 A Confirmation is a surface in its own right, so its confirm button is that one action and carries `action` — unless the act is destructive, in which case it carries `danger` instead and the dialog has no `action` at all. Cancel is always the plain control, so the pair never shows two primaries.
+
+### Connection semantics
+
+`connected` marks a live connection in the header status strip — controller, MQTT and API — and nothing else. It is the only status in the interface permitted to carry green.
+
+It shares Action Green's value but is a separate entry, because it does not behave like `action`: it keeps **one value on both substrates**. `action` is a wide bordered surface, so its dark value is darkened to stop it glaring; `connected` is a bare 12px mark whose fill is the entire signal, and darkening it the same way drops it to 1.44:1 against the dark page — an unlit dot. Framed by the mark's `ink` border, the single pale value reads on both substrates.
+
+Colour must not carry the state alone, and here it especially cannot: on the dark page `connected` and `danger` are both light fills only 1.96:1 apart, so they are near-identical without colour perception. The two states are therefore separated by shape as well — **connected is solid, disconnected is hollow with a `danger` border** — and each mark is labelled.
 
 ### Quantitative heatmap exception
 
@@ -51,6 +59,7 @@ Every colour in the palette must mean exactly one thing, and that meaning must a
 | `paper` | `#fff` | `#121212` | Substrate |
 | `gray` | `#808080` | `#808080` | Dividers and disabled state |
 | `action` | `#B7E4C7` | `#153821` | The one primary, affirmative action on a surface |
+| `connected` | `#B7E4C7` | `#B7E4C7` | A live connection in the header status strip |
 | `warning` | `#8A5A00` | `#E0A33A` | A blocked precondition the operator can clear |
 | `danger` | `#B00020` | `#FF6B7A` | Errors, offline and destructive actions |
 | `water` | `#A8D8EA` | `#A8D8EA` | The path water takes through the system |
@@ -64,7 +73,9 @@ There are two distinct ways to fail, and both count:
 
 A fill that inverts with the substrate is always labelled with `ink` or `paper` — `ink` when the fill sits near the page, `paper` when it sits opposite. Never hard-code a foreground to defeat a fill that failed to invert; fix the fill.
 
-`water` is the exception that keeps one value: it is a stroke on the schematic, never a filled surface carrying a label, so it has no foreground to pair with and needs only to stay visible against either page (1.54:1 light, 12.2:1 dark).
+`water` and `connected` are the exceptions that keep one value. `water` is a stroke on the schematic, never a filled surface carrying a label, so it has no foreground to pair with and needs only to stay visible against either page (1.54:1 light, 12.2:1 dark). `connected` is a bare mark whose fill is the whole signal, so it cannot be re-weighted per substrate without disappearing; see *Connection semantics*.
+
+Two entries may share a value while remaining separate entries, as `action` and `connected` do. What makes them one entry or two is the meaning and the behaviour, not the hex: they diverge in dark, and a future change to one must not silently move the other.
 
 `water` marks the selected route on the schematic. The route is drawn in it whether or not the pump is running; movement — not colour — is what signals live flow. Do not use it for water *quantities* (the heatmap owns those), for status text, or as a surface colour.
 
