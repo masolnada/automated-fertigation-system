@@ -1,13 +1,44 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Badge, Button, Card, CardTitle, variants } from "@hort/ui";
-import type { CycleMode } from "@hort/contracts";
+import { outputChannels, type CycleMode, type OutputChannel } from "@hort/contracts";
 import type { Snapshot } from "../../store";
 import { useDebounced } from "../../debounce";
+import { channelLabel } from "../../display";
 import { ConfirmStartIrrigation } from "./ConfirmStartIrrigation/ConfirmStartIrrigation";
 
 const icon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 16.3c2.2 0 4-1.8 4-4 0-1.5-.7-2.6-2-3.8-.9-.8-1.7-2-2-3.5-.3 1.5-1.1 2.7-2 3.5-1.3 1.2-2 2.3-2 3.8 0 2.2 1.8 4 4 4z"/><path d="M16.8 20c2.3 0 4.2-1.9 4.2-4.2 0-1.6-.8-2.8-2.1-4-.9-.9-1.8-2.1-2.1-3.8-.3 1.7-1.2 2.9-2.1 3.8-1.3 1.2-2.1 2.4-2.1 4 0 2.3 1.9 4.2 4.2 4.2z"/></svg>;
 
 type Phase = { id: string; name: string; value?: number; unit: "min" | "L" };
+type Channel = { channel: OutputChannel; label: string };
+
+/**
+ * Which zone this run waters. The zone is an input to the run, not the device's
+ * Selected Output, so picking one opens no valve — only Start does; the zone
+ * whose channel is open is marked rather than merged, since the two are allowed
+ * to disagree until the run begins.
+ *
+ * A channel with no zone still waters (web ADR-0014), and the operator has to be
+ * able to send water there, so it appears under its bare channel — the one place
+ * the dashboard says "Output N", and a visible prompt to go and assign it.
+ *
+ * Disabled while a sequence runs, where it reads as "what is being watered"
+ * rather than a choice: a control that accepted edits with no effect on the
+ * running sequence would read as broken.
+ */
+function ZonePicker({ channels, value, openChannel, disabled, onChange }: { channels: Channel[]; value: number; openChannel: number; disabled: boolean; onChange(channel: OutputChannel): void }) {
+  return <section className="border-[2px] border-ink p-4">
+    <h3 className="m-0 mb-4 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]">Zone</h3>
+    <div className="grid grid-cols-2 gap-[6px]">
+      {channels.map(({ channel, label }) => {
+        const on = channel === value;
+        return <button key={channel} type="button" aria-pressed={on} disabled={disabled} onClick={() => onChange(channel)} className={`flex min-h-[52px] flex-col justify-center border-[2px] px-2 py-1 text-left font-ui disabled:cursor-not-allowed ${on ? "border-ink bg-ink text-paper" : "border-ink bg-paper text-ink"} ${disabled && !on ? "border-gray text-gray" : ""}`}>
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[0.8rem] font-extrabold">{label}</span>
+          <small className="min-h-[0.9rem] text-[0.58rem] font-extrabold uppercase tracking-[0.08em]">{channel === openChannel ? "open now" : ""}</small>
+        </button>;
+      })}
+    </div>
+  </section>;
+}
 
 function NumberInput({ label, unit, min, max, step, value, onCommit, className, inputStyle }: { label: string; unit: string; min: number; max: number; step: number; value: number | string | undefined; onCommit(value: number): void; className?: string; inputStyle?: CSSProperties }) {
   const ref = useRef<HTMLInputElement>(null);
@@ -38,10 +69,15 @@ function SequenceOverview({ phases, percent }: { phases: Phase[]; percent: numbe
   </div>;
 }
 
-type Props = { snapshot: Snapshot; onStart(): void; onStop(): void; onCycleMode(mode: CycleMode): void; onPreWet(value: number): void; onCycleTarget(value: number): void; onFlush(value: number): void };
+type Props = { snapshot: Snapshot; onStart(channel: OutputChannel): void; onStop(): void; onCycleMode(mode: CycleMode): void; onPreWet(value: number): void; onCycleTarget(value: number): void; onFlush(value: number): void };
 
 export function Irrigation({ snapshot, onStart, onStop, onCycleMode, onPreWet, onCycleTarget, onFlush }: Props) {
   const [confirming, setConfirming] = useState(false);
+  // Seeded once from the open channel, then the operator's: a later snapshot
+  // must not move where the water is about to go while they are deciding.
+  const [channel, setChannel] = useState(() => snapshot.selectedOutput);
+  const channels: Channel[] = outputChannels.map((id) => ({ channel: id, label: snapshot.zones.find((zone) => zone.id === snapshot.assignments[id])?.name ?? channelLabel(id) }));
+  const picked = channels.find((entry) => entry.channel === channel);
   const mode = snapshot.entities.cycle_mode?.value === "Volume" ? "Volume" : "Time";
   const totalId = mode === "Volume" ? "cycle_liters" : "cycle_minutes";
   const total = Number(snapshot.entities[totalId]?.value);
@@ -67,9 +103,10 @@ export function Irrigation({ snapshot, onStart, onStop, onCycleMode, onPreWet, o
       <section className="border-[2px] border-ink p-4"><h3 className="m-0 mb-4 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]">Cycle</h3><div className="grid gap-3">{modeControl}{targetControl}</div></section>
       <section className="border-[2px] border-ink p-4"><h3 className="mb-3 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]">Pre-wet allocation</h3><PresetGrid percent={percent} onChange={onPreWet} /></section>
       <section className="border-[2px] border-ink p-4"><h3 className="m-0 mb-4 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]">Flush</h3>{flushControl}</section>
+      <ZonePicker channels={channels} value={channel} openChannel={snapshot.selectedOutput} disabled={running} onChange={setChannel}/>
       <SequenceOverview phases={phases} percent={percent} />
-      <div className="irrigation-programme-actions mt-4">{running ? <Button className="w-full min-[900px]:w-auto" variant="danger" onClick={onStop}>Stop irrigation</Button> : <Button className="w-full min-[900px]:w-auto" variant="primary" onClick={() => setConfirming(true)}>Start irrigation</Button>}</div>
+      <div className="irrigation-programme-actions mt-4">{running ? <Button className="w-full min-[900px]:w-auto" variant="danger" onClick={onStop}>Stop irrigation</Button> : <Button className="w-full min-[900px]:w-auto" variant="primary" disabled={!picked} onClick={() => setConfirming(true)}>Start irrigation</Button>}</div>
     </div>
-    <ConfirmStartIrrigation open={confirming} onConfirm={() => { onStart(); setConfirming(false); }} onCancel={() => setConfirming(false)}/>
+    <ConfirmStartIrrigation open={confirming && Boolean(picked)} label={picked?.label ?? ""} onConfirm={() => { if (picked) onStart(picked.channel); setConfirming(false); }} onCancel={() => setConfirming(false)}/>
   </Card>;
 }
