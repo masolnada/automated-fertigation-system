@@ -59,7 +59,9 @@ The firmware mirrors the same detection in the `Battery Charged` binary sensor a
 
 ## Relay mapping
 
-All 8 relays are in use: the pump, three sources upstream and four zones downstream. There is no spare, and a fifth zone needs a second PCF8574 (see [controller ADR-0015](controller/docs/adr/0015-eight-relays-three-sources-four-zones.md)).
+All 8 relays are in use: the pump, three sources upstream and four output channels downstream. There is no spare, and a fifth channel needs a second PCF8574 (see [controller ADR-0015](controller/docs/adr/0015-eight-relays-three-sources-four-zones.md)).
+
+An output channel is just a numbered valve; *which place* it waters is a Zone, assigned on the server (see [web ADR-0014](web/docs/adr/0014-output-channels-are-generic-zones-are-server-entities.md)). The firmware never interprets a channel, so re-plumbing one to a different part of the plot needs no reflash.
 
 | Relay | PCF8574 pin | Entity | Function |
 |---|---|---|---|
@@ -67,16 +69,16 @@ All 8 relays are in use: the pump, three sources upstream and four zones downstr
 | 2 | 6 | `Fertigation Valve` | Source: water carrying the humate |
 | 3 | 5 | `Clean Water Valve` | Source: clean water, used to pre-wet and flush |
 | 4 | 4 | `Microbiology Valve` | Source: micro-organisms (manual only, not yet in the sequence) |
-| 5 | 0 | `Zone 1` | Zone valve |
-| 6 | 1 | `Zone 2` | Zone valve |
-| 7 | 2 | `Zone 3` | Zone valve |
-| 8 | 3 | `Zone 4` | Zone valve |
+| 5 | 0 | `Output 1` | Output channel valve |
+| 6 | 1 | `Output 2` | Output channel valve |
+| 7 | 2 | `Output 3` | Output channel valve |
+| 8 | 3 | `Output 4` | Output channel valve |
 
-Exactly one source and one zone are open at a time: one source so the tanks cannot back-feed each other, one zone so the single common-line flow sensor meters it unambiguously.
+Exactly one source and one output channel are open at a time: one source so the tanks cannot back-feed each other, one channel so the single common-line flow sensor meters it unambiguously.
 
 All relays use `restore_mode: ALWAYS_OFF`: after a power loss everything comes up off.
 
-**The pump requires an open path on both sides** — one open source *and* one open zone ([ADR-0016](controller/docs/adr/0016-pump-requires-open-path-both-sides.md)). Closing the last valve on either side stops the pump, and a start with no path is refused outright rather than left to the dry-run watchdog: deadheading drives the pump toward its 3.8 bar cutoff current (~7.5 A) against a 10 A BMS. `Selected Zone` and the selected source persist across reboots, so the manual button still knows where to send water with no wifi.
+**The pump requires an open path on both sides** — one open source *and* one open output channel ([ADR-0016](controller/docs/adr/0016-pump-requires-open-path-both-sides.md)). Closing the last valve on either side stops the pump, and a start with no path is refused outright rather than left to the dry-run watchdog: deadheading drives the pump toward its 3.8 bar cutoff current (~7.5 A) against a 10 A BMS. `Selected Output` and the selected source persist across reboots, so the manual button still knows where to send water with no wifi.
 
 ## Automation
 
@@ -104,17 +106,19 @@ Stopping (empty tank, knocked-over line, any reason) normally goes through `abor
 
 ## Control
 
-Web UI: `http://kc868-a8.local` (auth: `web_server_user` / `web_server_password` secrets). Works in the field through the fallback AP. Buttons: `Start Irrigation`, `Stop Irrigation`, and `Reset Total Water`. Native reset acts immediately only when the pump is off and flow is known below 0.1 L/min.
+Web UI: `http://kc868-a8.local` (auth: `web_server_user` / `web_server_password` secrets). Works in the field through the fallback AP. Buttons: `Start Irrigation`, `Stop Irrigation`, and `Reset Total Water`. The button entity carries no channel, so it waters the selected output and refuses when none is selected; MQTT names the channel explicitly. Native reset acts immediately only when the pump is off and flow is known below 0.1 L/min.
 
 **Total Water** is cumulative litres since the last reset. It persists across normal reboots. Resetting it is irreversible and is explicitly written to preferences before success is reported.
 
-MQTT (any payload):
+MQTT (any payload except the start, which names the output channel to water — see [ADR-0017](controller/docs/adr/0017-the-channel-travels-with-the-start.md)):
 
 ```bash
-mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/irrigation/start -m ON
+mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/irrigation/start -m 2
 mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/irrigation/stop -m ON
 mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/flow/reset_total/request -m ON
 ```
+
+A start whose payload is not an output channel (1–4) is refused and logged, never sent to whichever valve was last left open.
 
 A reset request publishes one non-retained result on `kc868-a8/flow/reset_total/result`: `success`, `already_zero`, `rejected_pump_running`, `rejected_flow_active`, `rejected_flow_unknown`, or `error_persistence`. The last result means the RAM value is zero but it may not survive reboot.
 

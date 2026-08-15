@@ -1,7 +1,7 @@
 #pragma once
 // The pump's open-path invariant (controller ADR-0016). The pump may run only
-// with at least one open source upstream AND at least one open zone downstream;
-// an open source with every zone shut deadheads it, driving it toward its
+// with at least one open source upstream AND at least one open output channel
+// downstream; an open source with every output shut deadheads it, driving it toward its
 // 3.8 bar cutoff current (~7.5 A) against a 10 A BMS with no restart headroom.
 //
 // Checked in two places, because a single check is not enough: on every valve
@@ -13,6 +13,6 @@
 
 inline bool pump_has_open_path() {
   const bool source_open = clean_water_valve->state || fertigation_valve->state || microbiology_valve->state;
-  const bool zone_open = zone_1->state || zone_2->state || zone_3->state || zone_4->state;
-  return source_open && zone_open;
+  const bool output_open = output_1->state || output_2->state || output_3->state || output_4->state;
+  return source_open && output_open;
 }

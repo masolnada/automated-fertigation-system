@@ -1,4 +1,4 @@
-import type { WateringEvent } from "@hort/contracts";
+import type { WateringEvent, Zone } from "@hort/contracts";
 
 // Dev-only mock backend. Serves /api/* with in-memory data so the dashboard
 // can run on localhost without the real
@@ -15,30 +15,40 @@ const deterministic = (year: number, month: number, day: number) => {
   return (value ^ (value >>> 16)) >>> 0;
 };
 
-// PROTOTYPE: zone/source names live here so the schematic variants have real
-// data to render. Real implementation puts these on the server (web ADR-0010).
-export const zoneNames: Record<number, string> = { 1: "Olive terrace", 2: "Almond row", 3: "Vegetable beds", 4: "Young trees" };
+// Seeded so the dev dashboard shows every state the model allows: an unassigned
+// channel (4), a live zone with no channel (Herb strip) and an archived zone
+// (Tomato patch) that history still resolves to.
+const zones: Zone[] = [
+  { id: "z-olive", name: "Olive terrace", archived: false },
+  { id: "z-almond", name: "Almond row", archived: false },
+  { id: "z-veg", name: "Vegetable beds", archived: false },
+  { id: "z-herbs", name: "Herb strip", archived: false },
+  { id: "z-tomato", name: "Tomato patch", archived: true },
+];
+const assignments: Record<number, string> = { 1: "z-olive", 2: "z-almond", 3: "z-veg" };
 
-// A mid-year rename, so the dev dashboard exercises the temporal names of web
-// ADR-0010: zone 3 was "Tomato patch" until 1 May of the current year. Events
-// before then keep that label, while the zone itself stays one scope.
-const renameAt = Date.UTC(new Date().getUTCFullYear(), 4, 1);
-const nameAt = (zone: number, endedAt: Date): string =>
-  (zone === 3 && endedAt.getTime() < renameAt ? "Tomato patch" : zoneNames[zone]!);
+// A mid-year re-plumb, so the dev dashboard exercises the temporal assignment of
+// web ADR-0014: output 3 fed "Tomato patch" until 1 May of the current year and
+// "Vegetable beds" since. Events before then still resolve to the archived zone.
+const replumbAt = Date.UTC(new Date().getUTCFullYear(), 4, 1);
+const zoneAt = (channel: number, endedAt: Date): string | null =>
+  (channel === 3 && endedAt.getTime() < replumbAt ? "z-tomato" : assignments[channel] ?? null);
+const nameOf = (id: string | null) => zones.find((zone) => zone.id === id)?.name ?? null;
 
 const snapshot = {
   deviceOnline: true,
   brokerConnected: true,
   resetPending: false,
   valves: { clean_water_valve: false, fertigation_valve: false, microbiology_valve: false },
-  zoneNames,
-  selectedZone: 1,
+  zones,
+  assignments,
+  selectedOutput: 1,
   entities: {
     battery_voltage: num(13.24), battery_current: num(1.42), battery_state_of_charge: num(87.5), battery_consumed_ah: num(4.2), battery_time_remaining: num(320), battery_charged: num("OFF"),
     flow_rate: num(0), total_water: num(128.6),
     cycle_mode: num("Time"), cycle_minutes: num(30), cycle_liters: num(45), "pre-wet_percent": num(20), flush_minutes: num(3), min_flow: num(0.5),
     irrigation_running: num("OFF"), pump: num("OFF"),
-    zone_1: num("ON"), zone_2: num("OFF"), zone_3: num("OFF"), zone_4: num("OFF"),
+    output_1: num("ON"), output_2: num("OFF"), output_3: num("OFF"), output_4: num("OFF"),
   } as Record<string, { value: number | string; known: boolean }>,
   log: [
     { message: "Snapshot restored from broker", severity: "normal", time: iso(42) },
@@ -87,23 +97,25 @@ function buildWateringEvents(): WateringEvent[] {
         litres = Math.round(litres * 10) / 10;
 
         const trigger: WateringEvent["trigger"] = hash % 11 === 0 ? "manual" : "sequence";
-        const zone = 1 + (hash % 4);
+        const outputChannel = 1 + (hash % 4);
         const endedAt = new Date(Date.UTC(year, month - 1, day, 6, 30 + hash % 45));
         const durationMinutes = outcome === "dry_run" ? 4 : Math.max(8, Math.round(litres / 6.5));
+        const zoneId = zoneAt(outputChannel, endedAt);
         chronological.push({
           id: seq, deviceId: "kc868-a8", seq, startedAt: new Date(endedAt.getTime() - durationMinutes * 60_000).toISOString(), endedAt: endedAt.toISOString(),
-          litresDelivered: litres, outcome, trigger, zone, zoneName: nameAt(zone, endedAt),
+          litresDelivered: litres, outcome, trigger, outputChannel, zoneId, zoneName: nameOf(zoneId),
         });
         seq++;
 
-        const secondZone = 1 + ((hash + 2) % 4);
+        const secondChannel = 1 + ((hash + 2) % 4);
         const secondPass = heatwave && outcome === "completed" && hash % 5 === 0;
         if (secondPass) {
           const secondLitres = Math.round(litres * (0.65 + (hash % 20) / 100) * 10) / 10;
           const secondEnd = new Date(Date.UTC(year, month - 1, day, 17, 15 + hash % 30));
+          const secondZoneId = zoneAt(secondChannel, secondEnd);
           chronological.push({
             id: seq, deviceId: "kc868-a8", seq, startedAt: new Date(secondEnd.getTime() - Math.max(8, Math.round(secondLitres / 6.5)) * 60_000).toISOString(), endedAt: secondEnd.toISOString(),
-            litresDelivered: secondLitres, outcome: "completed", trigger: "sequence", zone: secondZone, zoneName: nameAt(secondZone, secondEnd),
+            litresDelivered: secondLitres, outcome: "completed", trigger: "sequence", outputChannel: secondChannel, zoneId: secondZoneId, zoneName: nameOf(secondZoneId),
           });
           seq++;
         }
@@ -133,7 +145,16 @@ setInterval(() => {
 function applyCommand(name: string, body: Record<string, unknown>): { status: number; json: unknown } {
   const e = snapshot.entities;
   switch (name) {
-    case "start-irrigation": e.irrigation_running = num("ON"); e.flow_rate = num(2.3); break;
+    // The run's channel opens as the device's would, so the schematic follows.
+    case "start-irrigation": {
+      const channel = Number(body.channel);
+      if (![1, 2, 3, 4].includes(channel)) return { status: 400, json: { error: "invalid output channel" } };
+      snapshot.selectedOutput = channel;
+      for (let n = 1; n <= 4; n++) e[`output_${n}`] = num(n === channel ? "ON" : "OFF");
+      e.irrigation_running = num("ON");
+      e.flow_rate = num(2.3);
+      break;
+    }
     case "stop-irrigation": e.irrigation_running = num("OFF"); e.flow_rate = num(0); break;
     case "toggle-pump": e.pump = num(e.pump!.value === "ON" ? "OFF" : "ON"); break;
     case "select-valve": {
@@ -141,16 +162,38 @@ function applyCommand(name: string, body: Record<string, unknown>): { status: nu
       snapshot.valves = { clean_water_valve: valve === "clean_water_valve", fertigation_valve: valve === "fertigation_valve", microbiology_valve: valve === "microbiology_valve" };
       break;
     }
-    case "select-zone": {
-      const zone = Number(body.zone);
-      snapshot.selectedZone = zone;
-      for (let n = 1; n <= 4; n++) e[`zone_${n}`] = num(n === zone ? "ON" : "OFF");
+    case "select-output": {
+      const channel = Number(body.channel);
+      snapshot.selectedOutput = channel;
+      for (let n = 1; n <= 4; n++) e[`output_${n}`] = num(n === channel ? "ON" : "OFF");
       break;
     }
-    case "set-zone-name": {
-      const zone = Number(body.zone);
+    case "create-zone": {
       const name = typeof body.name === "string" ? body.name.trim() : "";
-      if (zone >= 1 && zone <= 4 && name) snapshot.zoneNames[zone] = name;
+      if (name) snapshot.zones = [...snapshot.zones, { id: `z-${Math.random().toString(36).slice(2, 8)}`, name, archived: false }];
+      break;
+    }
+    case "rename-zone": {
+      const name = typeof body.name === "string" ? body.name.trim() : "";
+      if (name) snapshot.zones = snapshot.zones.map((zone) => (zone.id === body.id ? { ...zone, name } : zone));
+      break;
+    }
+    case "archive-zone": {
+      snapshot.zones = snapshot.zones.map((zone) => (zone.id === body.id ? { ...zone, archived: true } : zone));
+      // Archiving clears the assignment (web ADR-0014).
+      const next = { ...snapshot.assignments };
+      for (const [channel, id] of Object.entries(next)) if (id === body.id) delete next[Number(channel)];
+      snapshot.assignments = next;
+      break;
+    }
+    case "unarchive-zone":
+      snapshot.zones = snapshot.zones.map((zone) => (zone.id === body.id ? { ...zone, archived: false } : zone));
+      break;
+    case "set-assignments": {
+      if (e.pump!.value === "ON") return { status: 409, json: { error: "Stop the pump to edit assignments" } };
+      const next: Record<number, string> = {};
+      for (const [channel, id] of Object.entries((body.assignments ?? {}) as Record<string, string | null>)) if (id) next[Number(channel)] = id;
+      snapshot.assignments = next;
       break;
     }
     case "set-cycle-mode": e.cycle_mode = num(String(body.mode)); break;

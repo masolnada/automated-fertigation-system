@@ -1,100 +1,69 @@
-import { useEffect, useRef, useState } from "react";
-import { Button, Card, CardTitle, Schematic, hasOpenPath, useSchematicSelection, variants } from "@hort/ui";
-import { sourceIds, type SourceId } from "@hort/contracts";
+import { useState } from "react";
+import { Button, Card, CardTitle, Schematic, useSchematicSelection } from "@hort/ui";
+import { outputChannels, sourceIds, type SourceId, type Zone } from "@hort/contracts";
 import type { Snapshot } from "../../store";
-import { displayNumber } from "../../display";
-import { useDebounced } from "../../debounce";
-import { resetIneligibleReason } from "../../guards";
+import { channelLabel, displayNumber } from "../../display";
+import { assignIneligibleReason } from "../../guards";
 import { ConfirmPumpStart } from "./ConfirmPumpStart/ConfirmPumpStart";
 import { ConfirmTotalWaterReset } from "./ConfirmTotalWaterReset/ConfirmTotalWaterReset";
-import { ConfirmZoneRename } from "./ConfirmZoneRename/ConfirmZoneRename";
+import { AssignEditor, type Assignments } from "./AssignEditor/AssignEditor";
+import { FlowSettings } from "./FlowSettings/FlowSettings";
 
 const icon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="9" width="6" height="6"/><rect x="16" y="9" width="6" height="6"/><path d="M8 12h8"/><circle cx="12" cy="12" r="2"/></svg>;
 
 const SOURCE_LABELS: Record<SourceId, string> = { clean_water_valve: "Clean water", fertigation_valve: "Fertigation", microbiology_valve: "Microbiology" };
-const ZONE_NAME_MAX = 40;
-
-/**
- * Renaming a zone is a confirmed, two-step action: the name is stamped onto
- * watering history as of when each event ran (web ADR-0010), so a rename splits
- * that zone's history across two labels. Typing alone changes nothing.
- */
-function ZoneName({ zone, name, onRename }: { zone: number; name: string; onRename(zone: number, name: string): void }) {
-  const [draft, setDraft] = useState(name);
-  const [confirming, setConfirming] = useState(false);
-  useEffect(() => { setDraft(name); setConfirming(false); }, [name, zone]);
-  const trimmed = draft.trim();
-  const changed = trimmed !== "" && trimmed !== name && trimmed.length <= ZONE_NAME_MAX;
-
-  return <div className="grid gap-[6px]">
-    <span className={variants.schematic.fieldLabel}>Zone name</span>
-    <input className={variants.schematic.fieldInput} value={draft} maxLength={ZONE_NAME_MAX} aria-label={`Name for zone ${zone}`} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && changed) setConfirming(true); }}/>
-    <Button variant="primary" className="w-full" style={{ marginTop: 6, height: 40, paddingInline: 8, fontSize: "0.68rem" }} disabled={!changed} onClick={() => setConfirming(true)}>Rename</Button>
-    <p className={`${variants.schematic.note} mt-1`}>Tap the box to open or shut this zone; only one zone is open at a time.</p>
-    <ConfirmZoneRename open={confirming} from={name} to={trimmed} onConfirm={() => { onRename(zone, trimmed); setConfirming(false); }} onCancel={() => setConfirming(false)}/>
-  </div>;
-}
 
 type Props = {
   snapshot: Snapshot;
   onSelectValve(valve: SourceId | ""): void;
-  onSelectZone(zone: number): void;
+  onSelectOutput(channel: number): void;
   onTogglePump(): void;
-  onZoneName(zone: number, name: string): void;
+  onSetAssignments(next: Assignments): void;
   onMinFlow(value: number): void;
 };
 
-export function SchematicCard({ snapshot, onSelectValve, onSelectZone, onTogglePump, onZoneName, onMinFlow }: Props) {
+/**
+ * The system diagram and the acts on it. The diagram carries no adjacent info
+ * panel: selecting a node acts on it, and anything it needs to say opens as a
+ * modal, so every edit on this card is one surface.
+ *
+ * Each output channel is labelled with the zone assigned to it, falling back to
+ * the bare channel when nothing is (web ADR-0014) — an unassigned channel still
+ * waters, its events simply record no zone.
+ */
+export function SchematicCard({ snapshot, onSelectValve, onSelectOutput, onTogglePump, onSetAssignments, onMinFlow }: Props) {
   const [selected, setSelected] = useSchematicSelection();
   const [confirming, setConfirming] = useState<"" | "pump" | "reset">("");
-  const resetReason = resetIneligibleReason(snapshot);
+  const [editing, setEditing] = useState(false);
+  const [flowOpen, setFlowOpen] = useState(false);
+
   const activeSource = sourceIds.find((id) => snapshot.valves[id]) ?? "";
-  const value = (id: string) => (snapshot.entities[id]?.known ? displayNumber(snapshot.entities[id]!.value, id) : "–");
-  const minFlow = snapshot.entities.min_flow?.known ? Number(snapshot.entities.min_flow.value) : undefined;
-  const minFlowRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (document.activeElement !== minFlowRef.current && minFlowRef.current) minFlowRef.current.value = minFlow === undefined ? "" : String(minFlow); }, [minFlow]);
-  const commitMinFlow = useDebounced((raw: string) => { const n = Number(raw); if (raw.trim() !== "" && Number.isFinite(n)) onMinFlow(n); });
-
-  const open = hasOpenPath(activeSource, snapshot.selectedZone);
   const pumpOn = snapshot.entities.pump?.value === "ON";
-  const blockedReason = activeSource === "" && snapshot.selectedZone === 0 ? "Open one source and one zone." : activeSource === "" ? "Open a source." : "Open a zone.";
-  const zone = selected.startsWith("zone_") ? Number(selected.slice(5)) : 0;
-  const s = variants.schematic;
-  const title = selected === "flow" ? "Flow sensor" : selected === "pump" ? "Pump" : zone ? snapshot.zoneNames[zone] ?? `Zone ${zone}` : SOURCE_LABELS[selected as SourceId] ?? "";
+  const blockedReason = activeSource === "" && snapshot.selectedOutput === 0 ? "Open one source and one zone." : activeSource === "" ? "Open a source." : "Open a zone.";
+  const assignBlocked = assignIneligibleReason(snapshot);
 
-  return <Card className="card-schematic"><CardTitle icon={icon}>System</CardTitle>
+  const zoneById = (id: string | undefined): Zone | undefined => snapshot.zones.find((zone) => zone.id === id);
+  const outputLabels: Record<number, string> = {};
+  for (const channel of outputChannels) outputLabels[channel] = zoneById(snapshot.assignments[channel])?.name ?? channelLabel(channel);
+
+  return <Card className="card-schematic">
+    <CardTitle icon={icon}>System<span><Button variant="relay" disabled={Boolean(assignBlocked)} title={assignBlocked || undefined} onClick={() => setEditing(true)}>Edit</Button></span></CardTitle>
     <Schematic
       activeSource={activeSource}
-      selectedZone={snapshot.selectedZone}
+      selectedOutput={snapshot.selectedOutput}
       pumpOn={pumpOn}
-      flowRate={value("flow_rate")}
-      zoneNames={snapshot.zoneNames}
+      flowRate={snapshot.entities.flow_rate?.known ? displayNumber(snapshot.entities.flow_rate.value, "flow_rate") : "–"}
+      outputLabels={outputLabels}
       sourceLabels={SOURCE_LABELS}
       selected={selected}
-      onSelect={setSelected}
+      onSelect={(node) => { setSelected(node); if (node === "flow") setFlowOpen(true); }}
       onSelectSource={onSelectValve}
-      onSelectZone={onSelectZone}
+      onSelectOutput={onSelectOutput}
       onTogglePump={() => { if (pumpOn) onTogglePump(); else setConfirming("pump"); }}
       blockedReason={blockedReason}
-    >
-      {selected === "" ? null : <>
-        <span className={s.panelTitle}>{title}</span>
-        <div className="pt-3">
-          {selected === "flow" ? <div className="grid gap-2">
-            <dl className={variants.metric.list}>
-              <div className={variants.metric.row}><dt className={variants.metric.term}>Flow rate</dt><dd className={variants.metric.definition}><span className="font-num text-[1.1rem] font-extrabold tabular-nums">{value("flow_rate")}</span><i className={variants.metric.unit}>L/min</i></dd></div>
-              <div className={variants.metric.row}><dt className={variants.metric.term}>Total</dt><dd className={variants.metric.definition}><span className="font-num text-[1.1rem] font-extrabold tabular-nums">{value("total_water")}</span><i className={variants.metric.unit}>L</i></dd></div>
-            </dl>
-            <label className={variants.durations.label}>Min flow <input ref={minFlowRef} className={`${variants.durations.input} h-[38px] w-[4.4rem]`} aria-label="Min Flow" type="number" min="0" max="10" step="0.1" defaultValue={minFlow === undefined ? "" : String(minFlow)} onChange={(event) => commitMinFlow(event.target.value)}/></label>
-            <Button variant="danger" className="w-full" style={{ height: 40, paddingInline: 12, fontSize: "0.7rem" }} disabled={Boolean(resetReason)} onClick={() => setConfirming("reset")}>Reset total water</Button>
-            {resetReason ? <p className="m-0 text-[0.62rem] font-extrabold uppercase tracking-[0.06em]">{resetReason}</p> : null}
-          </div> : null}
-          {selected === "pump" ? <p className={s.note}>{open ? "Path is open; the pump may run." : "The pump needs one open source and one open zone."}</p> : null}
-          {zone ? <ZoneName zone={zone} name={snapshot.zoneNames[zone] ?? `Zone ${zone}`} onRename={onZoneName}/> : null}
-          {sourceIds.includes(selected as SourceId) ? <p className={s.note}>Fixed in firmware. Exactly one source is open at a time.</p> : null}
-        </div>
-      </>}
-    </Schematic>
+    />
+    <AssignEditor open={editing} zones={snapshot.zones} assignments={snapshot.assignments} onSave={(next) => { onSetAssignments(next); setEditing(false); }} onClose={() => setEditing(false)}/>
+    <FlowSettings open={flowOpen} snapshot={snapshot} onMinFlow={onMinFlow} onResetRequest={() => { setFlowOpen(false); setConfirming("reset"); }} onClose={() => setFlowOpen(false)}/>
     <ConfirmPumpStart open={confirming === "pump"} onConfirm={() => { onTogglePump(); setConfirming(""); }} onCancel={() => setConfirming("")}/>
     <ConfirmTotalWaterReset open={confirming === "reset"} snapshot={snapshot} onClose={() => setConfirming("")}/>
   </Card>;

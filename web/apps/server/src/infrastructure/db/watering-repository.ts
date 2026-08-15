@@ -6,25 +6,33 @@ import { wateringEvents } from "./schema";
 
 type Row = typeof wateringEvents.$inferSelect;
 
-/** Resolves each event's zone name as of when it ran (web ADR-0010). */
-type NameResolver = { nameAt(zone: number, at: Date | null): string | null };
+/**
+ * Resolves an event's zone from the channel it ran on, using the assignment in
+ * force at the time (web ADR-0014). The name is then the zone's current one
+ * (web ADR-0015).
+ */
+type ZoneResolver = { zoneAt(channel: number, at: Date | null): string | null; nameOf(zoneId: string): string | null };
 
-const toWire = (row: Row, names?: NameResolver): WateringEvent => ({
-  id: row.id,
-  deviceId: row.deviceId,
-  seq: row.seq,
-  startedAt: row.startedAt ? row.startedAt.toISOString() : null,
-  endedAt: row.endedAt ? row.endedAt.toISOString() : null,
-  litresDelivered: row.litresDelivered,
-  outcome: row.outcome as WateringOutcome,
-  trigger: row.trigger as WateringTrigger,
-  zone: row.zone,
-  zoneName: row.zone === null ? null : names?.nameAt(row.zone, row.endedAt) ?? null,
-});
+const toWire = (row: Row, zones?: ZoneResolver): WateringEvent => {
+  const zoneId = row.outputChannel === null ? null : zones?.zoneAt(row.outputChannel, row.endedAt) ?? null;
+  return {
+    id: row.id,
+    deviceId: row.deviceId,
+    seq: row.seq,
+    startedAt: row.startedAt ? row.startedAt.toISOString() : null,
+    endedAt: row.endedAt ? row.endedAt.toISOString() : null,
+    litresDelivered: row.litresDelivered,
+    outcome: row.outcome as WateringOutcome,
+    trigger: row.trigger as WateringTrigger,
+    outputChannel: row.outputChannel,
+    zoneId,
+    zoneName: zoneId === null ? null : zones?.nameOf(zoneId) ?? null,
+  };
+};
 
 /** SQLite/Drizzle adapter for WateringEventRepository. bun-sqlite is synchronous. */
 export class DrizzleWateringEventRepository implements WateringEventRepository {
-  constructor(private db: Db, private names?: NameResolver) {}
+  constructor(private db: Db, private zones?: ZoneResolver) {}
 
   ingest(events: IngestedWateringEvent[]): void {
     if (events.length === 0) return;
@@ -32,13 +40,13 @@ export class DrizzleWateringEventRepository implements WateringEventRepository {
   }
 
   recent(limit: number): WateringEvent[] {
-    return this.db.select().from(wateringEvents).orderBy(desc(wateringEvents.seq), desc(wateringEvents.id)).limit(limit).all().map((row) => toWire(row, this.names));
+    return this.db.select().from(wateringEvents).orderBy(desc(wateringEvents.seq), desc(wateringEvents.id)).limit(limit).all().map((row) => toWire(row, this.zones));
   }
 
   history(since: Date, until: Date): WateringHistory {
     const chartEvents = this.db.select().from(wateringEvents)
       .where(and(gte(wateringEvents.endedAt, since), lt(wateringEvents.endedAt, until)))
-      .orderBy(asc(wateringEvents.endedAt), asc(wateringEvents.seq)).all().map((row) => toWire(row, this.names));
+      .orderBy(asc(wateringEvents.endedAt), asc(wateringEvents.seq)).all().map((row) => toWire(row, this.zones));
     const lastRow = this.db.select().from(wateringEvents)
       .where(gt(wateringEvents.litresDelivered, 0))
       .orderBy(desc(wateringEvents.seq), desc(wateringEvents.id)).limit(1).get();
@@ -47,7 +55,7 @@ export class DrizzleWateringEventRepository implements WateringEventRepository {
       .orderBy(asc(wateringEvents.endedAt), asc(wateringEvents.id)).limit(1).get();
     return {
       chartEvents,
-      lastWatering: lastRow ? toWire(lastRow, this.names) : null,
+      lastWatering: lastRow ? toWire(lastRow, this.zones) : null,
       earliestEventAt: earliestRow?.endedAt?.toISOString() ?? null,
     };
   }

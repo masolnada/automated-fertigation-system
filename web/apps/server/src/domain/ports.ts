@@ -1,4 +1,4 @@
-import type { WateringEvent, WateringHistory } from "@hort/contracts";
+import type { WateringEvent, WateringHistory, Zone } from "@hort/contracts";
 
 // The application depends on this port, never on `mqtt` directly.
 export interface DevicePort {
@@ -19,7 +19,7 @@ export type IngestedWateringEvent = {
   litresDelivered: number;
   outcome: string;
   trigger: string;
-  zone: number | null;
+  outputChannel: number | null;
 };
 
 // Persistence for watering events, behind which the SQLite/Drizzle adapter lives.
@@ -33,12 +33,25 @@ export interface WateringEventRepository {
 }
 
 /**
- * Zone names, stored append-only so history keeps the name in force when each
- * event ran (web ADR-0010).
+ * Zones and the append-only assignation table (web ADR-0014). Names are
+ * current-only (web ADR-0015); what stays temporal is the channel-to-zone
+ * assignment, so a watering event resolves to the zone that was on its channel
+ * when it ran.
  */
-export interface ZoneNameRepository {
-  /** Current name of every named zone. */
-  current(): Record<number, string>;
-  /** Record a new name, valid from now. No-op when unchanged. */
-  rename(zone: number, name: string, at?: Date): void;
+export interface ZoneRepository {
+  /** Every zone, archived included — history needs the archived ones. */
+  all(): Zone[];
+  create(name: string, at?: Date): Zone;
+  rename(id: string, name: string): void;
+  /** Archive and clear any channel assignment pointing at this zone. */
+  archive(id: string, at?: Date): void;
+  /** Restore to the selectable list. Does not restore the assignment. */
+  unarchive(id: string): void;
+  /** Current output channel -> zone id. Unassigned channels are absent. */
+  currentAssignments(): Record<number, string>;
+  /** Write the whole table under one `validFrom`; unchanged channels write nothing. */
+  setAssignments(next: Record<number, string | null>, at?: Date): void;
+  /** The zone on `channel` at `at`, for resolving a watering event. */
+  zoneAt(channel: number, at: Date | null): string | null;
+  nameOf(zoneId: string): string | null;
 }

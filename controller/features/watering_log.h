@@ -12,8 +12,10 @@
 static const uint16_t WATERING_LOG_N = 192;
 
 // outcome: 0 completed, 1 aborted, 2 dry_run, 3 recovery. trigger: 0 sequence,
-// 1 manual. zone is the zone watered, 0 meaning none was recorded (the server
-// maps that to null, as it does the epoch-0 clock sentinel).
+// 1 manual. output is the output channel watered, 0 meaning none was recorded
+// (the server maps that to null, as it does the epoch-0 clock sentinel). The
+// firmware never interprets it — which place it waters is a server-side Zone
+// (web ADR-0014).
 struct WateringRecord {
   uint32_t seq;
   uint32_t start;  // Unix epoch seconds (RTC)
@@ -21,7 +23,7 @@ struct WateringRecord {
   float litres;
   uint8_t outcome;
   uint8_t trigger;
-  uint8_t zone;
+  uint8_t output;
 };
 
 struct WateringLog {
@@ -65,10 +67,10 @@ inline void watering_log_append(WateringLog &log, const WateringRecord &rec) {
 inline void watering_event_json(std::string &out, const WateringRecord &r) {
   char buf[192];
   snprintf(buf, sizeof(buf),
-           "{\"seq\":%u,\"start\":%u,\"end\":%u,\"litres\":%.3f,\"outcome\":\"%s\",\"trigger\":\"%s\",\"zone\":%u}",
+           "{\"seq\":%u,\"start\":%u,\"end\":%u,\"litres\":%.3f,\"outcome\":\"%s\",\"trigger\":\"%s\",\"output\":%u}",
            (unsigned) r.seq, (unsigned) r.start, (unsigned) r.end, r.litres,
            watering_outcome_str(r.outcome), watering_trigger_str(r.trigger),
-           (unsigned) r.zone);
+           (unsigned) r.output);
   out += buf;
 }
 

@@ -1,10 +1,10 @@
-import { sourceIds, type EntityValue, type LogEntry, type Severity, type Snapshot, type SourceId } from "@hort/contracts";
+import { sourceIds, type EntityValue, type LogEntry, type Severity, type Snapshot, type SourceId, type Zone } from "@hort/contracts";
 import { parseStateTopic } from "./topics";
 
 const shutValves = (): Record<SourceId, boolean> => ({ clean_water_valve: false, fertigation_valve: false, microbiology_valve: false });
-const empty = (): Snapshot => ({ brokerConnected: false, deviceOnline: false, entities: {}, valves: shutValves(), selectedZone: 0, zoneNames: {}, resetPending: false, log: [] });
+const empty = (): Snapshot => ({ brokerConnected: false, deviceOnline: false, entities: {}, valves: shutValves(), selectedOutput: 0, zones: [], assignments: {}, resetPending: false, log: [] });
 const isSourceId = (id: string): id is SourceId => (sourceIds as string[]).includes(id);
-const zoneOf = (objectId: string): number | null => { const match = /^zone_([1-4])$/.exec(objectId); return match ? Number(match[1]) : null; };
+const outputOf = (objectId: string): number | null => { const match = /^output_([1-4])$/.exec(objectId); return match ? Number(match[1]) : null; };
 
 /**
  * The fertigation controller aggregate: current device snapshot plus the rolling
@@ -32,9 +32,9 @@ export class Controller {
     this.update({ log: [entry, ...this.snapshot.log].slice(0, 50) });
   }
   /** Fresh retained state is required after every connection/device transition. */
-  invalidateAll(): void { this.update({ deviceOnline: false, entities: {}, valves: shutValves(), selectedZone: 0 }); }
-  /** Zone names are server-owned, not device state (web ADR-0010). */
-  setZoneNames(zoneNames: Record<number, string>): void { this.update({ zoneNames }); }
+  invalidateAll(): void { this.update({ deviceOnline: false, entities: {}, valves: shutValves(), selectedOutput: 0 }); }
+  /** Zones and assignments are server-owned, not device state (web ADR-0014). */
+  setZones(zones: Zone[], assignments: Record<number, string>): void { this.update({ zones, assignments }); }
   connected(): void { this.invalidateAll(); this.update({ brokerConnected: true }); this.log("connected to broker"); }
   closed(): void { this.update({ brokerConnected: false }); this.invalidateAll(); this.log("broker disconnected", "danger"); }
   error(error: Error): void { this.log(`broker error: ${error.message}`, "danger"); }
@@ -48,10 +48,10 @@ export class Controller {
     if (parsed.type === "resetResult") { this.handleResetResult(payload); return; }
     if (parsed.type !== "state") return;
     if (parsed.kind === "switch" && isSourceId(parsed.objectId)) { this.update({ valves: { ...this.snapshot.valves, [parsed.objectId]: payload === "ON" } }); this.log(`${parsed.objectId} → ${payload}`); return; }
-    const zone = parsed.kind === "switch" ? zoneOf(parsed.objectId) : null;
-    if (zone !== null) {
+    const output = parsed.kind === "switch" ? outputOf(parsed.objectId) : null;
+    if (output !== null) {
       const on = payload === "ON";
-      this.update({ entities: { ...this.snapshot.entities, [parsed.objectId]: { value: payload, known: true } }, selectedZone: on ? zone : this.snapshot.selectedZone === zone ? 0 : this.snapshot.selectedZone });
+      this.update({ entities: { ...this.snapshot.entities, [parsed.objectId]: { value: payload, known: true } }, selectedOutput: on ? output : this.snapshot.selectedOutput === output ? 0 : this.snapshot.selectedOutput });
       this.log(`${parsed.objectId} → ${payload}`);
       return;
     }

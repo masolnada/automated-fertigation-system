@@ -1,23 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardTitle, Select } from "@hort/ui";
-import type { WateringEvent, WateringHistory } from "@hort/contracts";
-import { zoneNumbers } from "@hort/contracts";
+import type { WateringEvent, WateringHistory, Zone } from "@hort/contracts";
 import "./watering.css";
 
 const TIME_ZONE = "Europe/Madrid";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const OUTCOME_LABEL: Record<WateringEvent["outcome"], string> = { completed: "Completed", aborted: "Aborted", dry_run: "Dry run", recovery: "Recovery" };
-/** Scope covering every zone, including events the controller recorded none for. */
-const ALL_ZONES = 0;
-/** The scope for events the controller recorded no zone for (device sends 0). */
-const NO_ZONE = -1;
+/** Scope covering every zone, including events that ran on an unassigned channel. */
+const ALL_ZONES = "";
+/**
+ * The scope for events with no zone: the controller recorded no channel, or the
+ * channel it ran on fed nothing named at the time (web ADR-0014).
+ */
+const NO_ZONE = "none";
 const icon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/><path d="M12 8v8"/><path d="M8.5 12.5 12 16l3.5-3.5"/></svg>;
 
 type DaySummary = { key: string; litres: number; waterings: number; issues: number; events: WateringEvent[] };
-/** The name an event ran under, or a fallback when the controller recorded no zone. */
-const zoneLabel = (event: WateringEvent) => event.zoneName ?? (event.zone ? `Zone ${event.zone}` : "No zone");
+/**
+ * The zone an event watered. Falling back to the channel is deliberate: an
+ * unassigned channel still waters, and "Output 3" is the truthful label for
+ * water that went somewhere unnamed (web ADR-0014).
+ */
+const zoneLabel = (event: WateringEvent) => event.zoneName ?? (event.outputChannel ? `Output ${event.outputChannel}` : "No zone");
+const zoneKey = (event: WateringEvent) => event.zoneId ?? NO_ZONE;
 
 function pad(value: number): string { return String(value).padStart(2, "0"); }
 function dateKey(year: number, month: number, day: number): string { return `${year}-${pad(month)}-${pad(day)}`; }
@@ -76,47 +83,27 @@ function validHistory(value: unknown): value is WateringHistory {
     && (history.lastWatering === null || typeof history.lastWatering === "object")
     && (history.earliestEventAt === null || (typeof history.earliestEventAt === "string" && Number.isFinite(new Date(history.earliestEventAt).getTime())));
 }
-/**
- * Per-zone litres for one day, largest first. Grouped by numeric zone, so a day
- * spanning a rename shows one row; the label is the event's own historical name
- * (web ADR-0010), taken from the latest event of that zone in the day.
- */
-function byZone(events: WateringEvent[]): Array<{ zone: number; label: string; litres: number; count: number }> {
-  const totals = new Map<number, { zone: number; label: string; litres: number; count: number }>();
+/** Per-zone litres for one day, largest first. */
+function byZone(events: WateringEvent[]): Array<{ key: string; label: string; litres: number; count: number }> {
+  const totals = new Map<string, { key: string; label: string; litres: number; count: number }>();
   for (const event of events) {
-    const zone = event.zone ?? NO_ZONE;
-    const entry = totals.get(zone) ?? { zone, label: zoneLabel(event), litres: 0, count: 0 };
-    entry.label = zoneLabel(event);
+    const key = zoneKey(event);
+    const entry = totals.get(key) ?? { key, label: zoneLabel(event), litres: 0, count: 0 };
     entry.litres += event.litresDelivered;
     entry.count++;
-    totals.set(zone, entry);
+    totals.set(key, entry);
   }
   return [...totals.values()].sort((a, b) => b.litres - a.litres);
 }
 
-/** A zone the history can be scoped to, plus the other names it ran under. */
-type ZoneScope = { zone: number; label: string; aliases: string[] };
-
 /**
- * The zones on offer, keyed on the numeric zone so scoping survives a rename
- * (web ADR-0010) — filtering on the label would split a renamed zone in two.
- * Every zone is always offered, whether or not it ran this year, so the option
- * list never reshuffles. `label` is the zone's name now; `aliases` are the
- * other names its events in this year carry.
+ * The zones the history can be scoped to. Keyed on zone id, so a scope follows
+ * its zone across a rename *and* across a re-plumb onto another output channel
+ * (web ADR-0014). Archived zones stay on the list — preserving their history is
+ * the reason archiving exists rather than deletion.
  */
-function zoneScopes(events: WateringEvent[], currentNames: Record<number, string>): ZoneScope[] {
-  const names = new Map<number, Set<string>>();
-  for (const event of events) {
-    const zone = event.zone ?? NO_ZONE;
-    const seen = names.get(zone) ?? new Set<string>();
-    if (event.zoneName) seen.add(event.zoneName);
-    names.set(zone, seen);
-  }
-  const zones = [...new Set([...zoneNumbers, ...names.keys()])].sort((a, b) => a - b);
-  return zones.map((zone) => {
-    const label = currentNames[zone] ?? (zone === NO_ZONE ? "No zone" : `Zone ${zone}`);
-    return { zone, label, aliases: [...(names.get(zone) ?? [])].filter((name) => name !== label).sort() };
-  });
+function zoneScopes(zones: Zone[]): Array<{ key: string; label: string }> {
+  return [...zones.map((zone) => ({ key: zone.id, label: zone.archived ? `${zone.name} (archived)` : zone.name })), { key: NO_ZONE, label: "No zone" }];
 }
 
 function summarize(events: WateringEvent[]): Map<string, DaySummary> {
@@ -223,7 +210,7 @@ function DailyInspector({ selectedKey, summary, loading, unavailable }: { select
       <div className={!loading && !unavailable && summary?.issues ? "watering-metric-danger" : ""}><dt>Errors</dt><dd>{loading || unavailable ? "–" : summary?.issues ?? 0}</dd></div>
     </dl>
     {zones.length && !loading && !unavailable ? <dl className="watering-zone-split">
-      {zones.map((zone) => <div key={zone.zone}><dt>{zone.label}</dt><dd>{zone.litres.toFixed(1)} <small>L</small></dd></div>)}
+      {zones.map((zone) => <div key={zone.key}><dt>{zone.label}</dt><dd>{zone.litres.toFixed(1)} <small>L</small></dd></div>)}
     </dl> : null}
     {loading ? <p className="watering-history-message">Loading daily history…</p>
       : unavailable ? <p className="watering-history-message watering-history-message-error">Watering history unavailable</p>
@@ -240,7 +227,7 @@ function DailyInspector({ selectedKey, summary, loading, unavailable }: { select
   </section>;
 }
 
-export function Watering({ pumpOn, zoneNames = {} }: { pumpOn: boolean; zoneNames?: Record<number, string> }) {
+export function Watering({ pumpOn, zones = [] }: { pumpOn: boolean; zones?: Zone[] }) {
   const [now, setNow] = useState(() => Date.now());
   const [zoneFilter, setZoneFilter] = useState(ALL_ZONES);
   const todayKey = keyInTimeZone(new Date(now));
@@ -269,9 +256,8 @@ export function Watering({ pumpOn, zoneNames = {} }: { pumpOn: boolean; zoneName
 
   const history = query.data;
   const allEvents = history?.chartEvents ?? [];
-  const scopes = useMemo(() => zoneScopes(allEvents, zoneNames), [allEvents, zoneNames]);
-  const activeScope = scopes.find((scope) => scope.zone === zoneFilter);
-  const filtered = useMemo(() => (zoneFilter === ALL_ZONES ? allEvents : allEvents.filter((event) => (event.zone ?? NO_ZONE) === zoneFilter)), [allEvents, zoneFilter]);
+  const scopes = useMemo(() => zoneScopes(zones), [zones]);
+  const filtered = useMemo(() => (zoneFilter === ALL_ZONES ? allEvents : allEvents.filter((event) => zoneKey(event) === zoneFilter)), [allEvents, zoneFilter]);
   const days = useMemo(() => summarize(filtered), [filtered]);
   const selectedSummary = days.get(selectedKey);
   const initialLoading = query.isPending && !history;
@@ -284,16 +270,15 @@ export function Watering({ pumpOn, zoneNames = {} }: { pumpOn: boolean; zoneName
     setSelectedKey((current) => clampSelection(nextYear, current, todayKey));
   };
 
-  const zoneOptions = [{ value: String(ALL_ZONES), label: "All zones" }, ...scopes.map((scope) => ({ value: String(scope.zone), label: scope.label }))];
+  const zoneOptions = [{ value: ALL_ZONES, label: "All zones" }, ...scopes.map((scope) => ({ value: scope.key, label: scope.label }))];
 
   return <Card className="card-watering watering-history">
-    <CardTitle icon={icon}>Watering history<Select label="Scope history to a zone" value={String(zoneFilter)} options={zoneOptions} onChange={(value) => setZoneFilter(Number(value))}/></CardTitle>
+    <CardTitle icon={icon}>Watering history<Select label="Scope history to a zone" value={zoneFilter} options={zoneOptions} onChange={setZoneFilter}/></CardTitle>
     <div className="watering-history-header">
       <div className="watering-last"><span>Last watering</span><strong aria-live="polite">{lastValue}</strong>{lastDetail ? <small>{lastDetail}</small> : null}</div>
       <div className="watering-year-heading"><span className="watering-kicker">Year overview</span><YearControl year={year} currentYear={currentYear} earliestYear={earliestYear} onYear={changeYear}/></div>
     </div>
     <YearHeatmap year={year} selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>
-    {activeScope?.aliases.length ? <p className="watering-zone-alias">Earlier this year this zone was recorded as {activeScope.aliases.join(", ")}. Renaming moves the whole zone; event rows keep the name they ran under.</p> : null}
     {query.isError && history ? <p className="watering-refresh-warning" role="status">Refresh failed; showing previous history.</p> : null}
     <div className="watering-history-detail">
       <MonthFocus selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>

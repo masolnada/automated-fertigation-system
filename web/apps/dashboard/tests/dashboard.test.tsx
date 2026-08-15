@@ -7,7 +7,8 @@ import { SnapshotStore } from "../src/store";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const entity = (value: number | string) => ({ value, known: true });
-const wire = (partial: Partial<WireSnapshot> = {}): WireSnapshot => ({ brokerConnected: true, deviceOnline: true, entities: {}, valves: { clean_water_valve: false, fertigation_valve: false, microbiology_valve: false }, selectedZone: 0, zoneNames: {}, resetPending: false, log: [], ...partial });
+const wire = (partial: Partial<WireSnapshot> = {}): WireSnapshot => ({ brokerConnected: true, deviceOnline: true, entities: {}, valves: { clean_water_valve: false, fertigation_valve: false, microbiology_valve: false }, selectedOutput: 0, zones: [], assignments: {}, resetPending: false, log: [], ...partial });
+const zone = (id: string, name: string, archived = false) => ({ id, name, archived });
 const eligibleEntities = () => ({ pump: entity("OFF"), flow_rate: entity(0), total_water: entity(12.3) });
 
 type Call = { name: string; body: Record<string, unknown> };
@@ -28,10 +29,11 @@ afterEach(async () => { await act(async () => { await sleep(0); }); cleanup(); }
 
 function renderApp(store: SnapshotStore) { const client = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } }); return render(<QueryClientProvider client={client}><App store={store}/></QueryClientProvider>); }
 function seeded(partial: Partial<WireSnapshot> = {}) { const store = new SnapshotStore(); act(() => store.replace(wire({ entities: eligibleEntities(), ...partial }))); return store; }
-/** The info panel starts empty, so flow detail has to be selected first. */
+/** The diagram has no info panel, so flow detail lives behind its node's modal. */
 function selectFlow() { fireEvent.click(screen.getAllByRole("button", { name: /Flow/ })[0]!); }
 /** Zone names appear on the schematic and in the watering history, so scope by card. */
 function schematic() { return within(document.querySelector(".card-schematic") as HTMLElement); }
+function zonesCard() { return within(document.querySelector(".card-zones") as HTMLElement); }
 
 describe("snapshot rendering", () => {
   test("formats values and shows – after invalidation", () => {
@@ -48,7 +50,7 @@ describe("snapshot rendering", () => {
 describe("watering history", () => {
   test("shows Last watering, the yearly cell, and the selected day's event list", async () => {
     const endedAt = new Date(Date.now() - 5 * 60_000).toISOString();
-    const event = { id: 1, deviceId: "kc868-a8", seq: 4, startedAt: new Date(new Date(endedAt).getTime() - 10 * 60_000).toISOString(), endedAt, litresDelivered: 12.4, outcome: "completed", trigger: "sequence", channel: null };
+    const event = { id: 1, deviceId: "kc868-a8", seq: 4, startedAt: new Date(new Date(endedAt).getTime() - 10 * 60_000).toISOString(), endedAt, litresDelivered: 12.4, outcome: "completed", trigger: "sequence", outputChannel: null, zoneId: null, zoneName: null };
     responders["watering-history"] = async () => json({ chartEvents: [event], lastWatering: event, earliestEventAt: endedAt }, 200);
     renderApp(seeded());
     await waitFor(() => expect(screen.getByText("5 min ago")).toBeTruthy());
@@ -67,26 +69,26 @@ describe("watering history", () => {
     await waitFor(() => expect(screen.getByText("Watering history unavailable")).toBeTruthy());
     expect(screen.queryByText("No watering recorded")).toBeNull();
   });
-  // Zone names are temporal (web ADR-0010), so scoping has to key on the numeric
-  // zone: filtering by label would split a renamed zone into two scopes.
-  test("a renamed zone stays one scope, offered under its current name", async () => {
+  // A zone is scoped by id, so it follows its own history across a re-plumb onto
+  // another output channel (web ADR-0014). Archived zones stay on the list —
+  // preserving their history is why archiving exists rather than deletion.
+  test("a zone scope follows it across output channels, and archived zones stay offered", async () => {
     const at = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
-    const event = (id: number, litres: number, zoneName: string, minutesAgo: number) =>
-      ({ id, deviceId: "kc868-a8", seq: id, startedAt: at(minutesAgo + 10), endedAt: at(minutesAgo), litresDelivered: litres, outcome: "completed", trigger: "sequence", zone: 3, zoneName });
-    const chartEvents = [event(1, 10, "Tomato patch", 90), event(2, 5, "Vegetable beds", 30)];
+    const event = (id: number, litres: number, outputChannel: number, minutesAgo: number) =>
+      ({ id, deviceId: "kc868-a8", seq: id, startedAt: at(minutesAgo + 10), endedAt: at(minutesAgo), litresDelivered: litres, outcome: "completed", trigger: "sequence", outputChannel, zoneId: "z-veg", zoneName: "Vegetable beds" });
+    // Same zone, two different channels: re-plumbed between the two events.
+    const chartEvents = [event(1, 10, 3, 90), event(2, 5, 2, 30)];
     responders["watering-history"] = async () => json({ chartEvents, lastWatering: chartEvents[1], earliestEventAt: chartEvents[0]!.endedAt }, 200);
-    renderApp(seeded({ zoneNames: { 3: "Vegetable beds" } }));
+    renderApp(seeded({ zones: [zone("z-veg", "Vegetable beds"), zone("z-tomato", "Tomato patch", true)] }));
 
     const select = await screen.findByRole("button", { name: "Scope history to a zone" });
     fireEvent.click(select);
-    // One option per zone, under the name it has now — not one per historical name.
     const listbox = within(screen.getByRole("listbox", { name: "Scope history to a zone" }));
-    expect(listbox.getAllByRole("option").map((option) => option.textContent)).toEqual(["All zones", "Zone 1", "Zone 2", "Vegetable beds", "Zone 4"]);
+    expect(listbox.getAllByRole("option").map((option) => option.textContent)).toEqual(["All zones", "Vegetable beds", "Tomato patch (archived)", "No zone"]);
 
     fireEvent.click(listbox.getByRole("option", { name: "Vegetable beds" }));
-    // Both events survive the scope, so the day keeps all 15 L.
+    // Both events survive the scope despite running on different channels.
     await waitFor(() => expect(screen.getByRole("gridcell", { name: /15.0 litres, 2 watering events/ })).toBeTruthy());
-    expect(screen.getByText(/recorded as Tomato patch/)).toBeTruthy();
   });
 });
 
@@ -133,24 +135,61 @@ describe("commands", () => {
     fireEvent.click(screen.getByRole("button", { name: /Clean water/ }));
     await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-valve", body: { valve: "" } }));
   });
-  test("selecting a zone opens it; selecting the open one shuts it", async () => {
+  test("selecting an output channel opens it; selecting the open one shuts it", async () => {
     renderApp(seeded());
-    fireEvent.click(schematic().getByRole("button", { name: /Zone 2/ }));
-    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-zone", body: { zone: 2 } }));
+    fireEvent.click(schematic().getByRole("button", { name: /Output 2/ }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-output", body: { channel: 2 } }));
     cleanup();
-    renderApp(seeded({ selectedZone: 2 }));
-    fireEvent.click(schematic().getByRole("button", { name: /Zone 2/ }));
-    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-zone", body: { zone: 0 } }));
+    renderApp(seeded({ selectedOutput: 2 }));
+    fireEvent.click(schematic().getByRole("button", { name: /Output 2/ }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "select-output", body: { channel: 0 } }));
   });
-  test("renaming a zone requires confirmation", async () => {
-    renderApp(seeded({ selectedZone: 1, zoneNames: { 1: "Olive terrace" } }));
-    fireEvent.click(schematic().getByRole("button", { name: /Olive terrace/ }));
-    const input = screen.getByLabelText("Name for zone 1") as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "Almond row" } });
-    expect(calls.some((c) => c.name === "set-zone-name")).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+  // A channel is labelled with the zone assigned to it (web ADR-0014); with none
+  // assigned it stays operable under its own name.
+  test("an assigned output channel is labelled with its zone", () => {
+    renderApp(seeded({ zones: [zone("z-olive", "Olive terrace")], assignments: { 1: "z-olive" } }));
+    expect(schematic().getByRole("button", { name: /Olive terrace/ })).toBeTruthy();
+    expect(schematic().getByRole("button", { name: /Output 2/ })).toBeTruthy();
+  });
+  test("renaming a zone is a plain edit", async () => {
+    renderApp(seeded({ zones: [zone("z-olive", "Olive terrace")], assignments: { 1: "z-olive" } }));
+    fireEvent.click(zonesCard().getByRole("button", { name: "Rename" }));
+    fireEvent.change(screen.getByDisplayValue("Olive terrace"), { target: { value: "Almond row" } });
+    expect(calls.some((call) => call.name === "rename-zone")).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Rename zone" }));
-    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "set-zone-name", body: { zone: 1, name: "Almond row" } }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "rename-zone", body: { id: "z-olive", name: "Almond row" } }));
+  });
+  // Archiving also clears the channel assignment, which the click does not show —
+  // hence the Confirmation (web ADR-0014).
+  test("archiving a zone is confirmed and says its channel is freed", async () => {
+    renderApp(seeded({ zones: [zone("z-olive", "Olive terrace")], assignments: { 1: "z-olive" } }));
+    fireEvent.click(zonesCard().getByRole("button", { name: "Archive" }));
+    expect(screen.getByText(/The channel feeding it will be left unassigned/)).toBeTruthy();
+    expect(calls.some((call) => call.name === "archive-zone")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Archive zone" }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "archive-zone", body: { id: "z-olive" } }));
+  });
+  test("the assignation editor saves the whole table at once", async () => {
+    renderApp(seeded({ zones: [zone("z-olive", "Olive terrace"), zone("z-almond", "Almond row")], assignments: { 1: "z-olive" } }));
+    fireEvent.click(schematic().getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Zone for Output 2" }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Zone for Output 2" })).getByRole("option", { name: "Almond row" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save assignments" }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "set-assignments", body: { assignments: { 1: "z-olive", 2: "z-almond", 3: null, 4: null } } }));
+  });
+  // A zone already on a channel is hidden from the others, so the table cannot be
+  // put into a state the one-to-one rule forbids.
+  test("an assigned zone is not offered to another channel", () => {
+    renderApp(seeded({ zones: [zone("z-olive", "Olive terrace"), zone("z-almond", "Almond row")], assignments: { 1: "z-olive" } }));
+    fireEvent.click(schematic().getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Zone for Output 2" }));
+    const listbox = within(screen.getByRole("listbox", { name: "Zone for Output 2" }));
+    expect(listbox.queryByRole("option", { name: "Olive terrace" })).toBeNull();
+    expect(listbox.getByRole("option", { name: "Almond row" })).toBeTruthy();
+  });
+  test("editing assignments is refused while the pump runs", () => {
+    renderApp(seeded({ entities: { ...eligibleEntities(), pump: entity("ON") } }));
+    expect(schematic().getByRole("button", { name: "Edit" }).hasAttribute("disabled")).toBe(true);
   });
   test("warns when the pump has no open path", () => {
     renderApp(seeded());
@@ -178,5 +217,49 @@ describe("commands", () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), irrigation_running: entity("ON") } }));
     expect(screen.getByRole("button", { name: "Stop irrigation" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Start irrigation" })).toBeNull();
+  });
+});
+
+// The channel is an input to the run, not the device's Selected Output: picking
+// one opens no valve, and the start carries it.
+describe("the channel an irrigation waters", () => {
+  const withZones = (partial: Partial<WireSnapshot> = {}) => seeded({ zones: [zone("z-olive", "Olive terrace"), zone("z-almond", "Almond row")], assignments: { 1: "z-olive", 2: "z-almond" }, ...partial });
+  const irrigation = () => within(document.querySelector(".card-irrigation") as HTMLElement);
+
+  test("offers every zone, marks the open one, and names an unassigned channel", () => {
+    renderApp(withZones({ selectedOutput: 1 }));
+    expect(irrigation().getByRole("button", { name: /^Olive terrace open now$/ })).toBeTruthy();
+    expect(irrigation().getByRole("button", { name: "Almond row" })).toBeTruthy();
+    // A channel with no zone still waters, and is the one place the dashboard
+    // says "Output N" (web ADR-0014).
+    expect(irrigation().getByRole("button", { name: "Output 3" })).toBeTruthy();
+  });
+  test("picking a channel opens no valve, and starting carries it", async () => {
+    renderApp(withZones({ selectedOutput: 1 }));
+    fireEvent.click(irrigation().getByRole("button", { name: /Almond row/ }));
+    expect(calls).toHaveLength(0);
+    fireEvent.click(irrigation().getByRole("button", { name: "Start irrigation" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Start irrigation" }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "start-irrigation", body: { channel: 2 } }));
+  });
+  test("the confirmation names the zone about to be watered", () => {
+    renderApp(withZones({ selectedOutput: 2 }));
+    fireEvent.click(irrigation().getByRole("button", { name: "Start irrigation" }));
+    expect(screen.getByText(/Almond row gets the full sequence/)).toBeTruthy();
+  });
+  test("a start with no channel is disabled rather than silently doing nothing", () => {
+    renderApp(withZones({ selectedOutput: 0 }));
+    expect(irrigation().getByRole("button", { name: "Start irrigation" }).hasAttribute("disabled")).toBe(true);
+  });
+  test("a later snapshot does not move the operator's pick", () => {
+    const store = withZones({ selectedOutput: 1 });
+    renderApp(store);
+    fireEvent.click(irrigation().getByRole("button", { name: /Almond row/ }));
+    act(() => store.replace(wire({ entities: eligibleEntities(), zones: [zone("z-olive", "Olive terrace"), zone("z-almond", "Almond row")], assignments: { 1: "z-olive", 2: "z-almond" }, selectedOutput: 3 })));
+    expect(irrigation().getByRole("button", { name: /Almond row/ }).getAttribute("aria-pressed")).toBe("true");
+  });
+  test("the picker is read-only while a sequence runs", () => {
+    renderApp(withZones({ selectedOutput: 1, entities: { ...eligibleEntities(), irrigation_running: entity("ON") } }));
+    expect(irrigation().getByRole("button", { name: /Almond row/ }).hasAttribute("disabled")).toBe(true);
   });
 });

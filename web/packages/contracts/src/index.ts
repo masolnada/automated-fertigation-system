@@ -9,19 +9,29 @@ export type LogEntry = { message: string; severity: Severity; time: string };
 /** The upstream valves. Exactly one is open at a time; which is which is fixed in firmware. */
 export type SourceId = "clean_water_valve" | "fertigation_valve" | "microbiology_valve";
 export const sourceIds: SourceId[] = ["clean_water_valve", "fertigation_valve", "microbiology_valve"];
-/** Downstream zone valves. Exactly one is open at a time; 0 means none. */
-export const zoneNumbers = [1, 2, 3, 4] as const;
-export type ZoneNumber = (typeof zoneNumbers)[number];
+/**
+ * Downstream output channels. Exactly one is open at a time; 0 means none. A
+ * channel is a numbered relay and nothing more — which place it waters is a
+ * Zone, assigned server-side (web ADR-0014). Hardware-fixed at four by the relay
+ * budget (controller ADR-0015).
+ */
+export const outputChannels = [1, 2, 3, 4] as const;
+export type OutputChannel = (typeof outputChannels)[number];
+
+/** A place that gets watered. Identified by `id`; `name` is a current label (web ADR-0015). */
+export type Zone = { id: string; name: string; archived: boolean };
 
 export type Snapshot = {
   deviceOnline: boolean;
   brokerConnected: boolean;
   entities: Record<string, EntityValue>;
   valves: Record<SourceId, boolean>;
-  /** The open zone, or 0 when every zone valve is shut. */
-  selectedZone: number;
-  /** Operator-authored zone names, current values (see web ADR-0010). */
-  zoneNames: Record<number, string>;
+  /** The open output channel, or 0 when every channel valve is shut. */
+  selectedOutput: number;
+  /** Every zone, archived included — history needs the archived ones (web ADR-0014). */
+  zones: Zone[];
+  /** Current output channel -> zone id. A channel with no zone is absent. */
+  assignments: Record<number, string>;
   resetPending: boolean;
   log: LogEntry[];
 };
@@ -33,7 +43,7 @@ export const entityKinds: Record<string, StateKind> = {
   flow_rate: "sensor", total_water: "sensor",
   cycle_minutes: "number", cycle_liters: "number", "pre-wet_percent": "number", flush_minutes: "number", min_flow: "number",
   cycle_mode: "select",
-  zone_1: "switch", zone_2: "switch", zone_3: "switch", zone_4: "switch",
+  output_1: "switch", output_2: "switch", output_3: "switch", output_4: "switch",
 };
 
 export type ResetResult =
@@ -59,9 +69,11 @@ export type WateringEvent = {
   litresDelivered: number;
   outcome: WateringOutcome;
   trigger: WateringTrigger;
-  /** Zone watered, or null when the controller recorded none (device sends 0). */
-  zone: number | null;
-  /** The zone's name when this event ran, not its name now (web ADR-0010). */
+  /** Output channel watered, or null when the controller recorded none (device sends 0). */
+  outputChannel: number | null;
+  /** The zone assigned to that channel when this event ran (web ADR-0014). */
+  zoneId: string | null;
+  /** That zone's current name (web ADR-0015). */
   zoneName: string | null;
 };
 
@@ -78,7 +90,11 @@ export type ValveSelection = "" | SourceId;
 export type CycleMode = "Time" | "Volume";
 
 export type CommandBodies = {
-  "start-irrigation": Record<string, never>;
+  /**
+   * The channel is an input to the run, not the device's current selection: a
+   * start always names where the water goes, so it is required.
+   */
+  "start-irrigation": { channel: OutputChannel };
   "stop-irrigation": Record<string, never>;
   "toggle-pump": Record<string, never>;
   "select-valve": { valve: ValveSelection };
@@ -88,8 +104,16 @@ export type CommandBodies = {
   "set-flush-duration": { value: number };
   "set-min-flow": { value: number };
   "reset-total-water": Record<string, never>;
-  /** 0 shuts every zone. */
-  "select-zone": { zone: number };
-  "set-zone-name": { zone: number; name: string };
+  /** 0 shuts every output channel. */
+  "select-output": { channel: number };
+  "create-zone": { name: string };
+  "rename-zone": { id: string; name: string };
+  "archive-zone": { id: string };
+  "unarchive-zone": { id: string };
+  /**
+   * The whole assignation table at once: one-to-one is a table-level invariant,
+   * so it is validated and written as a unit under one `valid_from`.
+   */
+  "set-assignments": { assignments: Record<number, string | null> };
 };
 export type CommandName = keyof CommandBodies;

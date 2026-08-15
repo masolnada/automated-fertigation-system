@@ -17,6 +17,17 @@ export function resetIneligibleReason(snapshot: Snapshot): string {
 }
 export const canReset = (snapshot: Snapshot) => resetIneligibleReason(snapshot) === "";
 
+/**
+ * Assignment eligibility — the enforcing authority (web ADR-0014). Reassigning
+ * a channel while the pump runs would split one pump-on span across two zones,
+ * which the temporal resolution cannot express. A blocked precondition, not a
+ * failure: the operator clears it by stopping the pump.
+ */
+export function assignIneligibleReason(snapshot: Snapshot): string {
+  const pump = entity(snapshot, "pump");
+  return pump?.known && pump.value === "ON" ? "Stop the pump to edit assignments" : "";
+}
+
 /** Numeric ranges (moved off the browser's HTML min/max). */
 export const ranges = {
   cycle_minutes: { min: 0, max: 180 },

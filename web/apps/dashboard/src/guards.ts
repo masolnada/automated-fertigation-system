@@ -14,3 +14,9 @@ export function resetIneligibleReason(snapshot: Snapshot): string {
   return "";
 }
 export const canReset = (snapshot: Snapshot) => resetIneligibleReason(snapshot) === "";
+
+/** Mirrors the server's assignment guard (web ADR-0014); dims the affordance only. */
+export function assignIneligibleReason(snapshot: Snapshot): string {
+  const pump = entity(snapshot, "pump");
+  return pump?.known && pump.value === "ON" ? "Stop the pump to edit assignments" : "";
+}

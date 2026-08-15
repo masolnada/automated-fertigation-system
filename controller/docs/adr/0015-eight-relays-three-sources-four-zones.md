@@ -15,8 +15,13 @@ the third source is a real tank of micro-organisms kept separate from the humate
 
 ## Consequences
 
-- Adding a fifth zone is no longer a firmware change: it needs the second
-  expander. Treat the zone count as hardware-fixed, not configurable.
+- Adding a fifth output is no longer a firmware change: it needs the second
+  expander. Treat the channel count as hardware-fixed, not configurable.
+- The vocabulary here is pre-[web ADR-0014](../../../web/docs/adr/0014-output-channels-are-generic-zones-are-server-entities.md):
+  what this record calls a zone is now an **output channel**, a numbered valve the
+  firmware never interprets. The relay budget is unchanged — four downstream
+  channels — but the count is no longer a limit on how many *zones* can exist.
+  Zones live on the server and may outnumber the channels they are assigned to.
 - Nothing is left for a tank float switch or pump current sensing on the relay
   side; both were named in the README as candidate safety inputs, and both must
   now use the digital input terminals or the I2C bus instead.

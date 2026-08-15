@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { ReactElement, ReactNode } from "react";
-import { sourceIds, zoneNumbers, type SourceId } from "@hort/contracts";
+import type { ReactElement } from "react";
+import { sourceIds, outputChannels, type SourceId } from "@hort/contracts";
 import { HoverDialog } from "./HoverDialog/HoverDialog";
 import { useMediaQuery } from "./useMediaQuery";
 import { variants } from "./theme/variants";
@@ -10,9 +10,14 @@ import { variants } from "./theme/variants";
  * in the direction water flows. Presentational only — every value and callback
  * arrives as a prop, so it can be reused wherever the same shape is available.
  *
+ * The downstream column is labelled Zones, not Outputs: the operator waters
+ * places, and the channel underneath is the firmware's business (web ADR-0016).
+ * Each box carries the zone assigned to its channel (web ADR-0014), falling back
+ * to the bare channel when nothing is — the one place this component names one.
+ *
  * Two rules from the domain are drawn rather than described:
- * - exactly one source and one zone are open at a time, so the live route is a
- *   single continuous path;
+ * - exactly one source and one channel are open at a time, so the live route is
+ *   a single continuous path;
  * - the pump needs an open path on both sides (controller ADR-0016), so the box
  *   is marked in `warning` when it cannot run: an amber border and corner mark
  *   on the node, with the reason itself in a hover dialog.
@@ -27,35 +32,33 @@ import { variants } from "./theme/variants";
  */
 export const SCHEMATIC_MIN_WIDTH = 1100;
 
-export type SchematicNode = SourceId | "pump" | "flow" | `zone_${number}`;
+export type SchematicNode = SourceId | "pump" | "flow" | `output_${number}`;
 
 export type SchematicProps = {
   activeSource: SourceId | "";
-  selectedZone: number;
+  selectedOutput: number;
   pumpOn: boolean;
   flowRate: string;
-  zoneNames: Record<number, string>;
+  outputLabels: Record<number, string>;
   sourceLabels: Record<SourceId, string>;
-  /** The node whose detail fills the info panel; empty means nothing is selected. */
+  /** The node the operator last acted on; empty means none. */
   selected: SchematicNode | "";
   onSelect(node: SchematicNode): void;
   onSelectSource(source: SourceId | ""): void;
-  onSelectZone(zone: number): void;
+  onSelectOutput(channel: number): void;
   onTogglePump(): void;
   /** Why the pump cannot run, shown on the node when the path is shut. */
   blockedReason: string;
-  /** Rendered in the info panel beside the diagram. */
-  children?: ReactNode;
 };
 
-const COL_W = 148, SRC_H = 54, ZONE_H = 58, GAP = 20, CONN_W = 64, BUS = 32, NODE = 86, NODE_H = 74, MID_PIPE = 34;
+const COL_W = 148, SRC_H = 54, OUT_H = 58, GAP = 20, CONN_W = 64, BUS = 32, NODE = 86, NODE_H = 74, MID_PIPE = 34;
 const SRC_TOTAL = sourceIds.length * SRC_H + (sourceIds.length - 1) * GAP;
-const ZONE_TOTAL = zoneNumbers.length * ZONE_H + (zoneNumbers.length - 1) * GAP;
-const DIAGRAM_H = Math.max(SRC_TOTAL, ZONE_TOTAL);
+const OUT_TOTAL = outputChannels.length * OUT_H + (outputChannels.length - 1) * GAP;
+const DIAGRAM_H = Math.max(SRC_TOTAL, OUT_TOTAL);
 const SRC_TOP = (DIAGRAM_H - SRC_TOTAL) / 2;
 const SPINE_Y = DIAGRAM_H / 2;
 const srcY = (index: number) => SRC_TOP + index * (SRC_H + GAP) + SRC_H / 2;
-const zoneY = (index: number) => index * (ZONE_H + GAP) + ZONE_H / 2;
+const outY = (index: number) => index * (OUT_H + GAP) + OUT_H / 2;
 
 const IDLE = "var(--color-gray)";
 const WATER = "var(--color-water)";
@@ -74,16 +77,16 @@ function SourceManifold({ activeIndex, flowing }: { activeIndex: number; flowing
   </svg>;
 }
 
-function ZoneManifold({ activeIndex, flowing }: { activeIndex: number; flowing: boolean }) {
+function OutputManifold({ activeIndex, flowing }: { activeIndex: number; flowing: boolean }) {
   return <svg width={CONN_W} height={DIAGRAM_H} className="shrink-0" aria-hidden="true">
     <line x1={0} y1={SPINE_Y} x2={BUS} y2={SPINE_Y} stroke={IDLE} strokeWidth={3}/>
-    <line x1={BUS} y1={zoneY(0)} x2={BUS} y2={zoneY(zoneNumbers.length - 1)} stroke={IDLE} strokeWidth={3}/>
-    {zoneNumbers.map((zone, index) => <line key={zone} x1={BUS} y1={zoneY(index)} x2={CONN_W} y2={zoneY(index)} stroke={IDLE} strokeWidth={3}/>)}
-    {activeIndex >= 0 ? <Route d={`M 0 ${SPINE_Y} H ${BUS} V ${zoneY(activeIndex)} H ${CONN_W}`} flowing={flowing}/> : null}
+    <line x1={BUS} y1={outY(0)} x2={BUS} y2={outY(outputChannels.length - 1)} stroke={IDLE} strokeWidth={3}/>
+    {outputChannels.map((channel, index) => <line key={channel} x1={BUS} y1={outY(index)} x2={CONN_W} y2={outY(index)} stroke={IDLE} strokeWidth={3}/>)}
+    {activeIndex >= 0 ? <Route d={`M 0 ${SPINE_Y} H ${BUS} V ${outY(activeIndex)} H ${CONN_W}`} flowing={flowing}/> : null}
   </svg>;
 }
 
-export const hasOpenPath = (activeSource: string, selectedZone: number) => activeSource !== "" && selectedZone > 0;
+export const hasOpenPath = (activeSource: string, selectedOutput: number) => activeSource !== "" && selectedOutput > 0;
 
 const DEADHEAD = "Running against a closed line deadheads the pump.";
 const reasonSentence = (reason: string) => `${reason} ${DEADHEAD}`;
@@ -121,10 +124,10 @@ function Drop({ live, flowing }: { live: boolean; flowing: boolean }) {
  * in flow order. Every control keeps a comfortable tap target instead of being
  * squeezed into a scaled-down diagram.
  */
-function StackedPipeline({ activeSource, selectedZone, pumpOn, flowRate, zoneNames, sourceLabels, selected, onSelect, onSelectSource, onSelectZone, onTogglePump }: Omit<SchematicProps, "children">) {
-  const open = hasOpenPath(activeSource, selectedZone);
+function StackedPipeline({ activeSource, selectedOutput, pumpOn, flowRate, outputLabels, sourceLabels, selected, onSelect, onSelectSource, onSelectOutput, onTogglePump }: SchematicProps) {
+  const open = hasOpenPath(activeSource, selectedOutput);
   const flowing = pumpOn && open;
-  const routeSelected = activeSource !== "" || selectedZone > 0;
+  const routeSelected = activeSource !== "" || selectedOutput > 0;
   const s = variants.schematic;
 
   return <div className="grid">
@@ -157,14 +160,14 @@ function StackedPipeline({ activeSource, selectedZone, pumpOn, flowRate, zoneNam
       <span className={s.nodeUnit}>L/min</span>
     </button>
 
-    <Drop live={selectedZone > 0} flowing={flowing}/>
+    <Drop live={selectedOutput > 0} flowing={flowing}/>
 
-    <span className={`${s.kicker} mb-[6px]`}>Zone</span>
+    <span className={`${s.kicker} mb-[6px]`}>Zones</span>
     <div className="grid grid-cols-2 gap-[6px]">
-      {zoneNumbers.map((zone) => {
-        const on = selectedZone === zone;
-        return <button key={zone} type="button" aria-pressed={on} onClick={() => { onSelectZone(on ? 0 : zone); onSelect(`zone_${zone}`); }} className={`${s.stackCell} ${on ? s.boxOn : s.boxOff} ${selected === `zone_${zone}` ? s.stackSelected : ""}`}>
-          <span className={s.stackLabel}>{zoneNames[zone] ?? `Zone ${zone}`}</span>
+      {outputChannels.map((channel) => {
+        const on = selectedOutput === channel;
+        return <button key={channel} type="button" aria-pressed={on} onClick={() => { onSelectOutput(on ? 0 : channel); onSelect(`output_${channel}`); }} className={`${s.stackCell} ${on ? s.boxOn : s.boxOff} ${selected === `output_${channel}` ? s.stackSelected : ""}`}>
+          <span className={s.stackLabel}>{outputLabels[channel] ?? `Output ${channel}`}</span>
           <b className={s.boxState}>{on ? "OPEN" : "SHUT"}</b>
         </button>;
       })}
@@ -173,23 +176,19 @@ function StackedPipeline({ activeSource, selectedZone, pumpOn, flowRate, zoneNam
 }
 
 export function Schematic(props: SchematicProps) {
-  const { activeSource, selectedZone, pumpOn, flowRate, zoneNames, sourceLabels, selected, onSelect, onSelectSource, onSelectZone, onTogglePump, blockedReason, children } = props;
+  const { activeSource, selectedOutput, pumpOn, flowRate, outputLabels, sourceLabels, selected, onSelect, onSelectSource, onSelectOutput, onTogglePump, blockedReason } = props;
   const narrow = useNarrow();
-  const open = hasOpenPath(activeSource, selectedZone);
+  const open = hasOpenPath(activeSource, selectedOutput);
   const flowing = pumpOn && open;
   const activeSourceIndex = sourceIds.findIndex((id) => id === activeSource);
-  const activeZoneIndex = zoneNumbers.findIndex((zone) => zone === selectedZone);
+  const activeOutputIndex = outputChannels.findIndex((channel) => channel === selectedOutput);
   // The spine is shared by every route, so one open valve on either side lights it.
-  const routeSelected = activeSourceIndex >= 0 || activeZoneIndex >= 0;
+  const routeSelected = activeSourceIndex >= 0 || activeOutputIndex >= 0;
   const s = variants.schematic;
 
-  if (narrow) return <div className="grid gap-5">
-    <StackedPipeline {...props}/>
-    <div aria-hidden="true" className="border-t-[2px] border-dashed border-gray"/>
-    <aside className={s.panel}>{children}</aside>
-  </div>;
+  if (narrow) return <StackedPipeline {...props}/>;
 
-  return <div className="grid gap-6 min-[1100px]:grid-cols-[auto_1px_232px]">
+  return <div className="grid gap-6">
     <div className="justify-self-center">
       <div className="flex" style={{ marginBottom: 8 }}>
         <span className={s.kicker} style={{ width: COL_W }}>Sources</span>
@@ -233,22 +232,19 @@ export function Schematic(props: SchematicProps) {
           </button>
         </div>
 
-        <ZoneManifold activeIndex={activeZoneIndex} flowing={flowing}/>
+        <OutputManifold activeIndex={activeOutputIndex} flowing={flowing}/>
 
         <div className="flex flex-col shrink-0" style={{ width: COL_W, gap: GAP }}>
-          {zoneNumbers.map((zone) => {
-            const on = selectedZone === zone;
-            return <button key={zone} type="button" style={{ height: ZONE_H }} aria-pressed={on} onClick={() => { onSelectZone(on ? 0 : zone); onSelect(`zone_${zone}`); }} className={`${s.box} ${on ? s.boxOn : s.boxOff}`}>
-              <span className={s.boxLabel}>{zoneNames[zone] ?? `Zone ${zone}`}</span>
+          {outputChannels.map((channel) => {
+            const on = selectedOutput === channel;
+            return <button key={channel} type="button" style={{ height: OUT_H }} aria-pressed={on} onClick={() => { onSelectOutput(on ? 0 : channel); onSelect(`output_${channel}`); }} className={`${s.box} ${on ? s.boxOn : s.boxOff}`}>
+              <span className={s.boxLabel}>{outputLabels[channel] ?? `Output ${channel}`}</span>
               <b className={s.boxState}>{on ? "OPEN" : "SHUT"}</b>
             </button>;
           })}
         </div>
       </div>
     </div>
-
-    <div aria-hidden="true" className={s.divider}/>
-    <aside className={s.panel}>{children}</aside>
   </div>;
 }
 

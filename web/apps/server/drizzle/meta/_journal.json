@@ -15,6 +15,13 @@
       "when": 1786700000000,
       "tag": "0001_zones_and_zone_names",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787000000000,
+      "tag": "0002_output_channels_and_zone_entities",
+      "breakpoints": true
     }
   ]
 }

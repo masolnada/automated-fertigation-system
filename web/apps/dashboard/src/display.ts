@@ -9,6 +9,8 @@ export const entities: Record<string, Entity> = {
   flow_rate: { kind: "sensor", decimals: 1, label: "Flow rate", unit: "L/min" }, total_water: { kind: "sensor", decimals: 1, label: "Total water", unit: "L" }, cycle_minutes: { kind: "number", decimals: 0, label: "Cycle minutes", unit: "min" }, cycle_liters: { kind: "number", decimals: 1, label: "Cycle liters", unit: "L" }, "pre-wet_percent": { kind: "number", decimals: 0, label: "Pre-wet percent", unit: "%" }, flush_minutes: { kind: "number", decimals: 0, label: "Flush minutes", unit: "min" }, min_flow: { kind: "number", decimals: 1, label: "Min flow", unit: "L/min" }, cycle_mode: { kind: "select", decimals: 0, label: "Cycle mode", unit: "" },
 };
 export function decimalPlaces(id: string) { return entities[id]?.decimals ?? 1; }
+/** An output channel with no zone assigned is shown as the bare channel (web ADR-0014). */
+export const channelLabel = (channel: number) => `Output ${channel}`;
 export function displayNumber(value: unknown, id: string) { const n = typeof value === "number" ? value : Number.parseFloat(String(value)); return Number.isFinite(n) ? n.toFixed(decimalPlaces(id)) : "–"; }
 
 /** Reset outcomes → dialog copy (mirrors the server's log wording). */

@@ -17,7 +17,7 @@ inline uint8_t g_event_trigger = 0;       // 0 sequence, 1 manual
 inline uint8_t g_pending_outcome = 0;     // 0 completed, 1 aborted, 2 dry_run, 3 recovery
 inline uint8_t g_next_trigger = 0;        // trigger for the next event to open
 inline bool g_pump_handover = false;      // suppress close during a sequence handover
-inline uint8_t g_event_zone = 0;          // zone open at pump-on; 0 = none recorded
+inline uint8_t g_event_output = 0;        // output channel open at pump-on; 0 = none recorded
 
 // Setters called from YAML scripts (sequence/manual/stop) and the watchdog.
 inline void watering_set_next_trigger(uint8_t t) { g_next_trigger = t; }
@@ -35,9 +35,9 @@ inline void watering_event_pump_on() {
     g_event_start_epoch = rtc_time->now().is_valid() ? (uint32_t) rtc_time->now().timestamp : 0;
     g_event_start_l = water_total_l->value();
     g_event_trigger = g_next_trigger;
-    // Captured at pump-on: one run waters one zone, so this is the zone the
-    // whole event belongs to even if the selection changes afterwards.
-    g_event_zone = (uint8_t) selected_zone->value();
+    // Captured at pump-on: one run waters one output channel, so this is the
+    // channel the whole event belongs to even if the selection changes after.
+    g_event_output = (uint8_t) selected_output->value();
     g_pending_outcome = 0;
   }
 }
@@ -53,7 +53,7 @@ inline void watering_event_pump_off() {
     r.litres = dl < 0 ? 0.0f : (float) dl;
     r.outcome = g_pending_outcome;
     r.trigger = g_event_trigger;
-    r.zone = g_event_zone;
+    r.output = g_event_output;
     watering_log_append(g_watering_log, r);
     g_event_open = false;
     watering_log_save();

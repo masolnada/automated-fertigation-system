@@ -29,7 +29,9 @@ export function createApp(ctx: Context): Express {
         res.status(resetStatus[result] ?? 500).json({ result });
         return;
       }
-      res.status(202).json({ ok: true });
+      // Most commands return nothing; `create-zone` returns the zone it made, so
+      // the caller learns the id without racing the next snapshot.
+      res.status(202).json(outcome ?? { ok: true });
     } catch (error) {
       if (error instanceof CommandError) { res.status(error.status).json({ error: error.message }); return; }
       res.status(500).json({ error: error instanceof Error ? error.message : String(error) });

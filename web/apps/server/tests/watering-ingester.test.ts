@@ -31,7 +31,7 @@ describe("WateringIngester", () => {
   });
 
   test("ingests events and maps device epoch to ISO", () => {
-    emit(log([event(1), event(2, { outcome: "recovery", trigger: "manual", zone: 3 })]));
+    emit(log([event(1), event(2, { outcome: "recovery", trigger: "manual", output: 3 })]));
     const rows = repo.recent(10);
     expect(rows).toHaveLength(2);
     const first = rows.find((r) => r.seq === 1)!;
@@ -40,7 +40,7 @@ describe("WateringIngester", () => {
     expect(first.litresDelivered).toBeCloseTo(12.4, 5);
     const second = rows.find((r) => r.seq === 2)!;
     expect(second.outcome).toBe("recovery");
-    expect(second.zone).toBe(3);
+    expect(second.outputChannel).toBe(3);
   });
 
   test("dedups by (device, seq) across repeated retained payloads", () => {

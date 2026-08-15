@@ -168,15 +168,17 @@ switch:
       number: 4
       mode: OUTPUT
       inverted: true
-  # Zones (downstream). Exactly one is open at a time, so the single common-line
-  # flow sensor meters it unambiguously. Opening one records it as the selected
-  # zone, which survives reboot so the offline manual button knows where to water.
+  # Output channels (downstream). Exactly one is open at a time, so the single
+  # common-line flow sensor meters it unambiguously. Opening one records it as
+  # the selected channel, which survives reboot so the offline manual button
+  # knows where to send water. A channel is a numbered relay and nothing more —
+  # which place it waters is a Zone, and Zones live on the server (web ADR-0014).
   - platform: gpio
-    name: "Zone 1"
-    id: zone_1
+    name: "Output 1"
+    id: output_1
     restore_mode: ALWAYS_OFF
     on_turn_on:
-      - lambda: 'id(selected_zone) = 1;'
+      - lambda: 'id(selected_output) = 1;'
     on_turn_off:
       - script.execute: stop_pump_without_path
     pin:
@@ -185,11 +187,11 @@ switch:
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "Zone 2"
-    id: zone_2
+    name: "Output 2"
+    id: output_2
     restore_mode: ALWAYS_OFF
     on_turn_on:
-      - lambda: 'id(selected_zone) = 2;'
+      - lambda: 'id(selected_output) = 2;'
     on_turn_off:
       - script.execute: stop_pump_without_path
     pin:
@@ -198,11 +200,11 @@ switch:
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "Zone 3"
-    id: zone_3
+    name: "Output 3"
+    id: output_3
     restore_mode: ALWAYS_OFF
     on_turn_on:
-      - lambda: 'id(selected_zone) = 3;'
+      - lambda: 'id(selected_output) = 3;'
     on_turn_off:
       - script.execute: stop_pump_without_path
     pin:
@@ -211,11 +213,11 @@ switch:
       mode: OUTPUT
       inverted: true
   - platform: gpio
-    name: "Zone 4"
-    id: zone_4
+    name: "Output 4"
+    id: output_4
     restore_mode: ALWAYS_OFF
     on_turn_on:
-      - lambda: 'id(selected_zone) = 4;'
+      - lambda: 'id(selected_output) = 4;'
     on_turn_off:
       - script.execute: stop_pump_without_path
     pin:
@@ -334,10 +336,10 @@ globals:
     type: double
     restore_value: no
     initial_value: "0"
-  # Which zone the sequence and the manual button water (0 = none). Persisted so
-  # the button still knows where to send water with no wifi after a reboot, and
-  # read by watering_events.h to stamp the zone on each event.
-  - id: selected_zone
+  # Which output channel the sequence and the manual button water (0 = none).
+  # Persisted so the button still knows where to send water with no wifi after a
+  # reboot, and read by watering_events.h to stamp the channel on each event.
+  - id: selected_output
     type: int
     restore_value: yes
     initial_value: "0"
@@ -355,9 +357,10 @@ globals:
 
 script:
   # The pump must never run without an open path on BOTH sides (ADR-0016): one
-  # open source upstream and one open zone downstream. Closing the last valve on
-  # either side stops it — whichever caller closed it: dashboard, sequence, or
-  # the manual button. An open source with every zone shut deadheads the pump,
+  # open source upstream and one open output channel downstream. Closing the last
+  # valve on either side stops it — whichever caller closed it: dashboard,
+  # sequence, or the manual button. An open source with every output shut
+  # deadheads the pump,
   # which drives it toward its 3.8 bar cutoff current against a 10 A BMS.
   # Guarded on the pump already running so the sequence's own valve closes
   # (pump already off) don't republish OFF each time.
@@ -371,26 +374,36 @@ script:
           then:
             - switch.turn_off: pump
 
-  # Open the persisted zone before the pump runs. The sequence and the manual
-  # button both call this, so both honour the same selection; with none set
-  # (first boot) nothing opens and the interlock keeps the pump off.
-  - id: open_selected_zone
+  # Open exactly one output channel, closing the others first. Closing before
+  # opening never leaves two open, which is what lets the single common-line flow
+  # sensor meter unambiguously; a pump running manually on another channel loses
+  # its path across the change and is stopped by the interlock, then restarted by
+  # the caller — the same pause every source handover takes. Opening the channel
+  # records it as the Selected Output, which survives reboot so the offline
+  # manual button knows where to send water.
+  - id: open_output_only
+    parameters:
+      channel: int
     then:
       - lambda: |-
-          switch (id(selected_zone)) {
-            case 1: id(zone_1).turn_on(); break;
-            case 2: id(zone_2).turn_on(); break;
-            case 3: id(zone_3).turn_on(); break;
-            case 4: id(zone_4).turn_on(); break;
-            default: ESP_LOGW("zone", "no zone selected; pump will stay off");
+          if (channel != 1) id(output_1).turn_off();
+          if (channel != 2) id(output_2).turn_off();
+          if (channel != 3) id(output_3).turn_off();
+          if (channel != 4) id(output_4).turn_off();
+          switch (channel) {
+            case 1: id(output_1).turn_on(); break;
+            case 2: id(output_2).turn_on(); break;
+            case 3: id(output_3).turn_on(); break;
+            case 4: id(output_4).turn_on(); break;
+            default: ESP_LOGW("output", "no output channel selected; pump will stay off");
           }
 
-  - id: close_all_zones
+  - id: close_all_outputs
     then:
-      - switch.turn_off: zone_1
-      - switch.turn_off: zone_2
-      - switch.turn_off: zone_3
-      - switch.turn_off: zone_4
+      - switch.turn_off: output_1
+      - switch.turn_off: output_2
+      - switch.turn_off: output_3
+      - switch.turn_off: output_4
 
   # The pump pauses across each valve handover — stop, swap the valve, start
   # again — so it never runs against closed valves, with its 3.8 bar pressure
@@ -399,11 +412,17 @@ script:
   # a time on its own even though the interlock no longer enforces it.
   - id: irrigation_sequence
     mode: single
+    parameters:
+      channel: int
     then:
       - lambda: 'watering_set_next_trigger(0);'
-      # One run waters exactly one zone (ADR-0015), opened once up front and left
-      # open for the whole sequence — so no zone-side handover is needed.
-      - script.execute: open_selected_zone
+      # One run waters exactly one output channel (ADR-0017), and the channel is
+      # an input to the run rather than whatever happens to be open: it is opened
+      # once up front and left open for the whole sequence, so no downstream
+      # handover is needed. Callers validate the channel before executing.
+      - script.execute:
+          id: open_output_only
+          channel: !lambda 'return channel;'
       - delay: 500ms
       # Phase 1: pre-wet with clean water — prime lines, moisten soil.
       - if:
@@ -470,7 +489,7 @@ script:
       - lambda: 'id(current_phase) = 0;'
       - delay: 2s
       - switch.turn_off: clean_water_valve
-      - script.execute: close_all_zones
+      - script.execute: close_all_outputs
 
   # Watchdog recovery for an empty fertigation tank. This deliberately does
   # not use abort_irrigation: it preserves the required full safety flush.
@@ -493,7 +512,7 @@ script:
       - lambda: 'id(current_phase) = 0;'
       - delay: 2s
       - switch.turn_off: clean_water_valve
-      - script.execute: close_all_zones
+      - script.execute: close_all_outputs
 
   # Single shared interrupt path: the stop button, the MQTT stop topic,
   # and any future sensor (tank float switch, pump current) all execute
@@ -509,10 +528,10 @@ script:
       - switch.turn_off: fertigation_valve
       - switch.turn_off: clean_water_valve
       - switch.turn_off: microbiology_valve
-      - script.execute: close_all_zones
+      - script.execute: close_all_outputs
 
   # Manual start/stop from the onboard button, no wifi needed. Opens the
-  # persisted source and zone — not everything — so tanks cannot back-feed each
+  # persisted source and output channel — not everything — so tanks cannot back-feed each
   # other and the held-valve current stays at one valve per side; pressing again
   # stops the pump first, then closes them.
   - id: manual_pump_toggle
@@ -527,7 +546,7 @@ script:
             - switch.turn_off: clean_water_valve
             - switch.turn_off: fertigation_valve
             - switch.turn_off: microbiology_valve
-            - script.execute: close_all_zones
+            - script.execute: close_all_outputs
           else:
             - lambda: 'watering_set_next_trigger(1);'
             - lambda: |-
@@ -537,7 +556,12 @@ script:
                   case 1: id(clean_water_valve).turn_on(); break;
                   default: ESP_LOGW("source", "no source selected; pump will stay off");
                 }
-            - script.execute: open_selected_zone
+            # The button waters the Selected Output — the last channel anyone
+            # opened, sequence included — because standing at the box with no
+            # network, what ran last is the only channel it can know about.
+            - script.execute:
+                id: open_output_only
+                channel: !lambda 'return id(selected_output);'
             - delay: 2s
             - switch.turn_on: pump
 
@@ -570,7 +594,16 @@ button:
     name: "Start Irrigation"
     id: start_irrigation
     on_press:
-      - script.execute: irrigation_sequence
+      # No channel to carry, so this entity waters the Selected Output. A start
+      # naming no channel is refused rather than run dry with the pump
+      # interlocked off, which looked identical to nothing happening.
+      - lambda: |-
+          int channel = id(selected_output);
+          if (channel < 1 || channel > 4) {
+            ESP_LOGW("irrigation", "no output channel selected; refusing to start");
+            return;
+          }
+          id(irrigation_sequence)->execute(channel);
   - platform: template
     name: "Stop Irrigation"
     id: stop_irrigation
@@ -811,9 +844,18 @@ mqtt:
   on_connect:
     - lambda: 'watering_log_publish_retained();'
   on_message:
+    # The channel travels with the start (ADR-0017). Validated here, at the
+    # boundary: a payload naming no channel is refused, never silently sent to
+    # whichever valve was last left open.
     - topic: kc868-a8/irrigation/start
       then:
-        - script.execute: irrigation_sequence
+        - lambda: |-
+            int channel = atoi(x.c_str());
+            if (channel < 1 || channel > 4) {
+              ESP_LOGW("irrigation", "start payload '%s' names no output channel; refusing", x.c_str());
+              return;
+            }
+            id(irrigation_sequence)->execute(channel);
     - topic: kc868-a8/irrigation/stop
       then:
         - lambda: 'watering_set_pending_outcome(1);'

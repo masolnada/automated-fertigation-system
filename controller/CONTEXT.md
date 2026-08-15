@@ -27,9 +27,14 @@ Second phase — water carrying the fertigation substance.
 Final phase — clean water, always time-based, never below one minute, to clear
 humate and micro-organism residue from pump, lines and emitters.
 
-**Zone run**:
-One irrigation sequence, which waters exactly one zone from start to finish.
-Watering several zones means starting the sequence again on each.
+**Channel run**:
+One irrigation sequence, which waters exactly one output channel from start to
+finish. Watering several means starting the sequence again on each. The channel
+is an *input* to the run — carried on the start, not read from what happens to be
+open — so a start that names no channel is refused rather than sent somewhere
+unintended. Its first act is to close the other output channels and open its own,
+pausing the pump across the change as any handover does.
+_Avoid_: zone run — the firmware does not know what a zone is.
 
 **Fertigation substance**:
 Humic acid (e.g. potassium humate) injected into the supply during the
@@ -64,25 +69,31 @@ case.
 An upstream 12 V electrovalve selecting what the pump draws — Clean Water,
 Fertigation, or Microbiology. Exactly one is open at a time. Which source is
 which is fixed in firmware, because the Flush and Recovery flush depend on
-knowing which one is clean water.
+knowing which one is clean water, offline, with no server.
 _Avoid_: input, input channel — the board's `a8-input*` dry-contact terminals
 already own that word.
 
-**Zone**:
-A downstream 12 V electrovalve feeding one watered area. Exactly one is open at a
-time, so the single common-line flow sensor meters it unambiguously. One
-irrigation sequence waters exactly one zone.
-_Avoid_: output, output channel, station, valve on its own, channel.
+**Output channel**:
+A downstream 12 V electrovalve, numbered and nothing more. Exactly one is open at
+a time, so the single common-line flow sensor meters it unambiguously. The
+firmware never interprets one: *which place* a channel waters is a Zone, and
+Zones exist only on the server (web ADR-0014). Hardware-fixed at four by the
+relay budget (ADR-0015).
+_Avoid_: zone, station, valve on its own.
 
-**Selected Source / Selected Zone**:
-The persisted choice of which source and which zone are in play. Device state
-(`restore_value`), so it survives reboot and the manual button works offline. The
-sequence, the manual button and the dashboard all act on the same selection.
+**Selected Source / Selected Output**:
+The persisted record of which source and which output channel are in play. Device
+state (`restore_value`), so it survives reboot and the manual button works
+offline. Written by any valve opening, whoever opened it, so it tracks what the
+pump is drawing from and sending to. It is what the manual button waters, but not
+what a channel run waters — a run carries its own channel and leaves this as its
+record, which is why a run also changes where the button will next send water.
 
 ### Flow and safety
 
 **Open path**:
-The pump's precondition: one open source upstream and one open zone downstream.
+The pump's precondition: one open source upstream and one open output channel
+downstream.
 Checked both when a valve closes and when the pump is asked to start — a start
 without a path is refused, not merely stopped later — so a running pump is never
 deadheaded. The 3.8 bar pressure switch is the backstop, not the plan.
@@ -103,8 +114,8 @@ trip.
 **Watering event**:
 One pump-on span, bracketed on-device by a `handover` flag so a sequence's
 deliberate mid-run pump toggles don't split it. Recorded only on completion, with
-an RTC wall-clock start/end, litres, outcome, trigger and the zone it watered
-(numeric; 0 means no zone was recorded). The controller is the
+an RTC wall-clock start/end, litres, outcome, trigger and the output channel it
+watered (numeric; 0 means none was recorded). The controller is the
 authoritative source; the server ingests, it does not detect.
 _Avoid_: irrigation run, cycle, watering session.
 

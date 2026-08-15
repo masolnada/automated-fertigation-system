@@ -126,6 +126,22 @@ describe("watering history read", () => {
   });
 });
 
+describe("start-irrigation carries the channel", () => {
+  test("a start with no channel is 400 and publishes nothing", async () => {
+    const h = await start();
+    let published = false; const listener = fakeDevice(h); listener.on("message", (topic) => { if (topic === `${prefix}/irrigation/start`) published = true; });
+    for (const body of [{}, { channel: 0 }, { channel: 5 }, { channel: "2" }]) expect((await post(h.url, "start-irrigation", body)).status).toBe(400);
+    await sleep(100); expect(published).toBe(false);
+  });
+  test("a valid channel is published as the start payload", async () => {
+    const h = await start();
+    let payload = ""; const listener = fakeDevice(h); listener.on("message", (topic, data) => { if (topic === `${prefix}/irrigation/start`) payload = data.toString(); });
+    await new Promise<void>((resolve) => listener.subscribe(`${prefix}/irrigation/start`, () => resolve()));
+    expect((await post(h.url, "start-irrigation", { channel: 3 })).status).toBe(202);
+    await waitFor(() => payload === "3");
+  });
+});
+
 describe("validated command loop (SetFlushDuration)", () => {
   test("out-of-range body is 400 with no publish", async () => {
     const h = await start();
