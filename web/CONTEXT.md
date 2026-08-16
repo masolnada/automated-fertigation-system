@@ -55,8 +55,10 @@ channel the *Schematic* opens is a separate act, and the two can disagree until
 the run starts.
 
 A server-side and wire-level term, not an operator-facing one: the dashboard
-names zones, and says "Output N" only where a channel has no zone to name and in
-the assignation editor, whose whole job is to relate the two (ADR-0016).
+names zones, and says "Output N" only where a channel has no zone to name — on
+the Schematic and in history — and in the assignation editor, whose whole job is
+to relate the two (ADR-0016). Never where an irrigation is *chosen*: picking one
+names a place, and a bare channel is the absence of a place.
 _Avoid_: zone — a channel is not a place.
 
 **Zone**:

@@ -1,11 +1,17 @@
 import type { CycleRecipe, Frequency, OutputChannel, Zone } from "@hort/contracts";
 
-/** A wizard draft: the whole instruction, before it is either started or stored. */
+/**
+ * A wizard draft: the whole instruction, before it is either started or stored.
+ * `when` and `time` start empty and `days` starts unselected — a wizard that
+ * opens with "06:00, Tuesdays" already filled in reads as a decision the
+ * operator made, and the one thing worse than no schedule is one they did not
+ * realise they were agreeing to.
+ */
 export type Draft = {
   recipe: CycleRecipe;
   channel: OutputChannel | 0;
-  when: "now" | "future";
-  /** Local wall-clock `HH:MM`. */
+  when: "" | "now" | "future";
+  /** Local wall-clock `HH:MM`, empty until set. */
   time: string;
   frequency: Frequency;
 };
@@ -18,17 +24,17 @@ export const todayISO = (): string => {
 };
 
 /**
- * A new irrigation starts from the device's default recipe — the `cycle_*`
- * entities — because those are the values the operator last thought about, and
- * proposing them is not the same as writing to them. Nothing here is committed
- * until the wizard's last step.
+ * A new irrigation starts from the device's default recipe, because those are
+ * the values the operator last thought about and proposing them is not the same
+ * as writing to them. The *schedule* is proposed with nothing at all: a recipe
+ * has a sensible default, a time of day does not.
  */
 export const draftFrom = (defaults: CycleRecipe, channel: OutputChannel | 0): Draft => ({
   recipe: defaults,
   channel,
-  when: "future",
-  time: "06:00",
-  frequency: { kind: "weekdays", days: [2] },
+  when: "",
+  time: "",
+  frequency: { kind: "weekdays", days: [] },
 });
 
 export const recipeUnit = (recipe: CycleRecipe) => (recipe.mode === "Volume" ? "L" : "min");
@@ -55,6 +61,7 @@ export const recipeText = (recipe: CycleRecipe) =>
  * shown because "every 3 days from 14-03" is hard to picture otherwise.
  */
 export function nextDates(frequency: Frequency, time: string, count = 4): string[] {
+  if (!time) return [];
   const dates: string[] = [];
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -81,9 +88,23 @@ export function nextDates(frequency: Frequency, time: string, count = 4): string
 export const channelName = (zones: Zone[], assignments: Record<number, string>, channel: number) =>
   zones.find((zone) => zone.id === assignments[channel])?.name ?? `Output ${channel}`;
 
-/** A draft is startable once it names a channel and a frequency that fires at all. */
+/**
+ * The channels a scheduled or commanded run may water: only those with a zone on
+ * them. An unassigned channel is deliberately absent — naming a bare "Output 3"
+ * here would ask the operator to schedule water to a place the system cannot
+ * name, and the record of that run would resolve to no zone. The manual button
+ * on the box still waters whatever is open, so nothing is unreachable
+ * (web ADR-0016).
+ */
+export const waterableChannels = (assignments: Record<number, string>): number[] =>
+  Object.keys(assignments).map(Number).filter((channel) => assignments[channel]).sort((a, b) => a - b);
+
+/** A draft is startable once every choice it needs has actually been made. */
 export function draftBlocked(draft: Draft): string {
   if (!draft.channel) return "Choose a zone";
-  if (draft.when === "future" && draft.frequency.kind === "weekdays" && draft.frequency.days.length === 0) return "Choose at least one day";
+  if (!draft.when) return "Choose now or a schedule";
+  if (draft.when === "now") return "";
+  if (!draft.time) return "Set a time of day";
+  if (draft.frequency.kind === "weekdays" && draft.frequency.days.length === 0) return "Choose at least one day";
   return "";
 }

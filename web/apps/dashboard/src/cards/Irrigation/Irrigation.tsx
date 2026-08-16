@@ -60,6 +60,9 @@ export function Irrigation({ snapshot, onStart, onStop, onSchedule, onDeleteSche
   const [run, setRun] = useState(0);
   const [deleting, setDeleting] = useState<ScheduleEntry | null>(null);
   const running = snapshot.entities.irrigation_running?.value === "ON";
+  // Seeded only when the open channel has a zone: the picker offers assigned
+  // channels only, so an unassigned one would preselect nothing visible.
+  const openChannel = (snapshot.assignments[snapshot.selectedOutput] ? snapshot.selectedOutput : 0) as OutputChannel | 0;
 
   return <Card className="card-irrigation">
     <CardTitle icon={icon}>Irrigation <Badge state={running ? "on" : "off"}>{running ? "running" : "idle"}</Badge>
@@ -74,7 +77,7 @@ export function Irrigation({ snapshot, onStart, onStop, onSchedule, onDeleteSche
       zones={snapshot.zones}
       assignments={snapshot.assignments}
       defaults={defaultRecipe(snapshot)}
-      openChannel={(snapshot.selectedOutput || 0) as OutputChannel | 0}
+      openChannel={openChannel}
       schedules={snapshot.schedules}
       onStart={onStart}
       onSchedule={onSchedule}

@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { Button, Modal, variants } from "@hort/ui";
-import { outputChannels, type CycleMode, type CycleRecipe, type OutputChannel, type ScheduleEntry, type Zone } from "@hort/contracts";
+import { type CycleMode, type CycleRecipe, type OutputChannel, type ScheduleEntry, type Zone } from "@hort/contracts";
 import { slotTakenBy } from "../../../guards";
-import { WEEKDAYS, channelName, draftBlocked, draftFrom, frequencyText, nextDates, recipeUnit, todayISO, type Draft } from "../schedule";
+import { WEEKDAYS, channelName, draftBlocked, draftFrom, frequencyText, nextDates, recipeUnit, todayISO, waterableChannels, type Draft } from "../schedule";
 
 const heading = "m-0 mb-3 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]";
 const fieldRow = "grid grid-cols-[minmax(0,1fr)_minmax(6.8rem,9rem)_2.5rem] items-center gap-2 text-[0.9rem] font-bold";
@@ -59,18 +59,22 @@ function StepRecipe({ recipe, onChange }: { recipe: CycleRecipe; onChange(next: 
 }
 
 /**
- * Zones, not channels (web ADR-0016). A channel with no zone still waters and
- * the operator must be able to send water there, so it appears under its bare
- * channel — the one place the dashboard says "Output N".
+ * Zones only — a channel with no zone is not offered. Scheduling water to a bare
+ * "Output 3" would name a place the system cannot name, and the resulting event
+ * would resolve to no zone. With none assigned the step says so and points at
+ * the one surface that fixes it (web ADR-0016).
  */
 function StepZone({ draft, zones, assignments, onChange }: { draft: Draft; zones: Zone[]; assignments: Record<number, string>; onChange(next: Partial<Draft>): void }) {
+  const channels = waterableChannels(assignments);
   return <section className={section}>
     <h3 className={heading}>Zone</h3>
-    <div className="grid grid-cols-2 gap-[6px] min-[720px]:grid-cols-4">
-      {outputChannels.map((channel) => <button key={channel} type="button" aria-pressed={channel === draft.channel} onClick={() => onChange({ channel })} className={`flex min-h-[52px] flex-col justify-center px-2 py-1 text-left ${toggle(channel === draft.channel)}`}>
-        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[0.8rem]">{channelName(zones, assignments, channel)}</span>
-      </button>)}
-    </div>
+    {channels.length === 0
+      ? <p className="m-0 text-[0.85rem] font-bold leading-snug">No zone is assigned to an output yet. Assign one on the System card before scheduling an irrigation.</p>
+      : <div className="grid grid-cols-2 gap-[6px] min-[720px]:grid-cols-4">
+          {channels.map((channel) => <button key={channel} type="button" aria-pressed={channel === draft.channel} onClick={() => onChange({ channel: channel as OutputChannel })} className={`flex min-h-[52px] flex-col justify-center px-2 py-1 text-left ${toggle(channel === draft.channel)}`}>
+            <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[0.8rem]">{channelName(zones, assignments, channel)}</span>
+          </button>)}
+        </div>}
   </section>;
 }
 
@@ -84,7 +88,7 @@ function StepSchedule({ draft, onChange, taken }: { draft: Draft; onChange(next:
     <section className={section}>
       <h3 className={heading}>When</h3>
       <div className="grid grid-cols-2 gap-[6px]">
-        {(["now", "future"] as const).map((value) => <button key={value} type="button" aria-pressed={draft.when === value} onClick={() => onChange({ when: value })} className={`h-[46px] text-[0.8rem] uppercase tracking-[0.08em] ${toggle(draft.when === value)}`}>{value === "now" ? "Now" : "Schedule"}</button>)}
+        {(["now", "future"] as const).map((value) => <button key={value} type="button" aria-pressed={draft.when === value} onClick={() => onChange({ when: value, ...(value === "future" && !draft.time ? { time: "06:00" } : {}) })} className={`h-[46px] text-[0.8rem] uppercase tracking-[0.08em] ${toggle(draft.when === value)}`}>{value === "now" ? "Now" : "Schedule"}</button>)}
       </div>
     </section>
     {draft.when === "future" ? <>
@@ -104,7 +108,7 @@ function StepSchedule({ draft, onChange, taken }: { draft: Draft; onChange(next:
               <label className={fieldRow}><span>Every</span><input className={field} type="number" min={1} max={90} value={frequency.n} onChange={(event) => onChange({ frequency: { ...frequency, n: Number(event.target.value) } })}/><span>days</span></label>
               <label className={fieldRow}><span>Starting</span><input className={field} type="date" value={frequency.from} onChange={(event) => onChange({ frequency: { ...frequency, from: event.target.value } })}/><span aria-hidden="true"></span></label>
             </div>}
-        <p className="m-0 mt-3 border-t-[2px] border-dashed border-gray pt-3 text-[0.78rem] font-bold leading-snug">Next: {nextDates(frequency, draft.time).join(" · ") || "never"}</p>
+        <p className="m-0 mt-3 border-t-[2px] border-dashed border-gray pt-3 text-[0.78rem] font-bold leading-snug">Next: {nextDates(frequency, draft.time).join(" · ") || "—"}</p>
         {/* One pump: a second entry due at the same moment would be dropped as a
             skipped run, so the clash is shown here rather than discovered later. */}
         {taken ? <p className="m-0 mt-3 border-[2px] border-warning p-2 text-[0.72rem] font-bold leading-snug text-warning">{draft.time} is already taken by {taken}. Pick another time or another day.</p> : null}
@@ -169,15 +173,15 @@ export function NewIrrigation({ open, zones, assignments, defaults, openChannel,
   const answers = [
     `${draft.recipe.total} ${recipeUnit(draft.recipe)} · ${draft.recipe.preWetPercent}% · ${draft.recipe.flushMinutes}m`,
     draft.channel ? channelName(zones, assignments, draft.channel) : "",
-    draft.when === "now" ? "Immediately" : `${draft.time} · ${frequencyText(draft.frequency)}`,
+    draft.when === "" ? "" : draft.when === "now" ? "Immediately" : `${draft.time} · ${frequencyText(draft.frequency)}`,
   ];
-  const taken = draft.when === "future" ? slotTakenBy(schedules, draft, (channel) => channelName(zones, assignments, channel)) : "";
+  const taken = draft.when === "future" && draft.time ? slotTakenBy(schedules, draft, (channel) => channelName(zones, assignments, channel)) : "";
   const blocked = step === 1 && !draft.channel ? "Choose a zone"
     : step === 2 ? draftBlocked(draft) || (taken ? `${draft.time} is already taken by ${taken}` : "")
     : "";
 
   const commit = () => {
-    if (!draft.channel) return;
+    if (!draft.channel || draft.when === "") return;
     if (draft.when === "now") onStart(draft.channel, draft.recipe);
     else onSchedule({ time: draft.time, frequency: draft.frequency, channel: draft.channel, recipe: draft.recipe });
     onClose();

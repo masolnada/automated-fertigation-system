@@ -246,13 +246,23 @@ describe("starting an irrigation now", () => {
   const openWizard = () => fireEvent.click(irrigation().getByRole("button", { name: "New irrigation" }));
   const next = () => fireEvent.click(wizard().getByRole("button", { name: "Next" }));
 
-  test("the zone step offers every zone and names an unassigned channel", () => {
+  /**
+   * Only assigned channels: scheduling water to a bare "Output 3" would name a
+   * place the system cannot name, and the event would resolve to no zone.
+   */
+  test("the zone step offers assigned zones only, never a bare channel", () => {
     renderApp(withZones());
     openWizard(); next();
     expect(wizard().getByRole("button", { name: "Olive terrace" })).toBeTruthy();
-    // A channel with no zone still waters, and is the one place the dashboard
-    // says "Output N" (web ADR-0014).
-    expect(wizard().getByRole("button", { name: "Output 3" })).toBeTruthy();
+    expect(wizard().getByRole("button", { name: "Almond row" })).toBeTruthy();
+    expect(wizard().queryByRole("button", { name: "Output 3" })).toBeNull();
+    expect(wizard().queryByRole("button", { name: "Output 4" })).toBeNull();
+  });
+  test("with nothing assigned the step says so instead of offering channels", () => {
+    renderApp(seeded({ zones: [zone("z-olive", "Olive terrace")], assignments: {} }));
+    openWizard(); next();
+    expect(wizard().getByText(/No zone is assigned to an output yet/)).toBeTruthy();
+    expect(wizard().getByRole("button", { name: "Next" }).hasAttribute("disabled")).toBe(true);
   });
   test("a start carries the channel and the recipe together", async () => {
     renderApp(withZones());
@@ -260,6 +270,8 @@ describe("starting an irrigation now", () => {
     fireEvent.click(wizard().getByRole("button", { name: "Almond row" }));
     expect(calls).toHaveLength(0);
     next();
+    // Nothing is chosen until it is chosen: the confirm is dead until then.
+    expect(wizard().getByRole("button", { name: "Schedule irrigation" }).hasAttribute("disabled")).toBe(true);
     fireEvent.click(wizard().getByRole("button", { name: "Now" }));
     fireEvent.click(wizard().getByRole("button", { name: "Start irrigation" }));
     await waitFor(() => expect(calls.at(-1)).toEqual({ name: "start-irrigation", body: { channel: 2, recipe: { mode: "Volume", total: 200, preWetPercent: 20, flushMinutes: 5 } } }));
@@ -328,10 +340,30 @@ describe("scheduling an irrigation", () => {
     fireEvent.click(wizard().getByRole("button", { name: "Next" }));
     fireEvent.click(wizard().getByRole("button", { name: "Olive terrace" }));
     fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Schedule" }));
     fireEvent.change(wizard().getByLabelText("Time of day"), { target: { value: "07:30" } });
+    fireEvent.click(wizard().getByRole("button", { name: "Tue" }));
     fireEvent.click(wizard().getByRole("button", { name: "Fri" }));
     fireEvent.click(wizard().getByRole("button", { name: "Schedule irrigation" }));
     await waitFor(() => expect(calls.at(-1)).toEqual({ name: "create-schedule", body: { time: "07:30", frequency: { kind: "weekdays", days: [2, 5] }, channel: 1, recipe } }));
+  });
+  /**
+   * A recipe has a sensible default; a time of day does not. Opening on "06:00,
+   * Tuesdays" would read as a decision the operator made.
+   */
+  test("the schedule step proposes nothing until asked", () => {
+    renderApp(withSchedules());
+    fireEvent.click(irrigation().getByRole("button", { name: "New irrigation" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Olive terrace" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    expect(wizard().getByRole("button", { name: "Now" }).getAttribute("aria-pressed")).toBe("false");
+    expect(wizard().getByRole("button", { name: "Schedule" }).getAttribute("aria-pressed")).toBe("false");
+    expect(wizard().queryByLabelText("Time of day")).toBeNull();
+    fireEvent.click(wizard().getByRole("button", { name: "Schedule" }));
+    for (const day of ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]) {
+      expect(wizard().getByRole("button", { name: day }).getAttribute("aria-pressed")).toBe("false");
+    }
   });
   // Every-N-days needs an anchor, so the cadence is a pure function of the date
   // and cannot drift when the controller is dark (controller ADR-0018).
@@ -341,6 +373,7 @@ describe("scheduling an irrigation", () => {
     fireEvent.click(wizard().getByRole("button", { name: "Next" }));
     fireEvent.click(wizard().getByRole("button", { name: "Olive terrace" }));
     fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Schedule" }));
     fireEvent.click(wizard().getByRole("button", { name: "Every N days" }));
     fireEvent.click(wizard().getByRole("button", { name: "Schedule irrigation" }));
     await waitFor(() => expect(calls.at(-1)?.name).toBe("create-schedule"));
@@ -358,6 +391,8 @@ describe("scheduling an irrigation", () => {
     fireEvent.click(wizard().getByRole("button", { name: "Next" }));
     fireEvent.click(wizard().getByRole("button", { name: "Almond row" }));
     fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Schedule" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Tue" }));
     expect(wizard().getByText(/06:00 is already taken by Olive terrace/)).toBeTruthy();
     expect(wizard().getByRole("button", { name: "Schedule irrigation" }).hasAttribute("disabled")).toBe(true);
   });
@@ -367,6 +402,8 @@ describe("scheduling an irrigation", () => {
     fireEvent.click(wizard().getByRole("button", { name: "Next" }));
     fireEvent.click(wizard().getByRole("button", { name: "Almond row" }));
     fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Schedule" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Tue" }));
     fireEvent.click(wizard().getByRole("button", { name: "Tue" }));
     fireEvent.click(wizard().getByRole("button", { name: "Thu" }));
     expect(wizard().queryByText(/already taken/)).toBeNull();
@@ -388,8 +425,10 @@ describe("scheduling an irrigation", () => {
     fireEvent.click(wizard().getByRole("button", { name: "Next" }));
     fireEvent.click(wizard().getByRole("button", { name: "Olive terrace" }));
     fireEvent.click(wizard().getByRole("button", { name: "Next" }));
-    fireEvent.click(wizard().getByRole("button", { name: "Tue" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Schedule" }));
     expect(wizard().getByRole("button", { name: "Schedule irrigation" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(wizard().getByRole("button", { name: "Tue" }));
+    expect(wizard().getByRole("button", { name: "Schedule irrigation" }).hasAttribute("disabled")).toBe(false);
   });
   // Entries are immutable, so deleting one is not undoable (web ADR-0017).
   test("deleting a schedule is confirmed and names what stops", async () => {
