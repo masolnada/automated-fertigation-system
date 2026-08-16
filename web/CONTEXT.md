@@ -92,6 +92,42 @@ preserved — archiving is bookkeeping, not deletion. It also clears the zone's
 channel assignment, so a current assignment always points at a live zone.
 Restoring brings the zone back but not the assignment.
 
+**Schedule entry**:
+One standing instruction to water a zone: a time of day, how often it repeats,
+and the cycle recipe to water with. Operator-authored durable data held by the
+server, like a Zone — but the *controller* is what fires it, from its own clock,
+so watering carries on through the weeks the device has no network.
+
+Named by zone here and by output channel on the wire: the device can only honour
+a channel offline, so the dashboard resolves the two at its edge as it does
+everywhere else (ADR-0016). Which means re-plumbing a channel redirects the
+schedules standing on it, and the assignation editor has to say so.
+
+Immutable: there is no editing one, only deleting it and creating another. An
+entry is a whole instruction rather than a record with fields, so changing the
+time is stating a new instruction.
+
+Authored on the dashboard and delivered to the controller, which takes it from
+there. An edit made while the device is out of contact reaches it when it
+reconnects and not before — so a deleted entry can still water once or twice,
+which is a property of scheduling a machine that spends weeks off the network.
+_Avoid_: program, timer, cron, recurring irrigation.
+
+**Cycle recipe**:
+How one run waters, taken as a whole: mode, total, pre-wet share and flush. An
+input to the run — carried on `start-irrigation` and held by each Schedule entry
+— not a setting on any surface, so nothing a run does leaks into the next. The
+device's own entities of these names hold its **default recipe**: what the button
+on the box waters with, and what a new irrigation is proposed with.
+
+**Taken slot**:
+A time of day already claimed by a Schedule entry that fires on a day the new one
+would. Refused rather than allowed and skipped: there is one pump, so the slot
+belongs to the machine and not to a zone — 06:00 on the olive terrace and 06:00
+on the almond row collide as surely as two entries on the same channel. The
+server is the enforcing authority; the wizard keeps the same check to name the
+zone holding the slot before the operator commits.
+
 **Reset eligibility**:
 Whether a Total Water reset is currently allowed (`resetIneligibleReason`). The
 server is the enforcing authority; the client keeps the same check only to dim

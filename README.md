@@ -86,14 +86,14 @@ One automation exists: the irrigation sequence (`script: irrigation_sequence` in
 
 | Phase | Duration | Pump | Fertigation valve | Clean water valve | Purpose |
 |---|---|---|---|---|---|
-| 1. Pre-wet | `Cycle Minutes` or `Cycle Liters` × `Pre-wet Percent` (default 5 min) | on | off | on | Prime the lines; the biology lands on moist soil |
+| 1. Pre-wet | cycle total × pre-wet percent (default 5 min) | on | off | on | Prime the lines; the biology lands on moist soil |
 | 2. Fertigation | Remaining cycle total (default 20 min) | on | on | off | Water with the fertigation substance |
-| 3. Flush | `Flush Minutes` (default 5, min 1) | on | off | on | Clear humate/micro-organism residue from pump, lines, emitters |
+| 3. Flush | flush minutes (default 5, min 1) | on | off | on | Clear humate/micro-organism residue from pump, lines, emitters |
 | Shutdown | — | off | off | off | |
 
-`Cycle Mode` chooses Time or Volume. The independent `Cycle Minutes` (default 25) and `Cycle Liters` (default 100) totals are retained when switching modes; `Pre-wet Percent` (default 20%, in 5% steps) allocates the pre-wet portion and fertigation always receives the remainder. The flush is deliberately outside that split and always time-based.
+The cycle mode chooses Time or Volume; the two totals are held independently so switching modes keeps each value. The pre-wet percent (in 5% steps) allocates the pre-wet portion and fertigation always receives the remainder. The flush is deliberately outside that split and always time-based.
 
-Those entities are the **default recipe**: what the physical button waters with, since a button has no payload to carry one, and the values the dashboard proposes a new irrigation with. They are *not* what a commanded or scheduled run uses — each of those carries its own.
+The device's own entities for these are named **`Default Cycle Mode`**, **`Default Cycle Minutes`** (25), **`Default Cycle Liters`** (100), **`Default Pre-wet Percent`** (20%) and **`Default Flush Minutes`** (5) — because that is what they are ([ADR-0018](controller/docs/adr/0018-the-controller-schedules-and-the-recipe-travels-with-the-run.md)). They are read in exactly one place, the `Start Irrigation` button, which has no payload to carry a recipe. A commanded or scheduled run carries its own and ignores them; the dashboard only *proposes* them when you open a new irrigation.
 
 ## Scheduling
 

@@ -49,6 +49,23 @@ A third source holding micro-organisms, kept separate from the humate so the two
 can be dosed independently. Relay-backed and manually selectable; the irrigation
 sequence does not yet open it.
 
+**Cycle recipe**:
+The four values that decide how one run waters — Cycle Mode, Cycle total, Pre-wet
+Percent and the flush duration — taken together. An input to the run, carried on
+the start beside the channel and held by each Schedule entry, so no run inherits
+what the last one happened to use and nothing a run does leaks into the next.
+_Avoid_: settings, config, programme.
+
+**Default recipe**:
+The one Cycle recipe the device itself holds, in the `Default *` entities. Not
+what a commanded or scheduled run waters with — those carry their own — but what
+the offline manual button uses, since a button has no payload to carry one, and
+the values a new irrigation is proposed with. Read in exactly one place, which is
+why the entities are named for what they are: a name claiming to be "the" cycle
+setting would promise to govern runs it has no say over.
+_Avoid_: current settings, cycle settings — neither current nor the settings of
+any run in flight.
+
 **Cycle Mode**:
 Whether the cycle total is expressed in Time or Volume.
 
@@ -64,6 +81,54 @@ inconsistent.
 The single shared stop path: stop the sequence, pump off, wait 2 s, both valves
 off. Used by the stop button, the MQTT stop topic, and every stop-dead watchdog
 case.
+
+### Scheduling
+
+**Schedule entry**:
+One durable instruction to water: a time of day, how often it repeats, the output
+channel it waters, and the whole Cycle recipe it waters with. The device holds
+them and fires them from its own RTC, so watering continues through the weeks the
+controller has no network — a scheduler that only ran while the server could
+reach it would contradict the deployment (ADR-0018).
+
+Self-contained by the same argument that made the channel an input to the run
+(ADR-0017): an entry that read the Default recipe would water differently
+depending on what was last adjusted by hand, and two entries could not differ at
+all. It names a channel and not a place, because a place is a Zone and Zones
+exist only on the server.
+_Avoid_: program, timer, cron, schedule on its own.
+
+**Frequency**:
+Which dates a Schedule entry fires on, in one of two forms and never both: a set
+of weekdays, or every N days counted from a fixed start date. Both are pure
+functions of the calendar date, so the device answers "does this fire today?"
+from the RTC alone — nothing to keep, nothing to drift. Counting instead from the
+last run would push a cadence later every time a run was missed, and the weeks
+this controller spends dark are exactly when that happens.
+_Avoid_: interval, repeat, recurrence.
+
+**Time slot**:
+A time of day on a date some entry fires on. It belongs to the *machine*, not to
+a channel: there is one pump and the sequence is `mode: single`, so two entries
+due at the same moment collide however different their zones. Taken slots are
+refused when an entry is created; the Skipped run remains for the collisions no
+guard can predict.
+
+**Skipped run**:
+A Schedule entry whose turn came while the controller was already watering. The
+sequence waters one channel at a time and refuses to start a second, so the entry
+is dropped rather than queued — but it is written to the watering event log with
+no litres, because a zone that silently went unwatered is a question the history
+has to be able to answer.
+_Avoid_: missed run, failed run — nothing failed.
+
+**Trigger**:
+What started a watering: the physical button, a person on the dashboard, or a
+Schedule entry coming due. Recorded on the event because "is the schedule
+working?" is a question only the history can answer, and it cannot if a run the
+controller started on its own is indistinguishable from one a person asked for.
+It records *what kind of thing* started the run, never *which* entry — entries are
+server-side and get deleted, and the history must not depend on them existing.
 
 ### Channels
 
@@ -119,6 +184,10 @@ deliberate mid-run pump toggles don't split it. Recorded only on completion, wit
 an RTC wall-clock start/end, litres, outcome, trigger and the output channel it
 watered (numeric; 0 means none was recorded). The controller is the
 authoritative source; the server ingests, it does not detect.
+
+A Skipped run is the one entry that records no pump-on span at all: it is in the
+log because the log is where the history of a channel lives, not because water
+moved.
 _Avoid_: irrigation run, cycle, watering session.
 
 **Watering event log**:

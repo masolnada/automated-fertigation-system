@@ -84,8 +84,10 @@ export type StateKind = "sensor" | "binary_sensor" | "switch" | "number" | "sele
 export const entityKinds: Record<string, StateKind> = {
   battery_voltage: "sensor", battery_current: "sensor", battery_state_of_charge: "sensor", battery_consumed_ah: "sensor", battery_time_remaining: "sensor",
   flow_rate: "sensor", total_water: "sensor",
-  cycle_minutes: "number", cycle_liters: "number", "pre-wet_percent": "number", flush_minutes: "number", min_flow: "number",
-  cycle_mode: "select",
+  // The `default_` prefix is the point: these are what the offline button waters
+  // with, not what any commanded run uses (controller ADR-0018).
+  default_cycle_minutes: "number", default_cycle_liters: "number", "default_pre-wet_percent": "number", default_flush_minutes: "number", min_flow: "number",
+  default_cycle_mode: "select",
   output_1: "switch", output_2: "switch", output_3: "switch", output_4: "switch",
 };
 

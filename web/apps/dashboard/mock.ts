@@ -55,7 +55,7 @@ const snapshot = {
   entities: {
     battery_voltage: num(13.24), battery_current: num(1.42), battery_state_of_charge: num(87.5), battery_consumed_ah: num(4.2), battery_time_remaining: num(320), battery_charged: num("OFF"),
     flow_rate: num(0), total_water: num(128.6),
-    cycle_mode: num("Time"), cycle_minutes: num(30), cycle_liters: num(45), "pre-wet_percent": num(20), flush_minutes: num(3), min_flow: num(0.5),
+    default_cycle_mode: num("Time"), default_cycle_minutes: num(30), default_cycle_liters: num(45), "default_pre-wet_percent": num(20), default_flush_minutes: num(3), min_flow: num(0.5),
     irrigation_running: num("OFF"), pump: num("OFF"),
     output_1: num("ON"), output_2: num("OFF"), output_3: num("OFF"), output_4: num("OFF"),
   } as Record<string, { value: number | string; known: boolean }>,
@@ -208,10 +208,10 @@ function applyCommand(name: string, body: Record<string, unknown>): { status: nu
       snapshot.assignments = next;
       break;
     }
-    case "set-cycle-mode": e.cycle_mode = num(String(body.mode)); break;
-    case "set-pre-wet-percent": e["pre-wet_percent"] = num(Number(body.value)); break;
-    case "set-cycle-target": e[e.cycle_mode!.value === "Volume" ? "cycle_liters" : "cycle_minutes"] = num(Number(body.value)); break;
-    case "set-flush-duration": e.flush_minutes = num(Number(body.value)); break;
+    case "set-cycle-mode": e.default_cycle_mode = num(String(body.mode)); break;
+    case "set-pre-wet-percent": e["default_pre-wet_percent"] = num(Number(body.value)); break;
+    case "set-cycle-target": e[e.default_cycle_mode!.value === "Volume" ? "default_cycle_liters" : "default_cycle_minutes"] = num(Number(body.value)); break;
+    case "set-flush-duration": e.default_flush_minutes = num(Number(body.value)); break;
     case "set-min-flow": e.min_flow = num(Number(body.value)); break;
     case "create-schedule": {
       const entry = { id: `s-${Math.random().toString(36).slice(2, 8)}`, ...body } as ScheduleEntry;

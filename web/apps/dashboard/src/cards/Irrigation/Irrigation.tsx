@@ -14,10 +14,10 @@ const icon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWi
  * that travels with the start (controller ADR-0018).
  */
 function defaultRecipe(snapshot: Snapshot): CycleRecipe {
-  const mode = snapshot.entities.cycle_mode?.value === "Volume" ? "Volume" : "Time";
-  const total = Number(snapshot.entities[mode === "Volume" ? "cycle_liters" : "cycle_minutes"]?.value);
-  const preWetPercent = Number(snapshot.entities["pre-wet_percent"]?.value);
-  const flushMinutes = Number(snapshot.entities.flush_minutes?.value);
+  const mode = snapshot.entities.default_cycle_mode?.value === "Volume" ? "Volume" : "Time";
+  const total = Number(snapshot.entities[mode === "Volume" ? "default_cycle_liters" : "default_cycle_minutes"]?.value);
+  const preWetPercent = Number(snapshot.entities["default_pre-wet_percent"]?.value);
+  const flushMinutes = Number(snapshot.entities.default_flush_minutes?.value);
   return {
     mode,
     total: Number.isFinite(total) ? total : mode === "Volume" ? 100 : 25,

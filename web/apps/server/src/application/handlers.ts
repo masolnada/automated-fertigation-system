@@ -66,8 +66,8 @@ function cycleRecipe(body: unknown): CycleRecipe {
   if (typeof raw !== "object" || raw === null) throw new CommandError(400, "recipe must be an object");
   const { mode, total, preWetPercent, flushMinutes } = raw as Record<string, unknown>;
   if (mode !== "Time" && mode !== "Volume") throw new CommandError(400, "invalid cycle mode");
-  const id: RangeId = mode === "Volume" ? "cycle_liters" : "cycle_minutes";
-  for (const [name, value, range] of [["total", total, id], ["preWetPercent", preWetPercent, "pre-wet_percent"], ["flushMinutes", flushMinutes, "flush_minutes"]] as Array<[string, unknown, RangeId]>) {
+  const id: RangeId = mode === "Volume" ? "default_cycle_liters" : "default_cycle_minutes";
+  for (const [name, value, range] of [["total", total, id], ["preWetPercent", preWetPercent, "default_pre-wet_percent"], ["flushMinutes", flushMinutes, "default_flush_minutes"]] as Array<[string, unknown, RangeId]>) {
     if (typeof value !== "number" || !Number.isFinite(value)) throw new CommandError(400, `${name} must be a finite number`);
     if (!inRange(range, value)) throw new CommandError(400, `${name} out of range [${ranges[range].min}, ${ranges[range].max}]`);
   }
@@ -239,14 +239,14 @@ export const handlers = {
   "set-cycle-mode": (ctx: Context, body: CommandBodies["set-cycle-mode"]) => {
     const mode = body?.mode;
     if (mode !== "Time" && mode !== "Volume") throw new CommandError(400, "invalid mode");
-    ctx.device.publish(topics(ctx.device.prefix).selectCommand("cycle_mode"), mode);
+    ctx.device.publish(topics(ctx.device.prefix).selectCommand("default_cycle_mode"), mode);
   },
-  "set-pre-wet-percent": (ctx: Context, body: CommandBodies["set-pre-wet-percent"]) => setNumber(ctx, "pre-wet_percent", numberBody(body)),
+  "set-pre-wet-percent": (ctx: Context, body: CommandBodies["set-pre-wet-percent"]) => setNumber(ctx, "default_pre-wet_percent", numberBody(body)),
   "set-cycle-target": (ctx: Context, body: CommandBodies["set-cycle-target"]) => {
-    const id: RangeId = ctx.controller.getSnapshot().entities.cycle_mode?.value === "Volume" ? "cycle_liters" : "cycle_minutes";
+    const id: RangeId = ctx.controller.getSnapshot().entities.default_cycle_mode?.value === "Volume" ? "default_cycle_liters" : "default_cycle_minutes";
     setNumber(ctx, id, numberBody(body));
   },
-  "set-flush-duration": (ctx: Context, body: CommandBodies["set-flush-duration"]) => setNumber(ctx, "flush_minutes", numberBody(body)),
+  "set-flush-duration": (ctx: Context, body: CommandBodies["set-flush-duration"]) => setNumber(ctx, "default_flush_minutes", numberBody(body)),
   "set-min-flow": (ctx: Context, body: CommandBodies["set-min-flow"]) => setNumber(ctx, "min_flow", numberBody(body)),
   "reset-total-water": async (ctx: Context): Promise<ResetOutcome> => {
     const reason = resetIneligibleReason(ctx.controller.getSnapshot());

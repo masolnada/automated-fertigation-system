@@ -213,15 +213,15 @@ describe("commands", () => {
   // is edited among the device's own settings rather than on the Irrigation
   // card, where every run carries its own (controller ADR-0018).
   test("the default recipe's cycle mode posts immediately", async () => {
-    renderApp(seeded({ entities: { ...eligibleEntities(), cycle_mode: entity("Time") } }));
+    renderApp(seeded({ entities: { ...eligibleEntities(), default_cycle_mode: entity("Time") } }));
     selectFlow();
     fireEvent.change(screen.getByLabelText("Default cycle mode"), { target: { value: "Volume" } });
     await waitFor(() => expect(calls.at(-1)).toEqual({ name: "set-cycle-mode", body: { mode: "Volume" } }));
   });
   test("a default-recipe number debounces into a single command", async () => {
-    renderApp(seeded({ entities: { ...eligibleEntities(), flush_minutes: entity(5) } }));
+    renderApp(seeded({ entities: { ...eligibleEntities(), default_flush_minutes: entity(5) } }));
     selectFlow();
-    const input = screen.getByLabelText("flush_minutes");
+    const input = screen.getByLabelText("default_flush_minutes");
     fireEvent.change(input, { target: { value: "6" } });
     fireEvent.change(input, { target: { value: "7" } });
     expect(calls).toHaveLength(0);
@@ -240,7 +240,7 @@ describe("commands", () => {
  * (controller ADR-0017, ADR-0018).
  */
 describe("starting an irrigation now", () => {
-  const withZones = (partial: Partial<WireSnapshot> = {}) => seeded({ zones: [zone("z-olive", "Olive terrace"), zone("z-almond", "Almond row")], assignments: { 1: "z-olive", 2: "z-almond" }, entities: { ...eligibleEntities(), cycle_mode: entity("Volume"), cycle_liters: entity(200), "pre-wet_percent": entity(20), flush_minutes: entity(5) }, ...partial });
+  const withZones = (partial: Partial<WireSnapshot> = {}) => seeded({ zones: [zone("z-olive", "Olive terrace"), zone("z-almond", "Almond row")], assignments: { 1: "z-olive", 2: "z-almond" }, entities: { ...eligibleEntities(), default_cycle_mode: entity("Volume"), default_cycle_liters: entity(200), "default_pre-wet_percent": entity(20), default_flush_minutes: entity(5) }, ...partial });
   const irrigation = () => within(document.querySelector(".card-irrigation") as HTMLElement);
   const wizard = () => within(screen.getByRole("dialog"));
   const openWizard = () => fireEvent.click(irrigation().getByRole("button", { name: "New irrigation" }));
@@ -308,7 +308,7 @@ describe("scheduling an irrigation", () => {
   const assignments = { 1: "z-olive", 2: "z-almond" };
   const recipe = { mode: "Volume" as const, total: 200, preWetPercent: 20, flushMinutes: 5 };
   const entry = (partial: Partial<WireSnapshot["schedules"][number]> = {}) => ({ id: "s-1", time: "06:00", frequency: { kind: "weekdays" as const, days: [2, 5] }, channel: 1 as const, recipe, ...partial });
-  const withSchedules = (schedules: WireSnapshot["schedules"] = []) => seeded({ zones: zonesList, assignments, schedules, entities: { ...eligibleEntities(), cycle_mode: entity("Volume"), cycle_liters: entity(200), "pre-wet_percent": entity(20), flush_minutes: entity(5) } });
+  const withSchedules = (schedules: WireSnapshot["schedules"] = []) => seeded({ zones: zonesList, assignments, schedules, entities: { ...eligibleEntities(), default_cycle_mode: entity("Volume"), default_cycle_liters: entity(200), "default_pre-wet_percent": entity(20), default_flush_minutes: entity(5) } });
   const irrigation = () => within(document.querySelector(".card-irrigation") as HTMLElement);
   const wizard = () => within(screen.getByRole("dialog"));
 

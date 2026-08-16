@@ -235,10 +235,14 @@ switch:
       mode: OUTPUT
       inverted: true
 
-# Cycle settings, adjustable at runtime from the web UI, HA, or MQTT.
+# The DEFAULT recipe (ADR-0018), not the settings any commanded run uses: a run
+# carries its own recipe, so these are read in exactly one place — the Start
+# Irrigation button, which has no payload to carry one. Named "Default ..." so
+# the device's own web UI, where they are still adjustable with no network, does
+# not promise to govern a run it has no say over.
 select:
   - platform: template
-    name: "Cycle Mode"
+    name: "Default Cycle Mode"
     id: cycle_mode
     options:
       - Time
@@ -249,7 +253,7 @@ select:
 
 number:
   - platform: template
-    name: "Cycle Minutes"
+    name: "Default Cycle Minutes"
     id: cycle_minutes
     min_value: 0
     max_value: 180
@@ -260,7 +264,7 @@ number:
     unit_of_measurement: min
     mode: box
   - platform: template
-    name: "Cycle Liters"
+    name: "Default Cycle Liters"
     id: cycle_liters
     min_value: 0
     max_value: 500
@@ -271,7 +275,7 @@ number:
     unit_of_measurement: L
     mode: box
   - platform: template
-    name: "Pre-wet Percent"
+    name: "Default Pre-wet Percent"
     id: prewet_percent
     min_value: 0
     max_value: 100
@@ -295,7 +299,7 @@ number:
   # Minimum 1: the flush is what guarantees no residues, so it cannot
   # be zeroed.
   - platform: template
-    name: "Flush Minutes"
+    name: "Default Flush Minutes"
     id: flush_minutes
     min_value: 1
     max_value: 60

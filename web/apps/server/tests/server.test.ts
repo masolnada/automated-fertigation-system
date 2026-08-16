@@ -103,8 +103,8 @@ describe("SSE snapshot stream", () => {
     const reading = readSnapshots(h.url, (s) => snapshots.push(s), controllerAbort.signal);
     await waitFor(() => snapshots.length >= 1); // initial snapshot
     const before = snapshots.length;
-    for (const [topic, payload] of [[`${prefix}/sensor/flow_rate/state`, "1.5"], [`${prefix}/sensor/total_water/state`, "9"], [`${prefix}/number/flush_minutes/state`, "4"]] as const) broker.publish({ cmd: "publish", qos: 0, dup: false, retain: true, topic, payload } as never, () => {});
-    await waitFor(() => snapshots.some((s) => s.entities.flush_minutes?.value === 4));
+    for (const [topic, payload] of [[`${prefix}/sensor/flow_rate/state`, "1.5"], [`${prefix}/sensor/total_water/state`, "9"], [`${prefix}/number/default_flush_minutes/state`, "4"]] as const) broker.publish({ cmd: "publish", qos: 0, dup: false, retain: true, topic, payload } as never, () => {});
+    await waitFor(() => snapshots.some((s) => s.entities.default_flush_minutes?.value === 4));
     const last = snapshots.at(-1);
     expect(last.entities.flow_rate.value).toBe(1.5); expect(last.entities.total_water.value).toBe(9);
     expect(snapshots.length - before).toBeLessThanOrEqual(2); // burst coalesced (not one push per message)
@@ -160,7 +160,7 @@ describe("start-irrigation carries the channel and the recipe", () => {
 describe("validated command loop (SetFlushDuration)", () => {
   test("out-of-range body is 400 with no publish", async () => {
     const h = await start();
-    let published = false; const listener = fakeDevice(h); listener.on("message", (topic) => { if (topic === `${prefix}/number/flush_minutes/command`) published = true; });
+    let published = false; const listener = fakeDevice(h); listener.on("message", (topic) => { if (topic === `${prefix}/number/default_flush_minutes/command`) published = true; });
     const res = await post(h.url, "set-flush-duration", { value: 999 });
     expect(res.status).toBe(400); await sleep(100); expect(published).toBe(false);
   });
@@ -168,14 +168,14 @@ describe("validated command loop (SetFlushDuration)", () => {
     const h = await start(); fakeDevice(h, undefined);
     // Echo the command back as state, like the device would.
     const echo = mqtt.connect(brokerUrl); h.extras.push(echo);
-    await new Promise<void>((resolve) => echo.on("connect", () => echo.subscribe(`${prefix}/number/flush_minutes/command`, () => resolve())));
-    echo.on("message", (_topic, payload) => echo.publish(`${prefix}/number/flush_minutes/state`, payload.toString(), { retain: true }));
+    await new Promise<void>((resolve) => echo.on("connect", () => echo.subscribe(`${prefix}/number/default_flush_minutes/command`, () => resolve())));
+    echo.on("message", (_topic, payload) => echo.publish(`${prefix}/number/default_flush_minutes/state`, payload.toString(), { retain: true }));
     const snapshots: any[] = []; const abort = new AbortController();
     const reading = readSnapshots(h.url, (s) => snapshots.push(s), abort.signal);
     await waitFor(() => snapshots.length >= 1);
     const res = await post(h.url, "set-flush-duration", { value: 7 });
     expect(res.status).toBe(202);
-    await waitFor(() => snapshots.some((s) => s.entities.flush_minutes?.value === 7));
+    await waitFor(() => snapshots.some((s) => s.entities.default_flush_minutes?.value === 7));
     abort.abort(); await reading;
   });
 });

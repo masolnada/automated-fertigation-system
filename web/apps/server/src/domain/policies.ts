@@ -81,12 +81,20 @@ export function scheduleCollisionReason(existing: ScheduleEntry[], candidate: { 
   return clash ? `${candidate.time} is already taken by the schedule on output ${clash.channel}` : "";
 }
 
-/** Numeric ranges (moved off the browser's HTML min/max). */
+/**
+ * Numeric ranges (moved off the browser's HTML min/max). The keys are also the
+ * device's object ids, so they are the `number/<id>/command` topic segment —
+ * renaming an entity on the controller renames a key here.
+ *
+ * The `default_` ones bound the default recipe, and a run's own recipe is
+ * validated against the same numbers: the limits are the machine's, not the
+ * entity's.
+ */
 export const ranges = {
-  cycle_minutes: { min: 0, max: 180 },
-  cycle_liters: { min: 0, max: 500 },
-  "pre-wet_percent": { min: 0, max: 100 },
-  flush_minutes: { min: 1, max: 60 },
+  default_cycle_minutes: { min: 0, max: 180 },
+  default_cycle_liters: { min: 0, max: 500 },
+  "default_pre-wet_percent": { min: 0, max: 100 },
+  default_flush_minutes: { min: 1, max: 60 },
   min_flow: { min: 0, max: 10 },
 } as const;
 export type RangeId = keyof typeof ranges;
