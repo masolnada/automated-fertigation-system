@@ -29,10 +29,6 @@ host is Tailscale-only, so public ACME can't reach it for HTTP-01/TLS-ALPN.
 
 **`ssh ubuntu@10.0.20.75`** (VLAN 20, DHCP reservation on the router).
 
-> The reservation was added on 16-08-2026 while the VM held a `10.0.20.150`
-> lease, so it takes effect on the next renewal or reboot. Until then the VM
-> answers on `.150`; if `.75` refuses, try that.
-
 Not over Tailscale. The tailnet node `hort` (`100.88.51.44`) is the *tailscale
 container*, which only `caddy`, `hort` and `hort-server` share — nothing in that
 namespace runs sshd, so `ssh ubuntu@hort` is refused, and no peer advertises a
