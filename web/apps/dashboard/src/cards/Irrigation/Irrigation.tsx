@@ -74,7 +74,7 @@ export function Irrigation({ snapshot, onStart, onStop, onSchedule, onDeleteSche
     <CardTitle icon={icon}>Irrigation <Badge state={running ? "on" : "off"}>{running ? "running" : "idle"}</Badge>
       <span>{running
         ? <Button variant="danger" className="h-[38px] px-4 text-[0.68rem]" onClick={onStop}>Stop irrigation</Button>
-        : <Button variant="relay" disabled={nowhereToWater} title={nowhereToWater ? "Assign a zone to an output first" : undefined} onClick={() => { setRun((n) => n + 1); setCreating(true); }}>New irrigation</Button>}</span>
+        : <Button variant="relay" disabled={nowhereToWater} onClick={() => { setRun((n) => n + 1); setCreating(true); }}>New irrigation</Button>}</span>
     </CardTitle>
     <ScheduleList entries={snapshot.schedules} zones={snapshot.zones} assignments={snapshot.assignments} nowhereToWater={nowhereToWater} onDelete={setDeleting}/>
     <NewIrrigation
