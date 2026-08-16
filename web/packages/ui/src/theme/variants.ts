@@ -79,5 +79,5 @@ export const variants = {
   // full-page takeover instead of an overlay. It is painted in eink.css rather
   // than here because it is the one thing that does not invert (web ADR-0013):
   // dimming is dark on either substrate, so it cannot track `ink`.
-  dialog: { backdrop: "m-auto max-w-[min(100%-2rem,480px)] p-0 border-0 bg-transparent text-ink", panel: "p-6 border-[3px] border-ink bg-paper", title: "m-0 mb-4 text-[0.85rem] font-extrabold uppercase tracking-[0.16em]", text: "m-0 font-bold", status: "min-h-[1.6em] mt-4 font-bold", danger: "text-danger", actions: "flex justify-end gap-[0.8rem] mt-5 [&>button]:h-[46px]" },
+  dialog: { backdrop: "m-auto max-w-[min(100%-2rem,480px)] p-0 border-0 bg-transparent text-ink", backdropWide: "m-auto w-[70vw] max-w-[min(100%-2rem,1400px)] p-0 border-0 bg-transparent text-ink", panel: "p-6 border-[3px] border-ink bg-paper", title: "m-0 mb-4 text-[0.85rem] font-extrabold uppercase tracking-[0.16em]", text: "m-0 font-bold", status: "min-h-[1.6em] mt-4 font-bold", danger: "text-danger", actions: "flex justify-end gap-[0.8rem] mt-5 [&>button]:h-[46px]" },
 } as const;

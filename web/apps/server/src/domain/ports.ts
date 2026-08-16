@@ -1,4 +1,4 @@
-import type { WateringEvent, WateringHistory, Zone } from "@hort/contracts";
+import type { CycleRecipe, Frequency, OutputChannel, ScheduleEntry, WateringEvent, WateringHistory, Zone } from "@hort/contracts";
 
 // The application depends on this port, never on `mqtt` directly.
 export interface DevicePort {
@@ -54,4 +54,17 @@ export interface ZoneRepository {
   /** The zone on `channel` at `at`, for resolving a watering event. */
   zoneAt(channel: number, at: Date | null): string | null;
   nameOf(zoneId: string): string | null;
+}
+
+/**
+ * Schedule entries (web ADR-0017). Immutable: an entry is created or deleted,
+ * never updated, so there is no `update` here. Archiving a zone deletes the
+ * entries standing on its channel, which is why `deleteForChannel` exists.
+ */
+export interface ScheduleRepository {
+  all(): ScheduleEntry[];
+  create(entry: { time: string; frequency: Frequency; channel: OutputChannel; recipe: CycleRecipe }): ScheduleEntry;
+  remove(id: string): void;
+  /** Delete every entry on a channel; used when a zone is archived. */
+  removeForChannel(channel: number): void;
 }

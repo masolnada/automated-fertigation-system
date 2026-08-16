@@ -27,4 +27,11 @@ export const topics = (prefix: string) => ({
   selectCommand: (id: string) => `${prefix}/select/${id}/command`,
   irrigationStart: `${prefix}/irrigation/start`,
   irrigationStop: `${prefix}/irrigation/stop`,
+  /**
+   * The whole schedule set, retained. Retained because the controller is usually
+   * out of contact when an edit is made, and the broker holding the latest set
+   * is what makes that edit land on reconnect with no reconciliation (web
+   * ADR-0017).
+   */
+  scheduleSet: `${prefix}/schedule/set`,
 });

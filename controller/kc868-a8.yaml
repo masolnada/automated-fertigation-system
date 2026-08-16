@@ -10,6 +10,7 @@ esphome:
   friendly_name: Automated Fertigation System
   includes:
     - features/watering_log.h
+    - features/schedules.h
     - features/watering_events.h
     - features/reset.h
     - features/watchdog.h
@@ -18,6 +19,7 @@ esphome:
     priority: -100
     then:
       - lambda: 'watering_log_init();'
+      - lambda: 'schedules_init();'
 
 esp32:
   board: esp32dev  # required by ESPHome; the A8 v1.x uses an ESP32-WROOM-32
@@ -55,15 +57,22 @@ i2c:
 # DS3231 driver, so it is driven by the `ds1307` platform: the DS3231's
 # timekeeping registers (0x00-0x06 at 0x68) are byte-identical to the DS1307's.
 # The DS3231's extras (temp-compensated oscillator, alarms, temperature) are unused.
+# Pinned rather than inherited: ESPHome detects the timezone from the *build
+# machine* when this is absent, so a build made anywhere else would silently
+# shift every scheduled irrigation by an hour or more (ADR-0018). Schedules are
+# local wall-clock, so this also gives them DST for free — 06:00 stays 06:00
+# across the March and October changes.
 time:
   - platform: sntp
     id: sntp_time
+    timezone: Europe/Madrid
     on_time_sync:
       - ds1307.write_time:
   - platform: ds1307
     id: rtc_time
     i2c_id: bus_a
     address: 0x68
+    timezone: Europe/Madrid
     update_interval: 60min
 
 wifi:
@@ -350,6 +359,36 @@ globals:
     restore_value: yes
     initial_value: "1"
 
+  # The recipe of the run currently executing (ADR-0018). ESPHome's `delay` and
+  # `wait_until` lambdas are separate callbacks that cannot see script
+  # parameters, so the sequence copies its parameters here on entry. Not
+  # persisted: a run does not survive a reboot, so neither should its recipe.
+  # The recovery flush reads run_flush too, so it flushes for as long as the run
+  # it is rescuing asked for rather than whatever the default happens to be.
+  - id: run_volume
+    type: bool
+    restore_value: no
+    initial_value: "false"
+  - id: run_total
+    type: float
+    restore_value: no
+    initial_value: "0"
+  - id: run_prewet
+    type: float
+    restore_value: no
+    initial_value: "0"
+  - id: run_flush
+    type: float
+    restore_value: no
+    initial_value: "5"
+  # What to stamp on the next event the sequence opens: 0 sequence, 2 scheduled.
+  # Set by the caller immediately before executing, because `trigger` is a
+  # property of who asked rather than of the recipe (ADR-0018).
+  - id: next_trigger_override
+    type: int
+    restore_value: no
+    initial_value: "0"
+
   # RAM-only working scalars are file-scoped in their feature header, not globals
   # (ADR-0014): the watchdog's pump_on_since_ms / low_flow_secs in watchdog.h; the
   # watering-event event_* / next_trigger / pending_outcome / pump_handover in
@@ -410,12 +449,31 @@ script:
   # switch as the backstop rather than the plan. Each valve is turned off
   # explicitly before the next is turned on, so the sequence opens only one at
   # a time on its own even though the interlock no longer enforces it.
+  # The recipe travels with the run, exactly as the channel does (ADR-0018): the
+  # whole instruction arrives as parameters, so a scheduled run cannot be changed
+  # by someone adjusting the dashboard's numbers, and two schedule entries can
+  # water differently. The `cycle_*` entities are now the *default* recipe — what
+  # the offline button waters with — and are read only by the callers that have
+  # no recipe of their own, never in here.
+  #
+  # Parameters are copied to globals on entry because ESPHome's `delay` and
+  # `wait_until` lambdas are separate callbacks that cannot see script parameters.
   - id: irrigation_sequence
     mode: single
     parameters:
       channel: int
+      volume: int
+      total: float
+      prewet: float
+      flush: float
     then:
-      - lambda: 'watering_set_next_trigger(0);'
+      - lambda: |-
+          id(run_volume) = volume != 0;
+          id(run_total) = total;
+          id(run_prewet) = prewet;
+          id(run_flush) = flush;
+      - lambda: 'watering_set_next_trigger(id(next_trigger_override));'
+      - lambda: 'id(next_trigger_override) = 0;'
       # One run waters exactly one output channel (ADR-0017), and the channel is
       # an input to the run rather than whatever happens to be open: it is opened
       # once up front and left open for the whole sequence, so no downstream
@@ -427,12 +485,12 @@ script:
       # Phase 1: pre-wet with clean water — prime lines, moisten soil.
       - if:
           condition:
-            lambda: 'return (id(cycle_mode).state == "Time" ? id(cycle_minutes).state : id(cycle_liters).state) * id(prewet_percent).state / 100.0 > 0;'
+            lambda: 'return id(run_total) * id(run_prewet) / 100.0 > 0;'
           then:
             - lambda: 'id(current_phase) = 1;'
             - if:
                 condition:
-                  lambda: 'return id(cycle_mode).state == "Volume";'
+                  lambda: 'return id(run_volume);'
                 then:
                   - lambda: 'id(phase_start_l) = id(water_total_l);'
             - switch.turn_on: clean_water_valve
@@ -440,16 +498,16 @@ script:
             - switch.turn_on: pump
             - if:
                 condition:
-                  lambda: 'return id(cycle_mode).state == "Time";'
+                  lambda: 'return !id(run_volume);'
                 then:
-                  - delay: !lambda 'return (uint32_t)(id(cycle_minutes).state * id(prewet_percent).state / 100.0 * 60000);'
+                  - delay: !lambda 'return (uint32_t)(id(run_total) * id(run_prewet) / 100.0 * 60000);'
                 else:
                   - wait_until:
-                      lambda: 'return id(water_total_l) - id(phase_start_l) >= id(cycle_liters).state * id(prewet_percent).state / 100.0;'
+                      lambda: 'return id(water_total_l) - id(phase_start_l) >= id(run_total) * id(run_prewet) / 100.0;'
       # Phase 2: fertigation.
       - if:
           condition:
-            lambda: 'return (id(cycle_mode).state == "Time" ? id(cycle_minutes).state : id(cycle_liters).state) * (1.0 - id(prewet_percent).state / 100.0) > 0;'
+            lambda: 'return id(run_total) * (1.0 - id(run_prewet) / 100.0) > 0;'
           then:
             - lambda: 'id(current_phase) = 2;'
             - lambda: 'watering_set_handover(true);'
@@ -460,19 +518,19 @@ script:
             - delay: 2s
             - if:
                 condition:
-                  lambda: 'return id(cycle_mode).state == "Volume";'
+                  lambda: 'return id(run_volume);'
                 then:
                   - lambda: 'id(phase_start_l) = id(water_total_l);'
             - switch.turn_on: pump
             - lambda: 'watering_set_handover(false);'
             - if:
                 condition:
-                  lambda: 'return id(cycle_mode).state == "Time";'
+                  lambda: 'return !id(run_volume);'
                 then:
-                  - delay: !lambda 'return (uint32_t)(id(cycle_minutes).state * (1.0 - id(prewet_percent).state / 100.0) * 60000);'
+                  - delay: !lambda 'return (uint32_t)(id(run_total) * (1.0 - id(run_prewet) / 100.0) * 60000);'
                 else:
                   - wait_until:
-                      lambda: 'return id(water_total_l) - id(phase_start_l) >= id(cycle_liters).state * (1.0 - id(prewet_percent).state / 100.0);'
+                      lambda: 'return id(water_total_l) - id(phase_start_l) >= id(run_total) * (1.0 - id(run_prewet) / 100.0);'
       # Phase 3: flush with clean water so no residues remain.
       - lambda: 'id(current_phase) = 3;'
       - lambda: 'watering_set_handover(true);'
@@ -483,7 +541,7 @@ script:
       - delay: 2s
       - switch.turn_on: pump
       - lambda: 'watering_set_handover(false);'
-      - delay: !lambda "return (uint32_t)(id(flush_minutes).state * 60000);"
+      - delay: !lambda "return (uint32_t)(id(run_flush) * 60000);"
       # Shutdown
       - switch.turn_off: pump
       - lambda: 'id(current_phase) = 0;'
@@ -506,7 +564,9 @@ script:
       - lambda: 'id(current_phase) = 3;'
       - switch.turn_on: pump
       - lambda: 'watering_set_handover(false);'
-      - delay: !lambda "return (uint32_t)(id(flush_minutes).state * 60000);"
+      # The run's own flush, not the default: this is rescuing a specific run,
+      # and shortening its flush would leave residue the run asked to clear.
+      - delay: !lambda "return (uint32_t)(id(run_flush) * 60000);"
       - lambda: 'watering_set_pending_outcome(3);'
       - switch.turn_off: pump
       - lambda: 'id(current_phase) = 0;'
@@ -594,8 +654,11 @@ button:
     name: "Start Irrigation"
     id: start_irrigation
     on_press:
-      # No channel to carry, so this entity waters the Selected Output. A start
-      # naming no channel is refused rather than run dry with the pump
+      # No channel and no recipe to carry, so this entity waters the Selected
+      # Output with the *default* recipe — the `cycle_*` entities (ADR-0018).
+      # That is what those entities are for now: a button has no payload, and
+      # standing at the box with no network there is nothing else to read. A
+      # start naming no channel is refused rather than run dry with the pump
       # interlocked off, which looked identical to nothing happening.
       - lambda: |-
           int channel = id(selected_output);
@@ -603,7 +666,11 @@ button:
             ESP_LOGW("irrigation", "no output channel selected; refusing to start");
             return;
           }
-          id(irrigation_sequence)->execute(channel);
+          bool volume = id(cycle_mode).state == "Volume";
+          id(irrigation_sequence)->execute(
+            channel, volume ? 1 : 0,
+            volume ? id(cycle_liters).state : id(cycle_minutes).state,
+            id(prewet_percent).state, id(flush_minutes).state);
   - platform: template
     name: "Stop Irrigation"
     id: stop_irrigation
@@ -799,6 +866,40 @@ interval:
     then:
       - lambda: 'watchdog_tick();'
 
+  # The scheduler (ADR-0018). Fires from the RTC, so watering carries on through
+  # the weeks this controller has no network. Every 20s rather than every minute
+  # so a fire is not missed when a tick lands late; each entry records the minute
+  # it fired in and will not fire twice within it.
+  - interval: 20s
+    then:
+      - lambda: |-
+          auto now = id(rtc_time).now();
+          // No valid clock means no idea what day it is; watering blind is worse
+          // than not watering. A fresh RTC has none until its first SNTP sync.
+          if (!now.is_valid()) return;
+          uint32_t day_number = (uint32_t) (now.timestamp / 86400);
+          uint32_t minute_stamp = day_number * 1440 + now.hour * 60 + now.minute;
+          for (uint8_t i = 0; i < g_schedules.count; i++) {
+            ScheduleEntry &entry = g_schedules.entries[i];
+            if (entry.hour != now.hour || entry.minute != now.minute) continue;
+            if (g_schedule_last_fired[i] == minute_stamp) continue;
+            if (!schedule_fires_on(entry, now.day_of_week, day_number)) continue;
+            g_schedule_last_fired[i] = minute_stamp;
+            // One channel at a time: the sequence is `mode: single`, so a second
+            // start would be silently dropped. Recorded as a skipped run instead
+            // — a zone that quietly went unwatered is a question the history has
+            // to be able to answer (ADR-0018).
+            if (id(irrigation_sequence).is_running() || id(recovery_flush).is_running() || id(pump).state) {
+              ESP_LOGW("schedule", "entry %s due while already watering; skipped", entry.id);
+              watering_record_skipped(entry.channel);
+              continue;
+            }
+            ESP_LOGI("schedule", "entry %s firing on channel %u", entry.id, (unsigned) entry.channel);
+            id(next_trigger_override) = 2;  // scheduled
+            id(irrigation_sequence)->execute(entry.channel, entry.volume, entry.total,
+                                             entry.prewet, entry.flush);
+          }
+
 logger:
 
 # Diagnosing the reboot-on-relay-switch issue: reset_reason distinguishes
@@ -850,12 +951,39 @@ mqtt:
     - topic: kc868-a8/irrigation/start
       then:
         - lambda: |-
-            int channel = atoi(x.c_str());
+            // The whole instruction arrives as JSON: channel plus recipe
+            // (ADR-0018). Both are inputs to the run, so a payload missing
+            // either is refused rather than filled in from device state — the
+            // path this decision exists to remove.
+            auto number = [&](const char *key, float fallback) -> float {
+              char needle[16];
+              snprintf(needle, sizeof(needle), "\"%s\":", key);
+              const char *found = strstr(x.c_str(), needle);
+              return found == nullptr ? fallback : (float) atof(found + strlen(needle));
+            };
+            int channel = (int) number("channel", 0);
             if (channel < 1 || channel > 4) {
               ESP_LOGW("irrigation", "start payload '%s' names no output channel; refusing", x.c_str());
               return;
             }
-            id(irrigation_sequence)->execute(channel);
+            float flush = number("flush", 0);
+            if (flush < 1) {
+              ESP_LOGW("irrigation", "start payload '%s' has no valid flush; refusing", x.c_str());
+              return;
+            }
+            id(irrigation_sequence)->execute(channel, (int) number("volume", 0),
+                                             number("total", 0), number("prewet", 0), flush);
+    # The whole schedule set, retained by the broker so an edit made while this
+    # controller was in the field lands the moment it reconnects (web ADR-0017).
+    - topic: kc868-a8/schedule/set
+      then:
+        - lambda: |-
+            int count = schedules_apply_json(x.c_str());
+            if (count < 0) {
+              ESP_LOGW("schedule", "malformed schedule payload; keeping the previous set");
+              return;
+            }
+            ESP_LOGI("schedule", "stored %d schedule entries", count);
     - topic: kc868-a8/irrigation/stop
       then:
         - lambda: 'watering_set_pending_outcome(1);'

@@ -21,3 +21,4 @@ in 1–3 sentences. See [../../CONTEXT.md](../../CONTEXT.md) for the glossary.
 | [0014](0014-output-channels-are-generic-zones-are-server-entities.md) | Output channels are generic; a Zone is a server-owned entity assigned to one |
 | [0015](0015-zone-names-are-current-only.md) | Zone names are current-only; renaming relabels history (supersedes 0010) |
 | [0016](0016-the-dashboard-speaks-zones-not-channels.md) | The dashboard speaks zones; the output channel is a firmware concept |
+| [0017](0017-schedules-are-server-authored-and-device-fired.md) | Schedule entries are authored and stored here, and fired by the controller |

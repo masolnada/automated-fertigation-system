@@ -82,7 +82,7 @@ All relays use `restore_mode: ALWAYS_OFF`: after a power loss everything comes u
 
 ## Automation
 
-One automation exists: the irrigation sequence (`script: irrigation_sequence` in `controller/kc868-a8.yaml`). Started by button or MQTT, it runs three phases and shuts everything down by itself — there is no state in which the sequence ends with the pump running.
+One automation exists: the irrigation sequence (`script: irrigation_sequence` in `controller/kc868-a8.yaml`). Started by button, MQTT or a schedule entry coming due, it runs three phases and shuts everything down by itself — there is no state in which the sequence ends with the pump running. It waters one channel with one **cycle recipe**, both handed to it as parameters ([ADR-0018](controller/docs/adr/0018-the-controller-schedules-and-the-recipe-travels-with-the-run.md)), so nothing a run does leaks into the next one.
 
 | Phase | Duration | Pump | Fertigation valve | Clean water valve | Purpose |
 |---|---|---|---|---|---|
@@ -92,6 +92,16 @@ One automation exists: the irrigation sequence (`script: irrigation_sequence` in
 | Shutdown | — | off | off | off | |
 
 `Cycle Mode` chooses Time or Volume. The independent `Cycle Minutes` (default 25) and `Cycle Liters` (default 100) totals are retained when switching modes; `Pre-wet Percent` (default 20%, in 5% steps) allocates the pre-wet portion and fertigation always receives the remainder. The flush is deliberately outside that split and always time-based.
+
+Those entities are the **default recipe**: what the physical button waters with, since a button has no payload to carry one, and the values the dashboard proposes a new irrigation with. They are *not* what a commanded or scheduled run uses — each of those carries its own.
+
+## Scheduling
+
+The controller holds the schedule and fires it from its own DS3231, so watering carries on through the weeks it has no WiFi. Entries are authored on the dashboard, stored in the server's SQLite, and published as a whole retained set on `kc868-a8/schedule/set`; the device keeps a copy in NVS (max 16). See [ADR-0018](controller/docs/adr/0018-the-controller-schedules-and-the-recipe-travels-with-the-run.md) and [web ADR-0017](web/docs/adr/0017-schedules-are-server-authored-and-device-fired.md).
+
+An entry is a complete instruction: a time of day, a frequency, the output channel, and the cycle recipe. Frequency is either a set of weekdays or every N days from a fixed start date — never both, and both are pure functions of the calendar date, so a power cut or three weeks dark changes nothing. Entries are immutable: changing one means deleting it and creating another.
+
+The device scans every 20 s and fires an entry whose hour and minute match, once per minute at most. If an entry's turn comes while the controller is already watering, it is **skipped** rather than queued, and recorded in the watering log with zero litres — a zone that silently went unwatered is a question the history has to be able to answer. Nothing fires while the RTC has no valid time.
 
 Rules built into the sequence:
 
@@ -106,19 +116,21 @@ Stopping (empty tank, knocked-over line, any reason) normally goes through `abor
 
 ## Control
 
-Web UI: `http://kc868-a8.local` (auth: `web_server_user` / `web_server_password` secrets). Works in the field through the fallback AP. Buttons: `Start Irrigation`, `Stop Irrigation`, and `Reset Total Water`. The button entity carries no channel, so it waters the selected output and refuses when none is selected; MQTT names the channel explicitly. Native reset acts immediately only when the pump is off and flow is known below 0.1 L/min.
+Web UI: `http://kc868-a8.local` (auth: `web_server_user` / `web_server_password` secrets). Works in the field through the fallback AP. Buttons: `Start Irrigation`, `Stop Irrigation`, and `Reset Total Water`. The button entity carries neither channel nor recipe, so it waters the selected output with the default recipe and refuses when no output is selected; MQTT names both explicitly. Native reset acts immediately only when the pump is off and flow is known below 0.1 L/min.
 
 **Total Water** is cumulative litres since the last reset. It persists across normal reboots. Resetting it is irreversible and is explicitly written to preferences before success is reported.
 
-MQTT (any payload except the start, which names the output channel to water — see [ADR-0017](controller/docs/adr/0017-the-channel-travels-with-the-start.md)):
+MQTT (any payload except the start, which carries the channel and the recipe — see [ADR-0017](controller/docs/adr/0017-the-channel-travels-with-the-start.md) and [ADR-0018](controller/docs/adr/0018-the-controller-schedules-and-the-recipe-travels-with-the-run.md)):
 
 ```bash
-mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/irrigation/start -m 2
+# volume 1 = Volume mode (total in litres), 0 = Time (total in minutes)
+mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/irrigation/start \
+  -m '{"channel":2,"volume":1,"total":200,"prewet":20,"flush":5}'
 mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/irrigation/stop -m ON
 mosquitto_pub -h 10.0.20.20 -u mosquitto -P <password> -t kc868-a8/flow/reset_total/request -m ON
 ```
 
-A start whose payload is not an output channel (1–4) is refused and logged, never sent to whichever valve was last left open.
+A start naming no output channel (1–4), or a flush below one minute, is refused and logged — never sent to whichever valve was last left open, and never completed from device state.
 
 A reset request publishes one non-retained result on `kc868-a8/flow/reset_total/result`: `success`, `already_zero`, `rejected_pump_running`, `rejected_flow_active`, `rejected_flow_unknown`, or `error_persistence`. The last result means the RAM value is zero but it may not survive reboot.
 

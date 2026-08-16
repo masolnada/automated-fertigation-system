@@ -30,3 +30,5 @@ export const useRenameZone = command("rename-zone");
 export const useArchiveZone = command("archive-zone");
 export const useUnarchiveZone = command("unarchive-zone");
 export const useSetAssignments = command("set-assignments");
+export const useCreateSchedule = command("create-schedule");
+export const useDeleteSchedule = command("delete-schedule");

@@ -7,7 +7,9 @@ import "./watering.css";
 const TIME_ZONE = "Europe/Madrid";
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const OUTCOME_LABEL: Record<WateringEvent["outcome"], string> = { completed: "Completed", aborted: "Aborted", dry_run: "Dry run", recovery: "Recovery" };
+const OUTCOME_LABEL: Record<WateringEvent["outcome"], string> = { completed: "Completed", aborted: "Aborted", dry_run: "Dry run", recovery: "Recovery", skipped: "Skipped" };
+/** What started the run. `sequence` is an operator on the dashboard; `manual` the button on the box. */
+const TRIGGER_LABEL: Record<WateringEvent["trigger"], string> = { manual: "Button", sequence: "Manual", scheduled: "Scheduled" };
 /** Scope covering every zone, including events that ran on an unassigned channel. */
 const ALL_ZONES = "";
 /**
@@ -116,7 +118,9 @@ function summarize(events: WateringEvent[]): Map<string, DaySummary> {
     const summary = days.get(key) ?? { key, litres: 0, waterings: 0, issues: 0, events: [] };
     summary.litres += event.litresDelivered;
     if (event.litresDelivered > 0) summary.waterings++;
-    if (event.outcome !== "completed") summary.issues++;
+    // A skipped run is a scheduling collision, not a failure: nothing broke and
+    // nothing was lost, so it is listed but does not colour the day red.
+    if (event.outcome !== "completed" && event.outcome !== "skipped") summary.issues++;
     summary.events.push(event);
     days.set(key, summary);
   }
@@ -220,7 +224,7 @@ function DailyInspector({ selectedKey, summary, loading, unavailable }: { select
           <span>{eventDuration(event)}</span>
           <strong>{event.litresDelivered.toFixed(1)} L</strong>
           <span>{OUTCOME_LABEL[event.outcome]}</span>
-          <span>{event.trigger === "manual" ? "Manual" : "Sequence"} · {zoneLabel(event)}</span>
+          <span>{TRIGGER_LABEL[event.trigger]} · {zoneLabel(event)}</span>
         </li>)}
       </ul>
       : <p className="watering-history-message">No watering events recorded for this day.</p>}

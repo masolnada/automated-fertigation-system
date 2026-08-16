@@ -24,6 +24,7 @@ in 1–3 sentences: the context, what was decided, and why. See
 | [0015](0015-eight-relays-three-sources-four-zones.md) | The relay budget fixes the system at three sources and four zones |
 | [0016](0016-pump-requires-open-path-both-sides.md) | The pump requires an open path on both sides, not just upstream |
 | [0017](0017-the-channel-travels-with-the-start.md) | The channel travels with the start, rather than being set beforehand |
+| [0018](0018-the-controller-schedules-and-the-recipe-travels-with-the-run.md) | The controller holds and fires the schedule, and every run carries its own recipe |
 
 If a decision is reversed, add a new ADR that supersedes the old one rather than
 editing history.

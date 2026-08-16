@@ -1,7 +1,7 @@
 import type { DevicePort, IngestedWateringEvent, WateringEventRepository } from "../domain/ports";
 
-const OUTCOMES = new Set(["completed", "aborted", "dry_run", "recovery"]);
-const TRIGGERS = new Set(["manual", "sequence"]);
+const OUTCOMES = new Set(["completed", "aborted", "dry_run", "recovery", "skipped"]);
+const TRIGGERS = new Set(["manual", "sequence", "scheduled"]);
 
 /**
  * Ingests the controller's authoritative watering-event log. Subscribes to the

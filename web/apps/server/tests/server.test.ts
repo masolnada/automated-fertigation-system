@@ -126,19 +126,34 @@ describe("watering history read", () => {
   });
 });
 
-describe("start-irrigation carries the channel", () => {
+const recipe = { mode: "Volume", total: 200, preWetPercent: 20, flushMinutes: 5 };
+
+describe("start-irrigation carries the channel and the recipe", () => {
   test("a start with no channel is 400 and publishes nothing", async () => {
     const h = await start();
     let published = false; const listener = fakeDevice(h); listener.on("message", (topic) => { if (topic === `${prefix}/irrigation/start`) published = true; });
-    for (const body of [{}, { channel: 0 }, { channel: 5 }, { channel: "2" }]) expect((await post(h.url, "start-irrigation", body)).status).toBe(400);
+    for (const body of [{}, { channel: 0, recipe }, { channel: 5, recipe }, { channel: "2", recipe }]) expect((await post(h.url, "start-irrigation", body)).status).toBe(400);
     await sleep(100); expect(published).toBe(false);
   });
-  test("a valid channel is published as the start payload", async () => {
+  /**
+   * The recipe is an input to the run, so there is no falling back to device
+   * state when it is absent or out of range (controller ADR-0018) — that is the
+   * path the decision exists to remove.
+   */
+  test("a start with no valid recipe is 400 and publishes nothing", async () => {
+    const h = await start();
+    let published = false; const listener = fakeDevice(h); listener.on("message", (topic) => { if (topic === `${prefix}/irrigation/start`) published = true; });
+    const bad = [undefined, {}, { ...recipe, mode: "Drip" }, { ...recipe, total: 9999 }, { ...recipe, flushMinutes: 0 }, { ...recipe, preWetPercent: 300 }];
+    for (const value of bad) expect((await post(h.url, "start-irrigation", { channel: 3, recipe: value })).status).toBe(400);
+    await sleep(100); expect(published).toBe(false);
+  });
+  test("a valid start publishes channel and recipe together", async () => {
     const h = await start();
     let payload = ""; const listener = fakeDevice(h); listener.on("message", (topic, data) => { if (topic === `${prefix}/irrigation/start`) payload = data.toString(); });
     await new Promise<void>((resolve) => listener.subscribe(`${prefix}/irrigation/start`, () => resolve()));
-    expect((await post(h.url, "start-irrigation", { channel: 3 })).status).toBe(202);
-    await waitFor(() => payload === "3");
+    expect((await post(h.url, "start-irrigation", { channel: 3, recipe })).status).toBe(202);
+    await waitFor(() => payload !== "");
+    expect(JSON.parse(payload)).toEqual({ channel: 3, volume: 1, total: 200, prewet: 20, flush: 5 });
   });
 });
 

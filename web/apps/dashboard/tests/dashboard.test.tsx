@@ -7,7 +7,7 @@ import { SnapshotStore } from "../src/store";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const entity = (value: number | string) => ({ value, known: true });
-const wire = (partial: Partial<WireSnapshot> = {}): WireSnapshot => ({ brokerConnected: true, deviceOnline: true, entities: {}, valves: { clean_water_valve: false, fertigation_valve: false, microbiology_valve: false }, selectedOutput: 0, zones: [], assignments: {}, resetPending: false, log: [], ...partial });
+const wire = (partial: Partial<WireSnapshot> = {}): WireSnapshot => ({ brokerConnected: true, deviceOnline: true, entities: {}, valves: { clean_water_valve: false, fertigation_valve: false, microbiology_valve: false }, selectedOutput: 0, zones: [], assignments: {}, resetPending: false, schedules: [], log: [], ...partial });
 const zone = (id: string, name: string, archived = false) => ({ id, name, archived });
 const eligibleEntities = () => ({ pump: entity("OFF"), flow_rate: entity(0), total_water: entity(12.3) });
 
@@ -187,6 +187,20 @@ describe("commands", () => {
     expect(listbox.queryByRole("option", { name: "Olive terrace" })).toBeNull();
     expect(listbox.getByRole("option", { name: "Almond row" })).toBeTruthy();
   });
+  // A schedule names a channel, so re-plumbing redirects the entries standing on
+  // it. That is invisible in the click, so the editor says it (web ADR-0017).
+  test("re-plumbing warns that the schedules on that channel move too", () => {
+    renderApp(seeded({
+      zones: [zone("z-olive", "Olive terrace"), zone("z-almond", "Almond row")],
+      assignments: { 1: "z-olive" },
+      schedules: [{ id: "s-1", time: "06:00", frequency: { kind: "weekdays", days: [2] }, channel: 1, recipe: { mode: "Volume", total: 200, preWetPercent: 20, flushMinutes: 5 } }],
+    }));
+    fireEvent.click(schematic().getByRole("button", { name: "Edit" }));
+    expect(screen.queryByText(/Scheduled irrigations move too/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Zone for Output 1" }));
+    fireEvent.click(within(screen.getByRole("listbox", { name: "Zone for Output 1" })).getByRole("option", { name: "Almond row" }));
+    expect(screen.getByText(/1 schedule on Output 1 will water Almond row instead of Olive terrace/)).toBeTruthy();
+  });
   test("editing assignments is refused while the pump runs", () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), pump: entity("ON") } }));
     expect(schematic().getByRole("button", { name: "Edit" }).hasAttribute("disabled")).toBe(true);
@@ -195,71 +209,162 @@ describe("commands", () => {
     renderApp(seeded());
     expect(screen.getAllByText("no path").length).toBeGreaterThan(0);
   });
-  test("cycle mode posts immediately", async () => {
+  // The device's default recipe is what the offline button waters with, so it
+  // is edited among the device's own settings rather than on the Irrigation
+  // card, where every run carries its own (controller ADR-0018).
+  test("the default recipe's cycle mode posts immediately", async () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), cycle_mode: entity("Time") } }));
-    fireEvent.change(screen.getByLabelText("Cycle Mode"), { target: { value: "Volume" } });
+    selectFlow();
+    fireEvent.change(screen.getByLabelText("Default cycle mode"), { target: { value: "Volume" } });
     await waitFor(() => expect(calls.at(-1)).toEqual({ name: "set-cycle-mode", body: { mode: "Volume" } }));
   });
-  test("number input debounces into a single command", async () => {
+  test("a default-recipe number debounces into a single command", async () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), flush_minutes: entity(5) } }));
-    const input = screen.getByDisplayValue("5");
+    selectFlow();
+    const input = screen.getByLabelText("flush_minutes");
     fireEvent.change(input, { target: { value: "6" } });
     fireEvent.change(input, { target: { value: "7" } });
     expect(calls).toHaveLength(0);
     await waitFor(() => expect(calls).toEqual([{ name: "set-flush-duration", body: { value: 7 } }]));
   });
-  test("pre-wet preset posts immediately", async () => {
-    renderApp(seeded({ entities: { ...eligibleEntities(), "pre-wet_percent": entity(20) } }));
-    fireEvent.click(screen.getByRole("button", { name: "25%" }));
-    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "set-pre-wet-percent", body: { value: 25 } }));
-  });
   test("only offers Stop while irrigation is running", () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), irrigation_running: entity("ON") } }));
     expect(screen.getByRole("button", { name: "Stop irrigation" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Start irrigation" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "New irrigation" })).toBeNull();
   });
 });
 
-// The channel is an input to the run, not the device's Selected Output: picking
-// one opens no valve, and the start carries it.
-describe("the channel an irrigation waters", () => {
-  const withZones = (partial: Partial<WireSnapshot> = {}) => seeded({ zones: [zone("z-olive", "Olive terrace"), zone("z-almond", "Almond row")], assignments: { 1: "z-olive", 2: "z-almond" }, ...partial });
+/**
+ * Every run is a complete instruction: the channel *and* the recipe are inputs
+ * carried on the start, so nothing a run does leaks into the next one
+ * (controller ADR-0017, ADR-0018).
+ */
+describe("starting an irrigation now", () => {
+  const withZones = (partial: Partial<WireSnapshot> = {}) => seeded({ zones: [zone("z-olive", "Olive terrace"), zone("z-almond", "Almond row")], assignments: { 1: "z-olive", 2: "z-almond" }, entities: { ...eligibleEntities(), cycle_mode: entity("Volume"), cycle_liters: entity(200), "pre-wet_percent": entity(20), flush_minutes: entity(5) }, ...partial });
   const irrigation = () => within(document.querySelector(".card-irrigation") as HTMLElement);
+  const wizard = () => within(screen.getByRole("dialog"));
+  const openWizard = () => fireEvent.click(irrigation().getByRole("button", { name: "New irrigation" }));
+  const next = () => fireEvent.click(wizard().getByRole("button", { name: "Next" }));
 
-  test("offers every zone, marks the open one, and names an unassigned channel", () => {
-    renderApp(withZones({ selectedOutput: 1 }));
-    expect(irrigation().getByRole("button", { name: /^Olive terrace open now$/ })).toBeTruthy();
-    expect(irrigation().getByRole("button", { name: "Almond row" })).toBeTruthy();
+  test("the zone step offers every zone and names an unassigned channel", () => {
+    renderApp(withZones());
+    openWizard(); next();
+    expect(wizard().getByRole("button", { name: "Olive terrace" })).toBeTruthy();
     // A channel with no zone still waters, and is the one place the dashboard
     // says "Output N" (web ADR-0014).
-    expect(irrigation().getByRole("button", { name: "Output 3" })).toBeTruthy();
+    expect(wizard().getByRole("button", { name: "Output 3" })).toBeTruthy();
   });
-  test("picking a channel opens no valve, and starting carries it", async () => {
-    renderApp(withZones({ selectedOutput: 1 }));
-    fireEvent.click(irrigation().getByRole("button", { name: /Almond row/ }));
+  test("a start carries the channel and the recipe together", async () => {
+    renderApp(withZones());
+    openWizard(); next();
+    fireEvent.click(wizard().getByRole("button", { name: "Almond row" }));
     expect(calls).toHaveLength(0);
-    fireEvent.click(irrigation().getByRole("button", { name: "Start irrigation" }));
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Start irrigation" }));
-    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "start-irrigation", body: { channel: 2 } }));
+    next();
+    fireEvent.click(wizard().getByRole("button", { name: "Now" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Start irrigation" }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "start-irrigation", body: { channel: 2, recipe: { mode: "Volume", total: 200, preWetPercent: 20, flushMinutes: 5 } } }));
   });
-  test("the confirmation names the zone about to be watered", () => {
-    renderApp(withZones({ selectedOutput: 2 }));
-    fireEvent.click(irrigation().getByRole("button", { name: "Start irrigation" }));
-    expect(screen.getByText(/Almond row gets the full sequence/)).toBeTruthy();
+  // The step band is the restatement: the operator sees what they chose two
+  // steps ago without a dialog stacked on the wizard repeating what they typed.
+  test("the last step restates the zone and recipe chosen earlier", () => {
+    renderApp(withZones());
+    openWizard(); next();
+    fireEvent.click(wizard().getByRole("button", { name: "Almond row" }));
+    next();
+    expect(wizard().getByText("Almond row")).toBeTruthy();
+    expect(wizard().getByText(/200 L/)).toBeTruthy();
   });
-  test("a start with no channel is disabled rather than silently doing nothing", () => {
-    renderApp(withZones({ selectedOutput: 0 }));
-    expect(irrigation().getByRole("button", { name: "Start irrigation" }).hasAttribute("disabled")).toBe(true);
+  test("advancing past the zone step needs a zone", () => {
+    renderApp(withZones());
+    openWizard(); next();
+    expect(wizard().getByRole("button", { name: "Next" }).hasAttribute("disabled")).toBe(true);
   });
-  test("a later snapshot does not move the operator's pick", () => {
-    const store = withZones({ selectedOutput: 1 });
-    renderApp(store);
-    fireEvent.click(irrigation().getByRole("button", { name: /Almond row/ }));
-    act(() => store.replace(wire({ entities: eligibleEntities(), zones: [zone("z-olive", "Olive terrace"), zone("z-almond", "Almond row")], assignments: { 1: "z-olive", 2: "z-almond" }, selectedOutput: 3 })));
-    expect(irrigation().getByRole("button", { name: /Almond row/ }).getAttribute("aria-pressed")).toBe("true");
+  // Editing the recipe here must not write the device's defaults: it is this
+  // run's recipe, and a one-off must not change what the button next waters.
+  test("editing the recipe posts nothing until the run starts", async () => {
+    renderApp(withZones());
+    openWizard();
+    fireEvent.click(wizard().getByRole("button", { name: "25%" }));
+    fireEvent.change(wizard().getByLabelText("Cycle Mode"), { target: { value: "Time" } });
+    await sleep(50);
+    expect(calls).toHaveLength(0);
   });
-  test("the picker is read-only while a sequence runs", () => {
-    renderApp(withZones({ selectedOutput: 1, entities: { ...eligibleEntities(), irrigation_running: entity("ON") } }));
-    expect(irrigation().getByRole("button", { name: /Almond row/ }).hasAttribute("disabled")).toBe(true);
+  // Each opening is a fresh instruction; an abandoned draft must not resurface.
+  test("reopening the wizard starts from the defaults again", () => {
+    renderApp(withZones());
+    openWizard(); next();
+    fireEvent.click(wizard().getByRole("button", { name: "Almond row" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Back" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Cancel" }));
+    openWizard();
+    expect(wizard().getByText("1. Cycle")).toBeTruthy();
+    next();
+    expect(wizard().getByRole("button", { name: "Almond row" }).getAttribute("aria-pressed")).toBe("false");
+  });
+});
+
+describe("scheduling an irrigation", () => {
+  const zonesList = [zone("z-olive", "Olive terrace"), zone("z-almond", "Almond row")];
+  const assignments = { 1: "z-olive", 2: "z-almond" };
+  const recipe = { mode: "Volume" as const, total: 200, preWetPercent: 20, flushMinutes: 5 };
+  const entry = (partial: Partial<WireSnapshot["schedules"][number]> = {}) => ({ id: "s-1", time: "06:00", frequency: { kind: "weekdays" as const, days: [2, 5] }, channel: 1 as const, recipe, ...partial });
+  const withSchedules = (schedules: WireSnapshot["schedules"] = []) => seeded({ zones: zonesList, assignments, schedules, entities: { ...eligibleEntities(), cycle_mode: entity("Volume"), cycle_liters: entity(200), "pre-wet_percent": entity(20), flush_minutes: entity(5) } });
+  const irrigation = () => within(document.querySelector(".card-irrigation") as HTMLElement);
+  const wizard = () => within(screen.getByRole("dialog"));
+
+  test("the card lists standing irrigations by zone, cadence and recipe", () => {
+    renderApp(withSchedules([entry()]));
+    expect(irrigation().getByText("Olive terrace")).toBeTruthy();
+    expect(irrigation().getByText(/06:00 · Tue, Fri/)).toBeTruthy();
+    expect(irrigation().getByText(/200 L · 20% pre-wet · 5 min flush/)).toBeTruthy();
+  });
+  test("an empty list says so rather than showing nothing", () => {
+    renderApp(withSchedules());
+    expect(irrigation().getByText("No scheduled irrigations yet.")).toBeTruthy();
+  });
+  test("scheduling carries the time, frequency, channel and recipe", async () => {
+    renderApp(withSchedules());
+    fireEvent.click(irrigation().getByRole("button", { name: "New irrigation" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Olive terrace" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.change(wizard().getByLabelText("Time of day"), { target: { value: "07:30" } });
+    fireEvent.click(wizard().getByRole("button", { name: "Fri" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Schedule irrigation" }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "create-schedule", body: { time: "07:30", frequency: { kind: "weekdays", days: [2, 5] }, channel: 1, recipe } }));
+  });
+  // Every-N-days needs an anchor, so the cadence is a pure function of the date
+  // and cannot drift when the controller is dark (controller ADR-0018).
+  test("every-N-days carries its start date", async () => {
+    renderApp(withSchedules());
+    fireEvent.click(irrigation().getByRole("button", { name: "New irrigation" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Olive terrace" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Every N days" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Schedule irrigation" }));
+    await waitFor(() => expect(calls.at(-1)?.name).toBe("create-schedule"));
+    const body = calls.at(-1)!.body as { frequency: { kind: string; n: number; from: string } };
+    expect(body.frequency.kind).toBe("everyN");
+    expect(body.frequency.n).toBe(3);
+    expect(body.frequency.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+  test("a schedule with no day selected cannot be created", () => {
+    renderApp(withSchedules());
+    fireEvent.click(irrigation().getByRole("button", { name: "New irrigation" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Olive terrace" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Tue" }));
+    expect(wizard().getByRole("button", { name: "Schedule irrigation" }).hasAttribute("disabled")).toBe(true);
+  });
+  // Entries are immutable, so deleting one is not undoable (web ADR-0017).
+  test("deleting a schedule is confirmed and names what stops", async () => {
+    renderApp(withSchedules([entry()]));
+    fireEvent.click(irrigation().getByRole("button", { name: "Delete" }));
+    expect(screen.getByText(/Olive terrace will no longer be watered at 06:00/)).toBeTruthy();
+    expect(calls.some((call) => call.name === "delete-schedule")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Delete schedule" }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "delete-schedule", body: { id: "s-1" } }));
   });
 });

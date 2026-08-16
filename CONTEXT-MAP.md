@@ -26,6 +26,15 @@ through the broker, never by calling another context directly.
   the browser reaches the device only through the server (SSE for state, HTTP for
   commands). See [web ADR-0003](./web/docs/adr/0003-server-owns-mqtt.md) and
   [controller ADR-0001](./controller/docs/adr/0001-three-phase-self-terminating-sequence.md).
+- **Web → Controller (schedules)**: scheduled irrigations are authored and stored
+  on the server but *executed* by the controller, from its own RTC. The server
+  publishes the whole set retained on `schedule/set`; the device holds a copy in
+  NVS and fires from it with no network. The split exists because the controller
+  spends weeks in the field disconnected, which is exactly when the schedule must
+  still run. See
+  [web ADR-0017](./web/docs/adr/0017-schedules-are-server-authored-and-device-fired.md)
+  and
+  [controller ADR-0018](./controller/docs/adr/0018-the-controller-schedules-and-the-recipe-travels-with-the-run.md).
 - **Controller → Observability**: the controller publishes flow, total-water and
   event topics; Telegraf ingests them into InfluxDB for Grafana.
 - **Soil Node → Controller → Observability**: the node transmits readings by LoRa

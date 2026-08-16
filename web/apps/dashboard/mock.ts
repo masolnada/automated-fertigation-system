@@ -1,4 +1,4 @@
-import type { WateringEvent, Zone } from "@hort/contracts";
+import type { ScheduleEntry, WateringEvent, Zone } from "@hort/contracts";
 
 // Dev-only mock backend. Serves /api/* with in-memory data so the dashboard
 // can run on localhost without the real
@@ -35,6 +35,13 @@ const zoneAt = (channel: number, endedAt: Date): string | null =>
   (channel === 3 && endedAt.getTime() < replumbAt ? "z-tomato" : assignments[channel] ?? null);
 const nameOf = (id: string | null) => zones.find((zone) => zone.id === id)?.name ?? null;
 
+// Two standing irrigations, one of each frequency kind, so the dev dashboard
+// shows both cadences the model allows.
+const schedules: ScheduleEntry[] = [
+  { id: "s-olive", time: "06:00", frequency: { kind: "weekdays", days: [2, 5] }, channel: 1, recipe: { mode: "Volume", total: 200, preWetPercent: 20, flushMinutes: 5 } },
+  { id: "s-veg", time: "19:30", frequency: { kind: "everyN", n: 3, from: new Date().toISOString().slice(0, 10) }, channel: 3, recipe: { mode: "Time", total: 25, preWetPercent: 10, flushMinutes: 3 } },
+];
+
 const snapshot = {
   deviceOnline: true,
   brokerConnected: true,
@@ -42,6 +49,7 @@ const snapshot = {
   valves: { clean_water_valve: false, fertigation_valve: false, microbiology_valve: false },
   zones,
   assignments,
+  schedules,
   selectedOutput: 1,
   entities: {
     battery_voltage: num(13.24), battery_current: num(1.42), battery_state_of_charge: num(87.5), battery_consumed_ah: num(4.2), battery_time_remaining: num(320), battery_charged: num("OFF"),
@@ -149,6 +157,9 @@ function applyCommand(name: string, body: Record<string, unknown>): { status: nu
     case "start-irrigation": {
       const channel = Number(body.channel);
       if (![1, 2, 3, 4].includes(channel)) return { status: 400, json: { error: "invalid output channel" } };
+      // The recipe travels with the start and is not written to the device's
+      // defaults (controller ADR-0018), so nothing here touches cycle_*.
+      if (typeof body.recipe !== "object" || body.recipe === null) return { status: 400, json: { error: "recipe required" } };
       snapshot.selectedOutput = channel;
       for (let n = 1; n <= 4; n++) e[`output_${n}`] = num(n === channel ? "ON" : "OFF");
       e.irrigation_running = num("ON");
@@ -201,6 +212,14 @@ function applyCommand(name: string, body: Record<string, unknown>): { status: nu
     case "set-cycle-target": e[e.cycle_mode!.value === "Volume" ? "cycle_liters" : "cycle_minutes"] = num(Number(body.value)); break;
     case "set-flush-duration": e.flush_minutes = num(Number(body.value)); break;
     case "set-min-flow": e.min_flow = num(Number(body.value)); break;
+    case "create-schedule": {
+      const entry = { id: `s-${Math.random().toString(36).slice(2, 8)}`, ...body } as ScheduleEntry;
+      snapshot.schedules = [...snapshot.schedules, entry];
+      break;
+    }
+    case "delete-schedule":
+      snapshot.schedules = snapshot.schedules.filter((entry) => entry.id !== body.id);
+      break;
     case "reset-total-water": e.total_water = num(0); broadcast(); return { status: 200, json: { result: "success" } };
   }
   broadcast();

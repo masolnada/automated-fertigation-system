@@ -52,6 +52,38 @@ export const zones = sqliteTable("zones", {
  * as expressible as any other assignment. The latest row per channel is the
  * current assignment.
  */
+/**
+ * One standing instruction to water (web ADR-0017). Immutable: changing a
+ * schedule is deleting the row and inserting another, so there is no updatedAt.
+ *
+ * The recipe is stored per row rather than read from the device's globals, so
+ * two entries can water differently and neither disturbs the other
+ * (controller ADR-0018). `frequency` is a JSON blob because it is a closed
+ * two-case union the server never queries into — the controller is what
+ * evaluates it.
+ *
+ * `outputChannel` and not a zone id: the controller fires these offline and can
+ * only honour a channel. Re-plumbing therefore redirects the entries standing on
+ * a channel, which the assignation editor warns about.
+ */
+export const schedules = sqliteTable(
+  "schedules",
+  {
+    id: text("id").primaryKey(),
+    /** Local wall-clock `HH:MM` on the controller. */
+    time: text("time").notNull(),
+    /** JSON: `{kind:"weekdays",days:[..]}` or `{kind:"everyN",n,from}`. */
+    frequency: text("frequency").notNull(),
+    outputChannel: integer("output_channel").notNull(),
+    cycleMode: text("cycle_mode").notNull(),
+    cycleTotal: real("cycle_total").notNull(),
+    preWetPercent: real("pre_wet_percent").notNull(),
+    flushMinutes: real("flush_minutes").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [index("schedules_output_channel").on(table.outputChannel)],
+);
+
 export const outputAssignments = sqliteTable(
   "output_assignments",
   {

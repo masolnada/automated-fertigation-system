@@ -1,112 +1,89 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Badge, Button, Card, CardTitle, variants } from "@hort/ui";
-import { outputChannels, type CycleMode, type OutputChannel } from "@hort/contracts";
+import { useState } from "react";
+import { Badge, Button, Card, CardTitle } from "@hort/ui";
+import type { CycleRecipe, OutputChannel, ScheduleEntry, Zone } from "@hort/contracts";
 import type { Snapshot } from "../../store";
-import { useDebounced } from "../../debounce";
-import { channelLabel } from "../../display";
-import { ConfirmStartIrrigation } from "./ConfirmStartIrrigation/ConfirmStartIrrigation";
+import { NewIrrigation } from "./NewIrrigation/NewIrrigation";
+import { ConfirmDeleteSchedule } from "./ConfirmDeleteSchedule/ConfirmDeleteSchedule";
+import { channelName, frequencyText, recipeText } from "./schedule";
 
 const icon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 16.3c2.2 0 4-1.8 4-4 0-1.5-.7-2.6-2-3.8-.9-.8-1.7-2-2-3.5-.3 1.5-1.1 2.7-2 3.5-1.3 1.2-2 2.3-2 3.8 0 2.2 1.8 4 4 4z"/><path d="M16.8 20c2.3 0 4.2-1.9 4.2-4.2 0-1.6-.8-2.8-2.1-4-.9-.9-1.8-2.1-2.1-3.8-.3 1.7-1.2 2.9-2.1 3.8-1.3 1.2-2.1 2.4-2.1 4 0 2.3 1.9 4.2 4.2 4.2z"/></svg>;
 
-type Phase = { id: string; name: string; value?: number; unit: "min" | "L" };
-type Channel = { channel: OutputChannel; label: string };
+/**
+ * The device's default recipe: what the offline manual button waters with, and
+ * what a new irrigation is proposed with. No longer what a commanded run uses —
+ * that travels with the start (controller ADR-0018).
+ */
+function defaultRecipe(snapshot: Snapshot): CycleRecipe {
+  const mode = snapshot.entities.cycle_mode?.value === "Volume" ? "Volume" : "Time";
+  const total = Number(snapshot.entities[mode === "Volume" ? "cycle_liters" : "cycle_minutes"]?.value);
+  const preWetPercent = Number(snapshot.entities["pre-wet_percent"]?.value);
+  const flushMinutes = Number(snapshot.entities.flush_minutes?.value);
+  return {
+    mode,
+    total: Number.isFinite(total) ? total : mode === "Volume" ? 100 : 25,
+    preWetPercent: Number.isFinite(preWetPercent) ? preWetPercent : 20,
+    flushMinutes: Number.isFinite(flushMinutes) ? flushMinutes : 5,
+  };
+}
+
+function ScheduleList({ entries, zones, assignments, onDelete }: { entries: ScheduleEntry[]; zones: Zone[]; assignments: Record<number, string>; onDelete(entry: ScheduleEntry): void }) {
+  if (entries.length === 0) return <p className="m-0 py-2 font-bold italic">No scheduled irrigations yet.</p>;
+  return <ul className="m-0 list-none p-0">
+    {entries.map((entry) => <li key={entry.id} className="flex items-center gap-4 border-b-[2px] border-dashed border-gray py-3 last:border-b-0">
+      <div className="min-w-0 flex-1">
+        <strong className="block text-[0.95rem] font-extrabold">{channelName(zones, assignments, entry.channel)}</strong>
+        <small className="block text-[0.75rem] font-bold">{entry.time} · {frequencyText(entry.frequency)}</small>
+        <small className="block text-[0.72rem] font-bold">{recipeText(entry.recipe)}</small>
+      </div>
+      <Button variant="danger" className="h-[38px] px-4 text-[0.68rem]" onClick={() => onDelete(entry)}>Delete</Button>
+    </li>)}
+  </ul>;
+}
+
+type Props = {
+  snapshot: Snapshot;
+  onStart(channel: OutputChannel, recipe: CycleRecipe): void;
+  onStop(): void;
+  onSchedule(entry: { time: string; frequency: ScheduleEntry["frequency"]; channel: OutputChannel; recipe: CycleRecipe }): void;
+  onDeleteSchedule(id: string): void;
+};
 
 /**
- * Which zone this run waters. The zone is an input to the run, not the device's
- * Selected Output, so picking one opens no valve — only Start does; the zone
- * whose channel is open is marked rather than merged, since the two are allowed
- * to disagree until the run begins.
- *
- * A channel with no zone still waters (web ADR-0014), and the operator has to be
- * able to send water there, so it appears under its bare channel — the one place
- * the dashboard says "Output N", and a visible prompt to go and assign it.
- *
- * Disabled while a sequence runs, where it reads as "what is being watered"
- * rather than a choice: a control that accepted edits with no effect on the
- * running sequence would read as broken.
+ * Standing irrigations and the one way to make another. The card lists what will
+ * happen; everything that *decides* what happens lives in the wizard, so the
+ * card holds no cycle controls — a run's recipe is an input to that run, not a
+ * setting on this surface (controller ADR-0018).
  */
-function ZonePicker({ channels, value, openChannel, disabled, onChange }: { channels: Channel[]; value: number; openChannel: number; disabled: boolean; onChange(channel: OutputChannel): void }) {
-  return <section className="border-[2px] border-ink p-4">
-    <h3 className="m-0 mb-4 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]">Zone</h3>
-    <div className="grid grid-cols-2 gap-[6px]">
-      {channels.map(({ channel, label }) => {
-        const on = channel === value;
-        return <button key={channel} type="button" aria-pressed={on} disabled={disabled} onClick={() => onChange(channel)} className={`flex min-h-[52px] flex-col justify-center border-[2px] px-2 py-1 text-left font-ui disabled:cursor-not-allowed ${on ? "border-ink bg-ink text-paper" : "border-ink bg-paper text-ink"} ${disabled && !on ? "border-gray text-gray" : ""}`}>
-          <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[0.8rem] font-extrabold">{label}</span>
-          <small className="min-h-[0.9rem] text-[0.58rem] font-extrabold uppercase tracking-[0.08em]">{channel === openChannel ? "open now" : ""}</small>
-        </button>;
-      })}
-    </div>
-  </section>;
-}
-
-function NumberInput({ label, unit, min, max, step, value, onCommit, className, inputStyle }: { label: string; unit: string; min: number; max: number; step: number; value: number | string | undefined; onCommit(value: number): void; className?: string; inputStyle?: CSSProperties }) {
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (document.activeElement !== ref.current && ref.current) ref.current.value = value === undefined ? "" : String(value); }, [value]);
-  const commit = useDebounced((raw: string) => { const n = Number(raw); if (raw.trim() !== "" && Number.isFinite(n)) onCommit(n); });
-  return <label className={className ?? variants.durations.label}><span>{label}</span><input ref={ref} className={variants.durations.input} style={inputStyle} type="number" min={min} max={max} step={step} defaultValue={value === undefined ? "" : String(value)} onChange={(event) => commit(event.target.value)} /><span>{unit}</span></label>;
-}
-
-function PresetGrid({ percent, onChange }: { percent: number; onChange(value: number): void }) {
-  return <div className="grid grid-cols-3 gap-[6px]">{[0, 5, 10, 15, 20, 25].map((value) => <button key={value} aria-pressed={value === percent} onClick={() => onChange(value)} className={`h-[46px] border-[2px] border-ink font-ui text-[0.9rem] font-extrabold ${value === percent ? "bg-ink text-paper" : "bg-paper text-ink"}`}>{value}%</button>)}</div>;
-}
-
-// Proportional phase blocks make the planned sequence legible at a glance.
-// min-w-0 permits the text to truncate inside narrow cards instead of overflowing.
-function SequenceOverview({ phases, percent }: { phases: Phase[]; percent: number }) {
-  return <div className="irrigation-sequence-overview mt-5 border-t-[2px] border-dashed border-gray pt-5" aria-label="Irrigation sequence overview">
-    <div className="flex min-w-0 gap-[6px]">
-      {phases.map((phase, index) => {
-        const fertigation = phase.id === "fertigation";
-        const flush = phase.id === "flush";
-        const value = Number.isFinite(phase.value) ? phase.value : "–";
-        return <div key={phase.id} className={`flex min-w-0 flex-col justify-center border-[2px] border-ink px-3 py-2 ${fertigation ? "bg-ink text-paper" : "bg-paper text-ink"}${flush ? "w-[6.5rem] shrink-0" : ""}`} style={{ flexGrow: flush ? undefined : Math.max(index === 0 ? percent : 100 - percent, 5), flexBasis: flush ? undefined : 0 }}>
-          <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[0.66rem] font-extrabold uppercase tracking-[0.1em]">{phase.name}</span>
-          <b className={`font-num font-extrabold leading-[1.3] ${fertigation ? "text-[2.25rem]" : "text-[1.4rem]"}`}>{value}<small className="ml-1 font-ui text-[0.65rem] font-extrabold tracking-[0.06em]">{phase.unit}</small></b>
-        </div>;
-      })}
-    </div>
-  </div>;
-}
-
-type Props = { snapshot: Snapshot; onStart(channel: OutputChannel): void; onStop(): void; onCycleMode(mode: CycleMode): void; onPreWet(value: number): void; onCycleTarget(value: number): void; onFlush(value: number): void };
-
-export function Irrigation({ snapshot, onStart, onStop, onCycleMode, onPreWet, onCycleTarget, onFlush }: Props) {
-  const [confirming, setConfirming] = useState(false);
-  // Seeded once from the open channel, then the operator's: a later snapshot
-  // must not move where the water is about to go while they are deciding.
-  const [channel, setChannel] = useState(() => snapshot.selectedOutput);
-  const channels: Channel[] = outputChannels.map((id) => ({ channel: id, label: snapshot.zones.find((zone) => zone.id === snapshot.assignments[id])?.name ?? channelLabel(id) }));
-  const picked = channels.find((entry) => entry.channel === channel);
-  const mode = snapshot.entities.cycle_mode?.value === "Volume" ? "Volume" : "Time";
-  const totalId = mode === "Volume" ? "cycle_liters" : "cycle_minutes";
-  const total = Number(snapshot.entities[totalId]?.value);
-  const prewet = Number(snapshot.entities["pre-wet_percent"]?.value);
-  const percent = Number.isFinite(prewet) ? prewet : 20;
-  const unit: "L" | "min" = mode === "Volume" ? "L" : "min";
+export function Irrigation({ snapshot, onStart, onStop, onSchedule, onDeleteSchedule }: Props) {
+  const [creating, setCreating] = useState(false);
+  // Remounted per opening, so an abandoned draft never resurfaces.
+  const [run, setRun] = useState(0);
+  const [deleting, setDeleting] = useState<ScheduleEntry | null>(null);
   const running = snapshot.entities.irrigation_running?.value === "ON";
-  const phaseValue = (share: number) => Number.isFinite(total) ? total * share : undefined;
-  const phases: Phase[] = [
-    { id: "pre-wet", name: "Pre-wet", value: phaseValue(percent / 100), unit },
-    { id: "fertigation", name: "Fertigation", value: phaseValue(1 - percent / 100), unit },
-    { id: "flush", name: "Flush", value: Number(snapshot.entities.flush_minutes?.value), unit: "min" },
-  ];
-  const cycleField = "grid grid-cols-[minmax(0,1fr)_6.8rem_2.5rem] items-center gap-2 text-[0.9rem] font-bold [&>input]:ml-0";
-  const cycleFieldWidth = { width: "6.8rem" };
-  const modeControl = <label className={cycleField}><span>Cycle Mode</span><select aria-label="Cycle Mode" className={variants.durations.input} style={cycleFieldWidth} value={mode} onChange={(event) => onCycleMode(event.target.value as CycleMode)}><option>Time</option><option>Volume</option></select><span aria-hidden="true"></span></label>;
-  const targetControl = <NumberInput className={cycleField} label={mode === "Volume" ? "Cycle Liters" : "Cycle Minutes"} unit={unit} min={0} max={mode === "Volume" ? 500 : 180} step={mode === "Volume" ? 0.5 : 1} value={snapshot.entities[totalId]?.known ? snapshot.entities[totalId]!.value : undefined} onCommit={onCycleTarget} inputStyle={cycleFieldWidth} />;
-  const flushControl = <NumberInput label="Flush Minutes" unit="min" min={1} max={60} step={1} value={snapshot.entities.flush_minutes?.known ? snapshot.entities.flush_minutes!.value : undefined} onCommit={onFlush} />;
 
-  return <Card className="card-irrigation card-irrigation-horizontal">
-    <CardTitle icon={icon}>Irrigation <Badge state={running ? "on" : "off"}>{running ? "running" : "idle"}</Badge></CardTitle>
-    <div className="irrigation-programme-tiles grid grid-cols-1 gap-[6px]">
-      <section className="border-[2px] border-ink p-4"><h3 className="m-0 mb-4 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]">Cycle</h3><div className="grid gap-3">{modeControl}{targetControl}</div></section>
-      <section className="border-[2px] border-ink p-4"><h3 className="mb-3 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]">Pre-wet allocation</h3><PresetGrid percent={percent} onChange={onPreWet} /></section>
-      <section className="border-[2px] border-ink p-4"><h3 className="m-0 mb-4 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]">Flush</h3>{flushControl}</section>
-      <ZonePicker channels={channels} value={channel} openChannel={snapshot.selectedOutput} disabled={running} onChange={setChannel}/>
-      <SequenceOverview phases={phases} percent={percent} />
-      <div className="irrigation-programme-actions mt-4">{running ? <Button className="w-full min-[900px]:w-auto" variant="danger" onClick={onStop}>Stop irrigation</Button> : <Button className="w-full min-[900px]:w-auto" variant="primary" disabled={!picked} onClick={() => setConfirming(true)}>Start irrigation</Button>}</div>
-    </div>
-    <ConfirmStartIrrigation open={confirming && Boolean(picked)} label={picked?.label ?? ""} onConfirm={() => { if (picked) onStart(picked.channel); setConfirming(false); }} onCancel={() => setConfirming(false)}/>
+  return <Card className="card-irrigation">
+    <CardTitle icon={icon}>Irrigation <Badge state={running ? "on" : "off"}>{running ? "running" : "idle"}</Badge>
+      <span>{running
+        ? <Button variant="danger" className="h-[38px] px-4 text-[0.68rem]" onClick={onStop}>Stop irrigation</Button>
+        : <Button variant="relay" onClick={() => { setRun((n) => n + 1); setCreating(true); }}>New irrigation</Button>}</span>
+    </CardTitle>
+    <ScheduleList entries={snapshot.schedules} zones={snapshot.zones} assignments={snapshot.assignments} onDelete={setDeleting}/>
+    <NewIrrigation
+      key={run}
+      open={creating}
+      zones={snapshot.zones}
+      assignments={snapshot.assignments}
+      defaults={defaultRecipe(snapshot)}
+      openChannel={(snapshot.selectedOutput || 0) as OutputChannel | 0}
+      onStart={onStart}
+      onSchedule={onSchedule}
+      onClose={() => setCreating(false)}
+    />
+    <ConfirmDeleteSchedule
+      entry={deleting}
+      label={deleting ? channelName(snapshot.zones, snapshot.assignments, deleting.channel) : ""}
+      onConfirm={() => { if (deleting) onDeleteSchedule(deleting.id); setDeleting(null); }}
+      onCancel={() => setDeleting(null)}
+    />
   </Card>;
 }

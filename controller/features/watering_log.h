@@ -11,11 +11,16 @@
 
 static const uint16_t WATERING_LOG_N = 192;
 
-// outcome: 0 completed, 1 aborted, 2 dry_run, 3 recovery. trigger: 0 sequence,
-// 1 manual. output is the output channel watered, 0 meaning none was recorded
-// (the server maps that to null, as it does the epoch-0 clock sentinel). The
-// firmware never interprets it — which place it waters is a server-side Zone
-// (web ADR-0014).
+// outcome: 0 completed, 1 aborted, 2 dry_run, 3 recovery, 4 skipped. trigger:
+// 0 sequence, 1 manual, 2 scheduled. output is the output channel watered, 0
+// meaning none was recorded (the server maps that to null, as it does the
+// epoch-0 clock sentinel). The firmware never interprets it — which place it
+// waters is a server-side Zone (web ADR-0014).
+//
+// `skipped` is the one outcome with no pump-on span behind it: a schedule entry
+// whose turn came while the controller was already watering (ADR-0018). It has
+// equal start and end and zero litres, and is in the log because a zone that
+// silently went unwatered is a question the history has to answer.
 struct WateringRecord {
   uint32_t seq;
   uint32_t start;  // Unix epoch seconds (RTC)
@@ -38,10 +43,17 @@ inline const char *watering_outcome_str(uint8_t o) {
     case 1: return "aborted";
     case 2: return "dry_run";
     case 3: return "recovery";
+    case 4: return "skipped";
     default: return "completed";
   }
 }
-inline const char *watering_trigger_str(uint8_t t) { return t == 1 ? "manual" : "sequence"; }
+inline const char *watering_trigger_str(uint8_t t) {
+  switch (t) {
+    case 1: return "manual";
+    case 2: return "scheduled";
+    default: return "sequence";
+  }
+}
 
 // The single ring-buffer instance and its NVS-backed preference. Kept in the
 // header (not an ESPHome `globals:` entry) so `WateringLog` is complete before

@@ -10,7 +10,9 @@ This is the safety-critical core of the system — it drives the pump and valves
 
 **Irrigation sequence**:
 The one automation that waters. It runs three phases and always shuts itself
-down; there is no state in which it ends with the pump running.
+down; there is no state in which it ends with the pump running. It waters one
+channel with one recipe, both handed to it — so it is the same automation whether
+a person, a button or a schedule entry asked for it.
 _Avoid_: cycle (reserve for the totals), program, schedule.
 
 **Phase**:
@@ -30,10 +32,11 @@ humate and micro-organism residue from pump, lines and emitters.
 **Channel run**:
 One irrigation sequence, which waters exactly one output channel from start to
 finish. Watering several means starting the sequence again on each. The channel
-is an *input* to the run — carried on the start, not read from what happens to be
-open — so a start that names no channel is refused rather than sent somewhere
-unintended. Its first act is to close the other output channels and open its own,
-pausing the pump across the change as any handover does.
+and the Cycle recipe are both *inputs* to the run — carried on the start, not read
+from what happens to be open or from what was last adjusted by hand — so a start
+naming neither is refused rather than completed from device state. Its first act
+is to close the other output channels and open its own, pausing the pump across
+the change as any handover does.
 _Avoid_: zone run — the firmware does not know what a zone is.
 
 **Fertigation substance**:
@@ -50,8 +53,7 @@ sequence does not yet open it.
 Whether the cycle total is expressed in Time or Volume.
 
 **Cycle total**:
-The single size of one cycle — `Cycle Minutes` (Time) or `Cycle Liters`
-(Volume). Both are retained independently across mode switches.
+The size of one cycle — minutes in Time, litres in Volume.
 
 **Pre-wet Percent**:
 The share of the cycle total given to Pre-wet (5% steps); Fertigation gets the

@@ -1,8 +1,8 @@
-import { sourceIds, type EntityValue, type LogEntry, type Severity, type Snapshot, type SourceId, type Zone } from "@hort/contracts";
+import { sourceIds, type EntityValue, type LogEntry, type ScheduleEntry, type Severity, type Snapshot, type SourceId, type Zone } from "@hort/contracts";
 import { parseStateTopic } from "./topics";
 
 const shutValves = (): Record<SourceId, boolean> => ({ clean_water_valve: false, fertigation_valve: false, microbiology_valve: false });
-const empty = (): Snapshot => ({ brokerConnected: false, deviceOnline: false, entities: {}, valves: shutValves(), selectedOutput: 0, zones: [], assignments: {}, resetPending: false, log: [] });
+const empty = (): Snapshot => ({ brokerConnected: false, deviceOnline: false, entities: {}, valves: shutValves(), selectedOutput: 0, zones: [], assignments: {}, resetPending: false, schedules: [], log: [] });
 const isSourceId = (id: string): id is SourceId => (sourceIds as string[]).includes(id);
 const outputOf = (objectId: string): number | null => { const match = /^output_([1-4])$/.exec(objectId); return match ? Number(match[1]) : null; };
 
@@ -35,6 +35,8 @@ export class Controller {
   invalidateAll(): void { this.update({ deviceOnline: false, entities: {}, valves: shutValves(), selectedOutput: 0 }); }
   /** Zones and assignments are server-owned, not device state (web ADR-0014). */
   setZones(zones: Zone[], assignments: Record<number, string>): void { this.update({ zones, assignments }); }
+  /** Schedule entries are server-owned too; the device holds a copy it fires from (web ADR-0017). */
+  setSchedules(schedules: ScheduleEntry[]): void { this.update({ schedules }); }
   connected(): void { this.invalidateAll(); this.update({ brokerConnected: true }); this.log("connected to broker"); }
   closed(): void { this.update({ brokerConnected: false }); this.invalidateAll(); this.log("broker disconnected", "danger"); }
   error(error: Error): void { this.log(`broker error: ${error.message}`, "danger"); }

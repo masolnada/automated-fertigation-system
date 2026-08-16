@@ -26,7 +26,7 @@ const props = {
 afterEach(cleanup);
 
 const zones = [{ id: "z-olive", name: "Olive terrace", archived: false }];
-const snap = () => { const s = new SnapshotStore(); s.replace({ brokerConnected: true, deviceOnline: true, entities: { pump: { value: "OFF", known: true }, flow_rate: { value: 0, known: true }, total_water: { value: 12, known: true }, min_flow: { value: 0.5, known: true } }, valves: { clean_water_valve: false, fertigation_valve: false, microbiology_valve: false }, selectedOutput: 0, zones, assignments: { 1: "z-olive" }, resetPending: false, log: [] }); return s.getSnapshot(); };
+const snap = () => { const s = new SnapshotStore(); s.replace({ brokerConnected: true, deviceOnline: true, entities: { pump: { value: "OFF", known: true }, flow_rate: { value: 0, known: true }, total_water: { value: 12, known: true }, min_flow: { value: 0.5, known: true } }, valves: { clean_water_valve: false, fertigation_valve: false, microbiology_valve: false }, selectedOutput: 0, zones, assignments: { 1: "z-olive" }, resetPending: false, schedules: [], log: [] }); return s.getSnapshot(); };
 const noop = () => {};
 
 
@@ -69,7 +69,7 @@ describe("schematic layouts", () => {
 describe("schematic card on a phone", () => {
   test("renders every control with no fixed-width element", () => {
     setWidth(390);
-    const { container } = render(<QueryClientProvider client={new QueryClient()}><SchematicCard snapshot={snap()} onSelectValve={noop} onSelectOutput={noop} onTogglePump={noop} onSetAssignments={noop} onMinFlow={noop}/></QueryClientProvider>);
+    const { container } = render(<QueryClientProvider client={new QueryClient()}><SchematicCard snapshot={snap()} onSelectValve={noop} onSelectOutput={noop} onTogglePump={noop} onSetAssignments={noop} onMinFlow={noop} onCycleMode={noop} onCycleTarget={noop} onPreWet={noop} onFlush={noop}/></QueryClientProvider>);
     // The assignation editor lists the same names, so scope to the diagram.
     const diagram = within(container.querySelector(".card-schematic > div") as HTMLElement);
     for (const label of ["Clean water", "Fertigation", "Microbiology", "Olive terrace", "Output 2", "Output 3", "Output 4"]) expect(diagram.getByText(label)).toBeTruthy();
@@ -80,7 +80,7 @@ describe("schematic card on a phone", () => {
   // The diagram carries no info panel, so the flow node's settings are a modal.
   test("selecting the flow node opens the flow settings", () => {
     setWidth(390);
-    render(<QueryClientProvider client={new QueryClient()}><SchematicCard snapshot={snap()} onSelectValve={noop} onSelectOutput={noop} onTogglePump={noop} onSetAssignments={noop} onMinFlow={noop}/></QueryClientProvider>);
+    render(<QueryClientProvider client={new QueryClient()}><SchematicCard snapshot={snap()} onSelectValve={noop} onSelectOutput={noop} onTogglePump={noop} onSetAssignments={noop} onMinFlow={noop} onCycleMode={noop} onCycleTarget={noop} onPreWet={noop} onFlush={noop}/></QueryClientProvider>);
     expect(screen.getByLabelText("Min Flow").closest("dialog")?.open).toBeFalsy();
     fireEvent.click(screen.getByRole("button", { name: /Flow/ }));
     expect(screen.getByLabelText("Min Flow").closest("dialog")?.open).toBe(true);

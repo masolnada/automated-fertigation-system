@@ -13,8 +13,8 @@ inline bool g_event_open = false;
 inline uint32_t g_event_seq = 0;
 inline uint32_t g_event_start_epoch = 0;  // Unix epoch seconds, or 0 = clock unset
 inline double g_event_start_l = 0;        // water_total_l at pump-on
-inline uint8_t g_event_trigger = 0;       // 0 sequence, 1 manual
-inline uint8_t g_pending_outcome = 0;     // 0 completed, 1 aborted, 2 dry_run, 3 recovery
+inline uint8_t g_event_trigger = 0;       // 0 sequence, 1 manual, 2 scheduled
+inline uint8_t g_pending_outcome = 0;     // 0 completed, 1 aborted, 2 dry_run, 3 recovery, 4 skipped
 inline uint8_t g_next_trigger = 0;        // trigger for the next event to open
 inline bool g_pump_handover = false;      // suppress close during a sequence handover
 inline uint8_t g_event_output = 0;        // output channel open at pump-on; 0 = none recorded
@@ -62,6 +62,29 @@ inline void watering_event_pump_off() {
     mqtt::global_mqtt_client->publish("kc868-a8/watering/log", lg, 0, true);
     mqtt::global_mqtt_client->publish("kc868-a8/watering/event", ev, 0, false);
   }
+}
+
+// A schedule entry whose turn came while the controller was already watering
+// (ADR-0018). No pump ran, so there is no span to bracket: it is written
+// directly, with equal start and end and no litres. It is in the log because
+// "why did the olive terrace not get watered on Tuesday?" is a history question,
+// and history is the log.
+inline void watering_record_skipped(uint8_t channel) {
+  WateringRecord r;
+  r.seq = g_watering_log.next_seq;
+  g_watering_log.next_seq++;
+  r.start = rtc_time->now().is_valid() ? (uint32_t) rtc_time->now().timestamp : 0;
+  r.end = r.start;
+  r.litres = 0.0f;
+  r.outcome = 4;  // skipped
+  r.trigger = 2;  // scheduled — nothing else can be skipped
+  r.output = channel;
+  watering_log_append(g_watering_log, r);
+  watering_log_save();
+  std::string ev = watering_record_json(App.get_name().c_str(), r);
+  std::string lg = watering_log_json(App.get_name().c_str(), g_watering_log);
+  mqtt::global_mqtt_client->publish("kc868-a8/watering/log", lg, 0, true);
+  mqtt::global_mqtt_client->publish("kc868-a8/watering/event", ev, 0, false);
 }
 
 // Retained-log refresh on MQTT (re)connect, so the server backfills on ingest.

@@ -21,6 +21,47 @@ export type OutputChannel = (typeof outputChannels)[number];
 /** A place that gets watered. Identified by `id`; `name` is a current label (web ADR-0015). */
 export type Zone = { id: string; name: string; archived: boolean };
 
+/**
+ * How one run waters, taken as a whole. An input to the run rather than device
+ * state: it travels on `start-irrigation` and is held by each schedule entry, so
+ * no run inherits what the last one used (controller ADR-0018).
+ */
+export type CycleRecipe = {
+  mode: CycleMode;
+  /** Minutes in Time mode, litres in Volume mode. */
+  total: number;
+  /** Share of the total given to Pre-wet; Fertigation gets the rest. */
+  preWetPercent: number;
+  flushMinutes: number;
+};
+
+/**
+ * Which dates a schedule entry fires on. Both forms are pure functions of the
+ * calendar date, so the controller answers "does this fire today?" from its RTC
+ * alone — counting from the last run instead would push a cadence later every
+ * time the device was dark (controller ADR-0018).
+ */
+export type Frequency =
+  /** ISO weekdays, 1 = Monday. Daily is all seven; weekly is one. */
+  | { kind: "weekdays"; days: number[] }
+  /** Every `n` days counted from `from` (a `YYYY-MM-DD` date). */
+  | { kind: "everyN"; n: number; from: string };
+
+/**
+ * One standing instruction to water: when, how often, where, and with what.
+ * Self-contained and immutable — changing one is deleting it and creating
+ * another. Authored on the server, fired by the controller.
+ */
+export type ScheduleEntry = {
+  id: string;
+  /** Local wall-clock `HH:MM` on the controller's own timezone. */
+  time: string;
+  frequency: Frequency;
+  /** The channel to water. Zones are resolved for display only (web ADR-0016). */
+  channel: OutputChannel;
+  recipe: CycleRecipe;
+};
+
 export type Snapshot = {
   deviceOnline: boolean;
   brokerConnected: boolean;
@@ -33,6 +74,8 @@ export type Snapshot = {
   /** Current output channel -> zone id. A channel with no zone is absent. */
   assignments: Record<number, string>;
   resetPending: boolean;
+  /** Every schedule entry, in the order they were created. */
+  schedules: ScheduleEntry[];
   log: LogEntry[];
 };
 
@@ -58,8 +101,15 @@ export type ResetResult =
 // source) and ingested by the server. `deviceId`+`seq` is the device-scoped
 // identity/dedup key. `startedAt`/`endedAt` are ISO strings, or null when the
 // controller had no valid clock (no RTC and no network) at capture time.
-export type WateringOutcome = "completed" | "aborted" | "dry_run" | "recovery";
-export type WateringTrigger = "manual" | "sequence";
+/**
+ * `skipped` is the one outcome with no pump-on span behind it: a schedule entry
+ * whose turn came while the controller was already watering. It is in the log
+ * because a zone that silently went unwatered is a question the history has to
+ * answer (controller ADR-0018).
+ */
+export type WateringOutcome = "completed" | "aborted" | "dry_run" | "recovery" | "skipped";
+/** `manual` is the physical button, `sequence` an operator on the dashboard, `scheduled` a schedule entry. */
+export type WateringTrigger = "manual" | "sequence" | "scheduled";
 export type WateringEvent = {
   id: number;
   deviceId: string;
@@ -91,10 +141,11 @@ export type CycleMode = "Time" | "Volume";
 
 export type CommandBodies = {
   /**
-   * The channel is an input to the run, not the device's current selection: a
-   * start always names where the water goes, so it is required.
+   * Channel and recipe are both inputs to the run, not device state: a start
+   * always names where the water goes and how much, so both are required
+   * (controller ADR-0017, ADR-0018).
    */
-  "start-irrigation": { channel: OutputChannel };
+  "start-irrigation": { channel: OutputChannel; recipe: CycleRecipe };
   "stop-irrigation": Record<string, never>;
   "toggle-pump": Record<string, never>;
   "select-valve": { valve: ValveSelection };
@@ -115,5 +166,8 @@ export type CommandBodies = {
    * so it is validated and written as a unit under one `valid_from`.
    */
   "set-assignments": { assignments: Record<number, string | null> };
+  /** Entries are immutable, so there is no update command (web ADR-0017). */
+  "create-schedule": { time: string; frequency: Frequency; channel: OutputChannel; recipe: CycleRecipe };
+  "delete-schedule": { id: string };
 };
 export type CommandName = keyof CommandBodies;
