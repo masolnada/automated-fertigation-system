@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Button, Modal, variants } from "@hort/ui";
-import { outputChannels, type CycleMode, type CycleRecipe, type OutputChannel, type Zone } from "@hort/contracts";
+import { outputChannels, type CycleMode, type CycleRecipe, type OutputChannel, type ScheduleEntry, type Zone } from "@hort/contracts";
+import { slotTakenBy } from "../../../guards";
 import { WEEKDAYS, channelName, draftBlocked, draftFrom, frequencyText, nextDates, recipeUnit, todayISO, type Draft } from "../schedule";
 
 const heading = "m-0 mb-3 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]";
@@ -73,7 +74,7 @@ function StepZone({ draft, zones, assignments, onChange }: { draft: Draft; zones
   </section>;
 }
 
-function StepSchedule({ draft, onChange }: { draft: Draft; onChange(next: Partial<Draft>): void }) {
+function StepSchedule({ draft, onChange, taken }: { draft: Draft; onChange(next: Partial<Draft>): void; taken: string }) {
   const { frequency } = draft;
   const toggleDay = (day: number) => {
     if (frequency.kind !== "weekdays") return;
@@ -104,6 +105,9 @@ function StepSchedule({ draft, onChange }: { draft: Draft; onChange(next: Partia
               <label className={fieldRow}><span>Starting</span><input className={field} type="date" value={frequency.from} onChange={(event) => onChange({ frequency: { ...frequency, from: event.target.value } })}/><span aria-hidden="true"></span></label>
             </div>}
         <p className="m-0 mt-3 border-t-[2px] border-dashed border-gray pt-3 text-[0.78rem] font-bold leading-snug">Next: {nextDates(frequency, draft.time).join(" · ") || "never"}</p>
+        {/* One pump: a second entry due at the same moment would be dropped as a
+            skipped run, so the clash is shown here rather than discovered later. */}
+        {taken ? <p className="m-0 mt-3 border-[2px] border-warning p-2 text-[0.72rem] font-bold leading-snug text-warning">{draft.time} is already taken by {taken}. Pick another time or another day.</p> : null}
       </section>
     </> : null}
   </div>;
@@ -139,6 +143,7 @@ type Props = {
   assignments: Record<number, string>;
   defaults: CycleRecipe;
   openChannel: OutputChannel | 0;
+  schedules: ScheduleEntry[];
   onStart(channel: OutputChannel, recipe: CycleRecipe): void;
   onSchedule(entry: { time: string; frequency: Draft["frequency"]; channel: OutputChannel; recipe: CycleRecipe }): void;
   onClose(): void;
@@ -154,7 +159,7 @@ type Props = {
  * the whole wizard is remounted per opening, so a new irrigation always starts
  * from the defaults rather than from whatever was abandoned last time.
  */
-export function NewIrrigation({ open, zones, assignments, defaults, openChannel, onStart, onSchedule, onClose }: Props) {
+export function NewIrrigation({ open, zones, assignments, defaults, openChannel, schedules, onStart, onSchedule, onClose }: Props) {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState(() => draftFrom(defaults, openChannel));
   const change = (next: Partial<Draft>) => setDraft((current) => ({ ...current, ...next }));
@@ -166,7 +171,10 @@ export function NewIrrigation({ open, zones, assignments, defaults, openChannel,
     draft.channel ? channelName(zones, assignments, draft.channel) : "",
     draft.when === "now" ? "Immediately" : `${draft.time} · ${frequencyText(draft.frequency)}`,
   ];
-  const blocked = step === 1 && !draft.channel ? "Choose a zone" : step === 2 ? draftBlocked(draft) : "";
+  const taken = draft.when === "future" ? slotTakenBy(schedules, draft, (channel) => channelName(zones, assignments, channel)) : "";
+  const blocked = step === 1 && !draft.channel ? "Choose a zone"
+    : step === 2 ? draftBlocked(draft) || (taken ? `${draft.time} is already taken by ${taken}` : "")
+    : "";
 
   const commit = () => {
     if (!draft.channel) return;
@@ -177,7 +185,7 @@ export function NewIrrigation({ open, zones, assignments, defaults, openChannel,
 
   const body: ReactNode = step === 0 ? <StepRecipe recipe={draft.recipe} onChange={changeRecipe}/>
     : step === 1 ? <StepZone draft={draft} zones={zones} assignments={assignments} onChange={change}/>
-    : <StepSchedule draft={draft} onChange={change}/>;
+    : <StepSchedule draft={draft} onChange={change} taken={taken}/>;
 
   return <Modal open={open} wide labelledBy="new-irrigation-title" onDismiss={onClose}>
     <div className="flex h-[70vh] max-h-[46rem] min-h-[30rem] flex-col">

@@ -75,6 +75,7 @@ export function Irrigation({ snapshot, onStart, onStop, onSchedule, onDeleteSche
       assignments={snapshot.assignments}
       defaults={defaultRecipe(snapshot)}
       openChannel={(snapshot.selectedOutput || 0) as OutputChannel | 0}
+      schedules={snapshot.schedules}
       onStart={onStart}
       onSchedule={onSchedule}
       onClose={() => setCreating(false)}

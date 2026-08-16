@@ -1,7 +1,7 @@
 import { outputChannels, sourceIds, type CommandBodies, type CycleRecipe, type Frequency, type OutputChannel, type ResetResult } from "@hort/contracts";
 import type { Controller } from "../domain/controller";
 import type { DevicePort, ScheduleRepository, WateringEventRepository, ZoneRepository } from "../domain/ports";
-import { assignIneligibleReason, canReset, inRange, ranges, resetIneligibleReason, type RangeId } from "../domain/policies";
+import { assignIneligibleReason, canReset, inRange, ranges, resetIneligibleReason, scheduleCollisionReason, type RangeId } from "../domain/policies";
 import { topics } from "../domain/topics";
 
 /** Thrown by handlers to signal an HTTP status: 400 invalid body/range, 409 guard failure. */
@@ -220,7 +220,13 @@ export const handlers = {
   "create-schedule": (ctx: Context, body: CommandBodies["create-schedule"]) => {
     const repo = scheduleRepo(ctx);
     if (repo.all().length >= SCHEDULE_MAX) throw new CommandError(409, `at most ${SCHEDULE_MAX} schedules`);
-    const entry = repo.create({ time: timeOfDay(body), frequency: frequency(body), channel: outputChannel(body), recipe: cycleRecipe(body) });
+    const time = timeOfDay(body);
+    const freq = frequency(body);
+    // One pump, one sequence at a time: the second entry in a slot would be
+    // dropped as a Skipped run, so it is refused here instead (ADR-0018).
+    const collision = scheduleCollisionReason(repo.all(), { time, frequency: freq });
+    if (collision) throw new CommandError(409, collision);
+    const entry = repo.create({ time, frequency: freq, channel: outputChannel(body), recipe: cycleRecipe(body) });
     publishSchedules(ctx);
     return entry;
   },

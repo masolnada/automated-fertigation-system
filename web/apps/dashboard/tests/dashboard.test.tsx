@@ -349,6 +349,39 @@ describe("scheduling an irrigation", () => {
     expect(body.frequency.n).toBe(3);
     expect(body.frequency.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
+  // One pump: a second entry due at the same moment would be dropped as a
+  // skipped run, so the clash is refused up front (controller ADR-0018). The
+  // server enforces it; this only dims the affordance.
+  test("a taken time slot is named and blocks the schedule", () => {
+    renderApp(withSchedules([entry({ time: "06:00", frequency: { kind: "weekdays", days: [2] } })]));
+    fireEvent.click(irrigation().getByRole("button", { name: "New irrigation" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Almond row" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    expect(wizard().getByText(/06:00 is already taken by Olive terrace/)).toBeTruthy();
+    expect(wizard().getByRole("button", { name: "Schedule irrigation" }).hasAttribute("disabled")).toBe(true);
+  });
+  test("moving off the taken day clears the clash", () => {
+    renderApp(withSchedules([entry({ time: "06:00", frequency: { kind: "weekdays", days: [2] } })]));
+    fireEvent.click(irrigation().getByRole("button", { name: "New irrigation" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Almond row" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Tue" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Thu" }));
+    expect(wizard().queryByText(/already taken/)).toBeNull();
+    expect(wizard().getByRole("button", { name: "Schedule irrigation" }).hasAttribute("disabled")).toBe(false);
+  });
+  // A run now is not scheduled, so it cannot collide with a standing entry.
+  test("starting now is never blocked by a taken slot", () => {
+    renderApp(withSchedules([entry({ time: "06:00", frequency: { kind: "weekdays", days: [2] } })]));
+    fireEvent.click(irrigation().getByRole("button", { name: "New irrigation" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Almond row" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Next" }));
+    fireEvent.click(wizard().getByRole("button", { name: "Now" }));
+    expect(wizard().getByRole("button", { name: "Start irrigation" }).hasAttribute("disabled")).toBe(false);
+  });
   test("a schedule with no day selected cannot be created", () => {
     renderApp(withSchedules());
     fireEvent.click(irrigation().getByRole("button", { name: "New irrigation" }));

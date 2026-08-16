@@ -1,4 +1,5 @@
 import type { ScheduleEntry, WateringEvent, Zone } from "@hort/contracts";
+import { frequenciesShareADay } from "./src/guards";
 
 // Dev-only mock backend. Serves /api/* with in-memory data so the dashboard
 // can run on localhost without the real
@@ -214,6 +215,11 @@ function applyCommand(name: string, body: Record<string, unknown>): { status: nu
     case "set-min-flow": e.min_flow = num(Number(body.value)); break;
     case "create-schedule": {
       const entry = { id: `s-${Math.random().toString(36).slice(2, 8)}`, ...body } as ScheduleEntry;
+      // One pump, one sequence: the slot guard the real server enforces
+      // (controller ADR-0018), mirrored so the dev dashboard behaves the same.
+      if (snapshot.schedules.some((other) => other.time === entry.time && frequenciesShareADay(other.frequency, entry.frequency))) {
+        return { status: 409, json: { error: `${entry.time} is already taken` } };
+      }
       snapshot.schedules = [...snapshot.schedules, entry];
       break;
     }

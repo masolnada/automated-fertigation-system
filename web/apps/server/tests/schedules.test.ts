@@ -110,9 +110,86 @@ describe("a schedule entry must be able to actually water", () => {
 
   /** The device holds a fixed-size table; a 17th entry would silently never fire. */
   test("more entries than the device can hold are refused", () => {
-    for (let n = 0; n < SCHEDULE_MAX; n++) dispatch("create-schedule", entry());
-    expect(() => dispatch("create-schedule", entry())).toThrow(CommandError);
+    for (let n = 0; n < SCHEDULE_MAX; n++) dispatch("create-schedule", entry({ time: `06:${String(n).padStart(2, "0")}` }));
+    expect(() => dispatch("create-schedule", entry({ time: "07:00" }))).toThrow(CommandError);
     expect(ctx.controller.getSnapshot().schedules).toHaveLength(SCHEDULE_MAX);
+  });
+});
+
+/**
+ * One pump and one `mode: single` sequence, so a time slot belongs to the
+ * machine rather than to a zone. The Skipped run is the safety net; refusing to
+ * create the entry is the fix (controller ADR-0018).
+ */
+describe("a time slot can only be taken once", () => {
+  const rejects = (body: unknown) => expect(() => dispatch("create-schedule", body)).toThrow(CommandError);
+
+  test("the same time on another channel is refused, not just the same channel", () => {
+    dispatch("create-schedule", entry({ channel: 1 }));
+    rejects(entry({ channel: 2 }));
+    expect(ctx.controller.getSnapshot().schedules).toHaveLength(1);
+  });
+
+  test("the refusal names the time and the channel already holding it", () => {
+    dispatch("create-schedule", entry({ channel: 3, time: "06:00" }));
+    expect(() => dispatch("create-schedule", entry({ channel: 1, time: "06:00" }))).toThrow(/06:00 is already taken by the schedule on output 3/);
+  });
+
+  /** Same clock time, no shared day: these two can never both come due. */
+  test("the same time on days that never coincide is allowed", () => {
+    dispatch("create-schedule", entry({ frequency: { kind: "weekdays", days: [2, 5] } }));
+    dispatch("create-schedule", entry({ channel: 2, frequency: { kind: "weekdays", days: [1, 4] } }));
+    expect(ctx.controller.getSnapshot().schedules).toHaveLength(2);
+  });
+
+  test("overlapping weekday sets at the same time are refused", () => {
+    dispatch("create-schedule", entry({ frequency: { kind: "weekdays", days: [2, 5] } }));
+    rejects(entry({ channel: 2, frequency: { kind: "weekdays", days: [5, 6] } }));
+  });
+
+  test("a different time on the same days is allowed", () => {
+    dispatch("create-schedule", entry({ time: "06:00" }));
+    dispatch("create-schedule", entry({ channel: 2, time: "06:01" }));
+    expect(ctx.controller.getSnapshot().schedules).toHaveLength(2);
+  });
+
+  /**
+   * Two every-2-day entries on opposite phases interleave forever, so they are
+   * genuinely compatible even at the same time of day.
+   */
+  test("every-N cadences that interleave are allowed", () => {
+    dispatch("create-schedule", entry({ frequency: { kind: "everyN", n: 2, from: "2026-03-16" } }));
+    dispatch("create-schedule", entry({ channel: 2, frequency: { kind: "everyN", n: 2, from: "2026-03-17" } }));
+    expect(ctx.controller.getSnapshot().schedules).toHaveLength(2);
+  });
+
+  test("every-N cadences that eventually land together are refused", () => {
+    dispatch("create-schedule", entry({ frequency: { kind: "everyN", n: 3, from: "2026-03-16" } }));
+    rejects(entry({ channel: 2, frequency: { kind: "everyN", n: 2, from: "2026-03-17" } }));
+  });
+
+  /** Every 7 days from a Monday *is* "every Monday", however it is spelled. */
+  test("a weekly cadence collides with the weekday it lands on", () => {
+    dispatch("create-schedule", entry({ frequency: { kind: "everyN", n: 7, from: "2026-03-16" } }));
+    rejects(entry({ channel: 2, frequency: { kind: "weekdays", days: [1] } }));
+    dispatch("create-schedule", entry({ channel: 2, frequency: { kind: "weekdays", days: [2] } }));
+    expect(ctx.controller.getSnapshot().schedules).toHaveLength(2);
+  });
+
+  test("nothing is published when a colliding entry is refused", () => {
+    dispatch("create-schedule", entry());
+    const before = published.length;
+    rejects(entry({ channel: 2 }));
+    expect(published).toHaveLength(before);
+  });
+
+  /** Deleting frees the slot: the guard reads the current set, not a history of it. */
+  test("deleting an entry frees its slot", () => {
+    const first = dispatch("create-schedule", entry({ channel: 1 })) as { id: string };
+    rejects(entry({ channel: 2 }));
+    dispatch("delete-schedule", { id: first.id });
+    dispatch("create-schedule", entry({ channel: 2 }));
+    expect(ctx.controller.getSnapshot().schedules).toHaveLength(1);
   });
 });
 
@@ -144,8 +221,8 @@ describe("archiving a zone takes its schedules", () => {
   test("entries on the archived zone's channel are deleted", () => {
     const zone = dispatch("create-zone", { name: "Olive terrace" }) as { id: string };
     dispatch("set-assignments", { assignments: { 1: zone.id, 2: null, 3: null, 4: null } });
-    dispatch("create-schedule", entry({ channel: 1 }));
-    dispatch("create-schedule", entry({ channel: 2 }));
+    dispatch("create-schedule", entry({ channel: 1, time: "06:00" }));
+    dispatch("create-schedule", entry({ channel: 2, time: "07:00" }));
 
     dispatch("archive-zone", { id: zone.id });
 
