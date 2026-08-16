@@ -258,11 +258,20 @@ describe("starting an irrigation now", () => {
     expect(wizard().queryByRole("button", { name: "Output 3" })).toBeNull();
     expect(wizard().queryByRole("button", { name: "Output 4" })).toBeNull();
   });
-  test("with nothing assigned the step says so instead of offering channels", () => {
+  /**
+   * An act that cannot proceed is disabled rather than opened and refused two
+   * steps in. A zone with no channel has nowhere to send water either, so the
+   * condition is an assigned channel, not merely a zone existing.
+   */
+  test("with no channel assigned there is nothing to open the wizard for", () => {
     renderApp(seeded({ zones: [zone("z-olive", "Olive terrace")], assignments: {} }));
-    openWizard(); next();
-    expect(wizard().getByText(/No zone is assigned to an output yet/)).toBeTruthy();
-    expect(wizard().getByRole("button", { name: "Next" }).hasAttribute("disabled")).toBe(true);
+    const button = irrigation().getByRole("button", { name: "New irrigation" });
+    expect(button.hasAttribute("disabled")).toBe(true);
+    expect(irrigation().getByText(/No zone is assigned to an output yet/)).toBeTruthy();
+  });
+  test("one assignment is enough to enable it", () => {
+    renderApp(withZones());
+    expect(irrigation().getByRole("button", { name: "New irrigation" }).hasAttribute("disabled")).toBe(false);
   });
   test("a start carries the channel and the recipe together", async () => {
     renderApp(withZones());

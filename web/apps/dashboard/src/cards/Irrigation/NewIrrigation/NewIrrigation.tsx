@@ -61,20 +61,20 @@ function StepRecipe({ recipe, onChange }: { recipe: CycleRecipe; onChange(next: 
 /**
  * Zones only — a channel with no zone is not offered. Scheduling water to a bare
  * "Output 3" would name a place the system cannot name, and the resulting event
- * would resolve to no zone. With none assigned the step says so and points at
- * the one surface that fixes it (web ADR-0016).
+ * would resolve to no zone (web ADR-0016).
+ *
+ * There is no empty state: with nothing assigned the wizard cannot be opened at
+ * all, because an act that cannot proceed is disabled rather than opened and
+ * refused two steps in.
  */
 function StepZone({ draft, zones, assignments, onChange }: { draft: Draft; zones: Zone[]; assignments: Record<number, string>; onChange(next: Partial<Draft>): void }) {
-  const channels = waterableChannels(assignments);
   return <section className={section}>
     <h3 className={heading}>Zone</h3>
-    {channels.length === 0
-      ? <p className="m-0 text-[0.85rem] font-bold leading-snug">No zone is assigned to an output yet. Assign one on the System card before scheduling an irrigation.</p>
-      : <div className="grid grid-cols-2 gap-[6px] min-[720px]:grid-cols-4">
-          {channels.map((channel) => <button key={channel} type="button" aria-pressed={channel === draft.channel} onClick={() => onChange({ channel: channel as OutputChannel })} className={`flex min-h-[52px] flex-col justify-center px-2 py-1 text-left ${toggle(channel === draft.channel)}`}>
-            <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[0.8rem]">{channelName(zones, assignments, channel)}</span>
-          </button>)}
-        </div>}
+    <div className="grid grid-cols-2 gap-[6px] min-[720px]:grid-cols-4">
+      {waterableChannels(assignments).map((channel) => <button key={channel} type="button" aria-pressed={channel === draft.channel} onClick={() => onChange({ channel: channel as OutputChannel })} className={`flex min-h-[52px] flex-col justify-center px-2 py-1 text-left ${toggle(channel === draft.channel)}`}>
+        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[0.8rem]">{channelName(zones, assignments, channel)}</span>
+      </button>)}
+    </div>
   </section>;
 }
 
