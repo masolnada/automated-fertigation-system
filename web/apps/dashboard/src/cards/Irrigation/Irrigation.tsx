@@ -4,7 +4,7 @@ import type { CycleRecipe, OutputChannel, ScheduleEntry, Zone } from "@hort/cont
 import type { Snapshot } from "../../store";
 import { NewIrrigation } from "./NewIrrigation/NewIrrigation";
 import { ConfirmDeleteSchedule } from "./ConfirmDeleteSchedule/ConfirmDeleteSchedule";
-import { channelName, frequencyText, recipeText, waterableChannels } from "./schedule";
+import { channelName, frequencyText, recipeText } from "./schedule";
 
 const icon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 16.3c2.2 0 4-1.8 4-4 0-1.5-.7-2.6-2-3.8-.9-.8-1.7-2-2-3.5-.3 1.5-1.1 2.7-2 3.5-1.3 1.2-2 2.3-2 3.8 0 2.2 1.8 4 4 4z"/><path d="M16.8 20c2.3 0 4.2-1.9 4.2-4.2 0-1.6-.8-2.8-2.1-4-.9-.9-1.8-2.1-2.1-3.8-.3 1.7-1.2 2.9-2.1 3.8-1.3 1.2-2.1 2.4-2.1 4 0 2.3 1.9 4.2 4.2 4.2z"/></svg>;
 
@@ -26,10 +26,8 @@ function defaultRecipe(snapshot: Snapshot): CycleRecipe {
   };
 }
 
-function ScheduleList({ entries, zones, assignments, nowhereToWater, onDelete }: { entries: ScheduleEntry[]; zones: Zone[]; assignments: Record<number, string>; nowhereToWater: boolean; onDelete(entry: ScheduleEntry): void }) {
-  // The empty state has to say *why* the button beside it is dead, or a disabled
-  // control with no explanation reads as broken.
-  if (entries.length === 0) return <p className="m-0 py-2 font-bold italic">{nowhereToWater ? "No zone is assigned to an output yet. Assign one on the System card to schedule an irrigation." : "No scheduled irrigations yet."}</p>;
+function ScheduleList({ entries, zones, assignments, noZones, onDelete }: { entries: ScheduleEntry[]; zones: Zone[]; assignments: Record<number, string>; noZones: boolean; onDelete(entry: ScheduleEntry): void }) {
+  if (entries.length === 0) return <p className="m-0 py-2 font-bold italic">{noZones ? "No zones yet. Create one before starting an irrigation." : "No scheduled irrigations yet."}</p>;
   return <ul className="m-0 list-none p-0">
     {entries.map((entry) => <li key={entry.id} className="flex items-center gap-4 border-b-[2px] border-dashed border-gray py-3 last:border-b-0">
       <div className="min-w-0 flex-1">
@@ -65,18 +63,18 @@ export function Irrigation({ snapshot, onStart, onStop, onSchedule, onDeleteSche
   // Seeded only when the open channel has a zone: the picker offers assigned
   // channels only, so an unassigned one would preselect nothing visible.
   const openChannel = (snapshot.assignments[snapshot.selectedOutput] ? snapshot.selectedOutput : 0) as OutputChannel | 0;
-  // Nothing to water: an act that cannot proceed is disabled rather than opened
-  // and dead-ended three steps in. The condition is an *assigned* channel, not a
-  // zone — a zone with no channel has nowhere to send water either.
-  const nowhereToWater = waterableChannels(snapshot.assignments).length === 0;
+  // The button is about the operator-facing place, not its wiring: it is disabled
+  // only when there are no live Zones. Assignment is a separate choice and, if
+  // still missing, is explained on the Zone step rather than conflated here.
+  const noZones = !snapshot.zones.some((zone) => !zone.archived);
 
   return <Card className="card-irrigation">
     <CardTitle icon={icon}>Irrigation <Badge state={running ? "on" : "off"}>{running ? "running" : "idle"}</Badge>
       <span>{running
         ? <Button variant="danger" className="h-[38px] px-4 text-[0.68rem]" onClick={onStop}>Stop irrigation</Button>
-        : <Button variant="relay" disabled={nowhereToWater} onClick={() => { setRun((n) => n + 1); setCreating(true); }}>New irrigation</Button>}</span>
+        : <Button variant="relay" disabled={noZones} onClick={() => { setRun((n) => n + 1); setCreating(true); }}>New irrigation</Button>}</span>
     </CardTitle>
-    <ScheduleList entries={snapshot.schedules} zones={snapshot.zones} assignments={snapshot.assignments} nowhereToWater={nowhereToWater} onDelete={setDeleting}/>
+    <ScheduleList entries={snapshot.schedules} zones={snapshot.zones} assignments={snapshot.assignments} noZones={noZones} onDelete={setDeleting}/>
     <NewIrrigation
       key={run}
       open={creating}

@@ -259,19 +259,21 @@ describe("starting an irrigation now", () => {
     expect(wizard().queryByRole("button", { name: "Output 4" })).toBeNull();
   });
   /**
-   * An act that cannot proceed is disabled rather than opened and refused two
-   * steps in. A zone with no channel has nowhere to send water either, so the
-   * condition is an assigned channel, not merely a zone existing.
+   * The card is enabled by an operator-facing place existing, not by its wiring.
+   * Assignment remains a later prerequisite and is explained on the Zone step.
    */
-  test("with no channel assigned there is nothing to open the wizard for", () => {
+  test("one live zone enables the wizard even before it is assigned", () => {
     renderApp(seeded({ zones: [zone("z-olive", "Olive terrace")], assignments: {} }));
     const button = irrigation().getByRole("button", { name: "New irrigation" });
-    expect(button.hasAttribute("disabled")).toBe(true);
-    expect(irrigation().getByText(/No zone is assigned to an output yet/)).toBeTruthy();
+    expect(button.hasAttribute("disabled")).toBe(false);
+    fireEvent.click(button); next();
+    expect(wizard().getByText(/No zone is assigned to an output yet/)).toBeTruthy();
+    expect(wizard().getByRole("button", { name: "Next" }).hasAttribute("disabled")).toBe(true);
   });
-  test("one assignment is enough to enable it", () => {
-    renderApp(withZones());
-    expect(irrigation().getByRole("button", { name: "New irrigation" }).hasAttribute("disabled")).toBe(false);
+  test("with no live zones there is nothing to open the wizard for", () => {
+    renderApp(seeded({ zones: [zone("z-old", "Old row", true)], assignments: {} }));
+    expect(irrigation().getByRole("button", { name: "New irrigation" }).hasAttribute("disabled")).toBe(true);
+    expect(irrigation().getByText(/No zones yet/)).toBeTruthy();
   });
   test("a start carries the channel and the recipe together", async () => {
     renderApp(withZones());

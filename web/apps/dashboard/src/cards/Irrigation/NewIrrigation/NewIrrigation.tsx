@@ -63,18 +63,20 @@ function StepRecipe({ recipe, onChange }: { recipe: CycleRecipe; onChange(next: 
  * "Output 3" would name a place the system cannot name, and the resulting event
  * would resolve to no zone (web ADR-0016).
  *
- * There is no empty state: with nothing assigned the wizard cannot be opened at
- * all, because an act that cannot proceed is disabled rather than opened and
- * refused two steps in.
+ * The card is enabled when a live zone exists, independently of wiring. If none
+ * of those zones is assigned yet, this step explains the missing prerequisite.
  */
 function StepZone({ draft, zones, assignments, onChange }: { draft: Draft; zones: Zone[]; assignments: Record<number, string>; onChange(next: Partial<Draft>): void }) {
+  const channels = waterableChannels(assignments);
   return <section className={section}>
     <h3 className={heading}>Zone</h3>
-    <div className="grid grid-cols-2 gap-[6px] min-[720px]:grid-cols-4">
-      {waterableChannels(assignments).map((channel) => <button key={channel} type="button" aria-pressed={channel === draft.channel} onClick={() => onChange({ channel: channel as OutputChannel })} className={`flex min-h-[52px] flex-col justify-center px-2 py-1 text-left ${toggle(channel === draft.channel)}`}>
-        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[0.8rem]">{channelName(zones, assignments, channel)}</span>
-      </button>)}
-    </div>
+    {channels.length === 0
+      ? <p className="m-0 text-[0.85rem] font-bold leading-snug">No zone is assigned to an output yet. Assign one on the System card before starting an irrigation.</p>
+      : <div className="grid grid-cols-2 gap-[6px] min-[720px]:grid-cols-4">
+          {channels.map((channel) => <button key={channel} type="button" aria-pressed={channel === draft.channel} onClick={() => onChange({ channel: channel as OutputChannel })} className={`flex min-h-[52px] flex-col justify-center px-2 py-1 text-left ${toggle(channel === draft.channel)}`}>
+            <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[0.8rem]">{channelName(zones, assignments, channel)}</span>
+          </button>)}
+        </div>}
   </section>;
 }
 
