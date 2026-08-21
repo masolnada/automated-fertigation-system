@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardTitle, Select } from "@hort/ui";
+import { Card, CardTitle, Select, ZoneMarker } from "@hort/ui";
 import type { WateringEvent, WateringHistory, Zone } from "@hort/contracts";
+import { useZoneColours } from "../zoneColours";
 import "./watering.css";
 
 const TIME_ZONE = "Europe/Madrid";
@@ -200,9 +201,11 @@ function MonthFocus({ selectedKey, todayKey, days, disabled, onSelect }: { selec
   </section>;
 }
 
-function DailyInspector({ selectedKey, summary, loading, unavailable }: { selectedKey: string; summary: DaySummary | undefined; loading: boolean; unavailable: boolean }) {
+function DailyInspector({ selectedKey, summary, zones, loading, unavailable }: { selectedKey: string; summary: DaySummary | undefined; zones: Zone[]; loading: boolean; unavailable: boolean }) {
   const events = summary?.events ?? [];
-  const zones = byZone(events);
+  const breakdown = byZone(events);
+  const colours = useZoneColours();
+  const colourOf = (zoneId: string) => { const zone = zones.find((z) => z.id === zoneId); return zone && !zone.archived ? colours[zoneId] : undefined; };
   return <section className="watering-inspector" aria-labelledby="watering-inspector-title">
     <div className="watering-inspector-heading">
       <div><span className="watering-kicker">Daily Inspector</span><h3 id="watering-inspector-title">{fullDate(selectedKey)}</h3></div>
@@ -213,8 +216,8 @@ function DailyInspector({ selectedKey, summary, loading, unavailable }: { select
       <div><dt>Waterings</dt><dd>{loading || unavailable ? "–" : summary?.waterings ?? 0}</dd></div>
       <div className={!loading && !unavailable && summary?.issues ? "watering-metric-danger" : ""}><dt>Errors</dt><dd>{loading || unavailable ? "–" : summary?.issues ?? 0}</dd></div>
     </dl>
-    {zones.length && !loading && !unavailable ? <dl className="watering-zone-split">
-      {zones.map((zone) => <div key={zone.key}><dt>{zone.label}</dt><dd>{zone.litres.toFixed(1)} <small>L</small></dd></div>)}
+    {breakdown.length && !loading && !unavailable ? <dl className="watering-zone-split">
+      {breakdown.map((zone) => { const colour = colourOf(zone.key); return <div key={zone.key}>{colour ? <ZoneMarker colour={colour}/> : null}<dt>{zone.label}</dt><dd>{zone.litres.toFixed(1)} <small>L</small></dd></div>; })}
     </dl> : null}
     {loading ? <p className="watering-history-message">Loading daily history…</p>
       : unavailable ? <p className="watering-history-message watering-history-message-error">Watering history unavailable</p>
@@ -224,7 +227,7 @@ function DailyInspector({ selectedKey, summary, loading, unavailable }: { select
           <span>{eventDuration(event)}</span>
           <strong>{event.litresDelivered.toFixed(1)} L</strong>
           <span>{OUTCOME_LABEL[event.outcome]}</span>
-          <span>{TRIGGER_LABEL[event.trigger]} · {zoneLabel(event)}</span>
+          <span className="watering-event-zone">{event.zoneId && colourOf(event.zoneId) ? <ZoneMarker colour={colourOf(event.zoneId)!}/> : null}{TRIGGER_LABEL[event.trigger]} · {zoneLabel(event)}</span>
         </li>)}
       </ul>
       : <p className="watering-history-message">No watering events recorded for this day.</p>}
@@ -286,7 +289,7 @@ export function Watering({ pumpOn, zones = [] }: { pumpOn: boolean; zones?: Zone
     {query.isError && history ? <p className="watering-refresh-warning" role="status">Refresh failed; showing previous history.</p> : null}
     <div className="watering-history-detail">
       <MonthFocus selectedKey={selectedKey} todayKey={todayKey} days={days} disabled={initialLoading || unavailable} onSelect={setSelectedKey}/>
-      <DailyInspector selectedKey={selectedKey} summary={selectedSummary} loading={initialLoading} unavailable={unavailable}/>
+      <DailyInspector selectedKey={selectedKey} summary={selectedSummary} zones={zones} loading={initialLoading} unavailable={unavailable}/>
     </div>
   </Card>;
 }

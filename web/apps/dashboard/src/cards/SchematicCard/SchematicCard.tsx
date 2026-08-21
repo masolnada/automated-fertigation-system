@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Button, Card, CardTitle, Schematic, useSchematicSelection } from "@hort/ui";
+import { Button, Card, CardTitle, Schematic, useSchematicSelection, type ZoneColour } from "@hort/ui";
 import { outputChannels, sourceIds, type CycleMode, type SourceId, type Zone } from "@hort/contracts";
 import type { Snapshot } from "../../store";
+import { useColourOf } from "../../zoneColours";
 import { channelLabel, displayNumber } from "../../display";
 import { assignIneligibleReason } from "../../guards";
 import { ConfirmPumpStart } from "./ConfirmPumpStart/ConfirmPumpStart";
@@ -46,9 +47,15 @@ export function SchematicCard({ snapshot, onSelectValve, onSelectOutput, onToggl
   const blockedReason = activeSource === "" && snapshot.selectedOutput === 0 ? "Open one source and one zone." : activeSource === "" ? "Open a source." : "Open a zone.";
   const assignBlocked = assignIneligibleReason(snapshot);
 
+  const colourOf = useColourOf();
   const zoneById = (id: string | undefined): Zone | undefined => snapshot.zones.find((zone) => zone.id === id);
   const outputLabels: Record<number, string> = {};
-  for (const channel of outputChannels) outputLabels[channel] = zoneById(snapshot.assignments[channel])?.name ?? channelLabel(channel);
+  const outputZoneColours: Record<number, ZoneColour | undefined> = {};
+  for (const channel of outputChannels) {
+    const zone = zoneById(snapshot.assignments[channel]);
+    outputLabels[channel] = zone?.name ?? channelLabel(channel);
+    outputZoneColours[channel] = zone ? colourOf(zone) : undefined;
+  }
 
   return <Card className="card-schematic">
     <CardTitle icon={icon}>System<span><Button variant="relay" disabled={Boolean(assignBlocked)} title={assignBlocked || undefined} onClick={() => setEditing(true)}>Edit</Button></span></CardTitle>
@@ -58,6 +65,7 @@ export function SchematicCard({ snapshot, onSelectValve, onSelectOutput, onToggl
       pumpOn={pumpOn}
       flowRate={snapshot.entities.flow_rate?.known ? displayNumber(snapshot.entities.flow_rate.value, "flow_rate") : "–"}
       outputLabels={outputLabels}
+      outputZoneColours={outputZoneColours}
       sourceLabels={SOURCE_LABELS}
       selected={selected}
       onSelect={(node) => { setSelected(node); if (node === "flow") setFlowOpen(true); }}

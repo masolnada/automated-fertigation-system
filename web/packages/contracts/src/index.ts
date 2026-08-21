@@ -18,7 +18,11 @@ export const sourceIds: SourceId[] = ["clean_water_valve", "fertigation_valve", 
 export const outputChannels = [1, 2, 3, 4] as const;
 export type OutputChannel = (typeof outputChannels)[number];
 
-/** A place that gets watered. Identified by `id`; `name` is a current label (web ADR-0015). */
+/**
+ * A place that gets watered. Identified by `id`; `name` is a current label (web
+ * ADR-0015). Color is not here: it is a browser-local presentational aid with no
+ * server involvement (web ADR-0019).
+ */
 export type Zone = { id: string; name: string; archived: boolean };
 
 /**

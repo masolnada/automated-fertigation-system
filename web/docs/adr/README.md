@@ -22,3 +22,5 @@ in 1–3 sentences. See [../../CONTEXT.md](../../CONTEXT.md) for the glossary.
 | [0015](0015-zone-names-are-current-only.md) | Zone names are current-only; renaming relabels history (supersedes 0010) |
 | [0016](0016-the-dashboard-speaks-zones-not-channels.md) | The dashboard speaks zones; the output channel is a firmware concept |
 | [0017](0017-schedules-are-server-authored-and-device-fired.md) | Schedule entries are authored and stored here, and fired by the controller |
+| [0018](0018-zone-colours-are-permanent-reserved-identities.md) | Zone colours are permanent palette identities reserved through archiving (superseded by 0019) |
+| [0019](0019-zone-colours-are-a-client-side-aid.md) | Zone colours are a disposable client-side aid, kept in `localStorage` (supersedes 0018) |

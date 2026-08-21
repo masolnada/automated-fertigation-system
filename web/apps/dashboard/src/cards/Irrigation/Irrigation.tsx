@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Badge, Button, Card, CardTitle } from "@hort/ui";
+import { Badge, Button, Card, CardTitle, ZoneMarker, zoneTintStyle } from "@hort/ui";
 import type { CycleRecipe, OutputChannel, ScheduleEntry, Zone } from "@hort/contracts";
 import type { Snapshot } from "../../store";
+import { useColourOf } from "../../zoneColours";
 import { NewIrrigation } from "./NewIrrigation/NewIrrigation";
 import { ConfirmDeleteSchedule } from "./ConfirmDeleteSchedule/ConfirmDeleteSchedule";
 import { channelName, frequencyText, recipeText } from "./schedule";
@@ -27,16 +28,24 @@ function defaultRecipe(snapshot: Snapshot): CycleRecipe {
 }
 
 function ScheduleList({ entries, zones, assignments, noZones, onDelete }: { entries: ScheduleEntry[]; zones: Zone[]; assignments: Record<number, string>; noZones: boolean; onDelete(entry: ScheduleEntry): void }) {
+  const colourOf = useColourOf();
   if (entries.length === 0) return <p className="m-0 py-2 font-bold italic">{noZones ? "No zones yet. Create one before starting an irrigation." : "No scheduled irrigations yet."}</p>;
   return <ul className="m-0 list-none p-0">
-    {entries.map((entry) => <li key={entry.id} className="flex items-center gap-4 border-b-[2px] border-dashed border-gray py-3 last:border-b-0">
-      <div className="min-w-0 flex-1">
-        <strong className="block text-[0.95rem] font-extrabold">{channelName(zones, assignments, entry.channel)}</strong>
-        <small className="block text-[0.75rem] font-bold">{entry.time} · {frequencyText(entry.frequency)}</small>
-        <small className="block text-[0.72rem] font-bold">{recipeText(entry.recipe)}</small>
-      </div>
-      <Button variant="danger" className="h-[38px] px-4 text-[0.68rem]" onClick={() => onDelete(entry)}>Delete</Button>
-    </li>)}
+    {entries.map((entry) => {
+      // A schedule belongs to a channel, so it follows the Zone currently on
+      // that channel and becomes uncoloured when the channel is bare.
+      const zone = zones.find((candidate) => candidate.id === assignments[entry.channel]);
+      const colour = zone ? colourOf(zone) : undefined;
+      return <li key={entry.id} style={colour ? { ...zoneTintStyle(colour), borderLeft: "6px solid var(--zone-stroke)", paddingLeft: "0.75rem" } : undefined} className={`flex items-center gap-4 border-b-[2px] border-dashed border-gray py-3 last:border-b-0 ${colour ? "zone-tint" : ""}`}>
+        {colour ? <ZoneMarker colour={colour}/> : null}
+        <div className="min-w-0 flex-1">
+          <strong className="block text-[0.95rem] font-extrabold">{channelName(zones, assignments, entry.channel)}</strong>
+          <small className="block text-[0.75rem] font-bold">{entry.time} · {frequencyText(entry.frequency)}</small>
+          <small className="block text-[0.72rem] font-bold">{recipeText(entry.recipe)}</small>
+        </div>
+        <Button variant="danger" className="h-[38px] px-4 text-[0.68rem]" onClick={() => onDelete(entry)}>Delete</Button>
+      </li>;
+    })}
   </ul>;
 }
 

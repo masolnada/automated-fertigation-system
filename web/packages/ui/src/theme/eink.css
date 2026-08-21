@@ -43,3 +43,10 @@ dialog::backdrop { background: rgb(0 0 0 / 0.45); }
    beside it. */
 html:has(dialog[open]) { overflow: hidden; }
 body { margin: 0; font-family: var(--font-ui); font-size: 1rem; line-height: 1.6; background: var(--color-paper); color: var(--color-ink); min-height: 100vh; }
+/* A Zone stores a stable palette key; the UI maps it to paired substrate values
+   (web ADR-0018). Zone colour carries identity only and therefore lives outside
+   the closed semantic token table. */
+.zone-tint { --zone-fill: var(--zone-fill-light); --zone-stroke: var(--zone-stroke-light); }
+[data-theme="dark"] .zone-tint { --zone-fill: var(--zone-fill-dark); --zone-stroke: var(--zone-stroke-dark); }
+/* The ink frame preserves the marker's shape in greyscale and against faint fills. */
+.zone-marker { display: inline-grid; place-items: center; width: 0.9rem; height: 0.9rem; flex: 0 0 auto; border: 2px solid var(--color-ink); background: var(--zone-fill); }

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { Snapshot as WireSnapshot } from "@hort/contracts";
+import { type Snapshot as WireSnapshot } from "@hort/contracts";
 import { App } from "../src/App";
 import { SnapshotStore } from "../src/store";
+import { resetZoneColours, setZoneColour } from "../src/zoneColours";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const entity = (value: number | string) => ({ value, known: true });
@@ -25,7 +26,7 @@ beforeEach(() => {
     return responders[name] ? responders[name]!() : json({ ok: true }, 202);
   }) as typeof fetch;
 });
-afterEach(async () => { await act(async () => { await sleep(0); }); cleanup(); });
+afterEach(async () => { await act(async () => { await sleep(0); }); cleanup(); resetZoneColours(); });
 
 function renderApp(store: SnapshotStore) { const client = new QueryClient({ defaultOptions: { mutations: { retry: false }, queries: { retry: false } } }); return render(<QueryClientProvider client={client}><App store={store}/></QueryClientProvider>); }
 function seeded(partial: Partial<WireSnapshot> = {}) { const store = new SnapshotStore(); act(() => store.replace(wire({ entities: eligibleEntities(), ...partial }))); return store; }
@@ -151,6 +152,57 @@ describe("commands", () => {
     expect(schematic().getByRole("button", { name: /Olive terrace/ })).toBeTruthy();
     expect(schematic().getByRole("button", { name: /Output 2/ })).toBeTruthy();
   });
+  test("creating a zone needs only a name", async () => {
+    renderApp(seeded());
+    fireEvent.click(zonesCard().getByRole("button", { name: "New zone" }));
+    expect(screen.getByRole("button", { name: "Create zone" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.change(within(screen.getByRole("dialog")).getByLabelText("Zone name"), { target: { value: "Herb strip" } });
+    expect(screen.getByRole("button", { name: "Create zone" }).hasAttribute("disabled")).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Create zone" }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "create-zone", body: { name: "Herb strip" } }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+  // Color is a browser-local aid (web ADR-0019): picked per zone, kept in
+  // localStorage, and absent (gray) until chosen.
+  test("a zone's color is a local pick shown on its marker and the schematic", () => {
+    const id = "z-local-pick";
+    renderApp(seeded({ zones: [zone(id, "Olive terrace")], assignments: { 1: id } }));
+    const colorButton = zonesCard().getByRole("button", { name: "Color for Olive terrace" });
+    const zoneRow = colorButton.closest("li")!;
+    expect(zoneRow.querySelector("[data-zone-colour]")).toBeNull();
+    fireEvent.click(colorButton);
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Petrol" }));
+    expect(zoneRow.querySelector('[data-zone-colour="petrol"]')).toBeTruthy();
+    expect(document.querySelector('.card-schematic [data-zone-colour="petrol"]')).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem("hort-zone-colours")!)).toEqual({ [id]: "petrol" });
+
+    fireEvent.click(colorButton);
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "No color" }));
+    expect(zoneRow.querySelector("[data-zone-colour]")).toBeNull();
+    expect(JSON.parse(localStorage.getItem("hort-zone-colours")!)).toEqual({});
+  });
+  test("the same local color may be used by several zones", () => {
+    const first = "z-repeat-1", second = "z-repeat-2";
+    renderApp(seeded({ zones: [zone(first, "Olive terrace"), zone(second, "Almond row")] }));
+    for (const name of ["Olive terrace", "Almond row"]) {
+      fireEvent.click(zonesCard().getByRole("button", { name: `Color for ${name}` }));
+      fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Petrol" }));
+    }
+    expect(zonesCard().getByRole("button", { name: "Color for Olive terrace" }).closest("li")!.querySelector('[data-zone-colour="petrol"]')).toBeTruthy();
+    expect(zonesCard().getByRole("button", { name: "Color for Almond row" }).closest("li")!.querySelector('[data-zone-colour="petrol"]')).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem("hort-zone-colours")!)).toEqual({ [first]: "petrol", [second]: "petrol" });
+  });
+  test("an archived snapshot drops its color and restoring starts gray", async () => {
+    const id = "z-external-archive";
+    setZoneColour(id, "petrol");
+    const store = seeded({ zones: [zone(id, "Olive terrace", true)] });
+    renderApp(store);
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("hort-zone-colours")!)).toEqual({}));
+
+    act(() => store.replace(wire({ entities: eligibleEntities(), zones: [zone(id, "Olive terrace")] })));
+    fireEvent.click(zonesCard().getByRole("button", { name: "Live" }));
+    expect(zonesCard().getByRole("button", { name: "Color for Olive terrace" }).closest("li")!.querySelector("[data-zone-colour]")).toBeNull();
+  });
   test("renaming a zone is a plain edit", async () => {
     renderApp(seeded({ zones: [zone("z-olive", "Olive terrace")], assignments: { 1: "z-olive" } }));
     fireEvent.click(zonesCard().getByRole("button", { name: "Rename" }));
@@ -161,13 +213,18 @@ describe("commands", () => {
   });
   // Archiving also clears the channel assignment, which the click does not show —
   // hence the Confirmation (web ADR-0014).
-  test("archiving a zone is confirmed and says its channel is freed", async () => {
-    renderApp(seeded({ zones: [zone("z-olive", "Olive terrace")], assignments: { 1: "z-olive" } }));
+  test("archiving a zone is confirmed, frees its channel, and deletes its local color", async () => {
+    const id = "z-archive";
+    renderApp(seeded({ zones: [zone(id, "Olive terrace")], assignments: { 1: id } }));
+    fireEvent.click(zonesCard().getByRole("button", { name: "Color for Olive terrace" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Petrol" }));
+    expect(JSON.parse(localStorage.getItem("hort-zone-colours")!)).toEqual({ [id]: "petrol" });
     fireEvent.click(zonesCard().getByRole("button", { name: "Archive" }));
     expect(screen.getByText(/The channel feeding it will be left unassigned/)).toBeTruthy();
     expect(calls.some((call) => call.name === "archive-zone")).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Archive zone" }));
-    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "archive-zone", body: { id: "z-olive" } }));
+    await waitFor(() => expect(calls.at(-1)).toEqual({ name: "archive-zone", body: { id } }));
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("hort-zone-colours")!)).toEqual({}));
   });
   test("the assignation editor saves the whole table at once", async () => {
     renderApp(seeded({ zones: [zone("z-olive", "Olive terrace"), zone("z-almond", "Almond row")], assignments: { 1: "z-olive" } }));

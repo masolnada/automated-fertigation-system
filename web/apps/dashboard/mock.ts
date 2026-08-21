@@ -1,4 +1,4 @@
-import type { ScheduleEntry, WateringEvent, Zone } from "@hort/contracts";
+import { type ScheduleEntry, type WateringEvent, type Zone } from "@hort/contracts";
 import { frequenciesShareADay } from "./src/guards";
 
 // Dev-only mock backend. Serves /api/* with in-memory data so the dashboard
@@ -182,7 +182,8 @@ function applyCommand(name: string, body: Record<string, unknown>): { status: nu
     }
     case "create-zone": {
       const name = typeof body.name === "string" ? body.name.trim() : "";
-      if (name) snapshot.zones = [...snapshot.zones, { id: `z-${Math.random().toString(36).slice(2, 8)}`, name, archived: false }];
+      if (!name) return { status: 400, json: { error: "name required" } };
+      snapshot.zones = [...snapshot.zones, { id: `z-${Math.random().toString(36).slice(2, 8)}`, name, archived: false }];
       break;
     }
     case "rename-zone": {

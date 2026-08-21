@@ -2,8 +2,10 @@ import { useState } from "react";
 import type { ReactElement } from "react";
 import { sourceIds, outputChannels, type SourceId } from "@hort/contracts";
 import { HoverDialog } from "./HoverDialog/HoverDialog";
+import { ZoneMarker } from "./ZoneMarker";
 import { useMediaQuery } from "./useMediaQuery";
 import { variants } from "./theme/variants";
+import { zoneTintStyle, type ZoneColour } from "./theme/zoneColour";
 
 /**
  * The system diagram: sources → pump → flow sensor → zones, drawn left to right
@@ -40,6 +42,8 @@ export type SchematicProps = {
   pumpOn: boolean;
   flowRate: string;
   outputLabels: Record<number, string>;
+  /** Stored Zone colour for each assigned channel; absent means no Zone. */
+  outputZoneColours?: Record<number, ZoneColour | undefined>;
   sourceLabels: Record<SourceId, string>;
   /** The node the operator last acted on; empty means none. */
   selected: SchematicNode | "";
@@ -124,7 +128,7 @@ function Drop({ live, flowing }: { live: boolean; flowing: boolean }) {
  * in flow order. Every control keeps a comfortable tap target instead of being
  * squeezed into a scaled-down diagram.
  */
-function StackedPipeline({ activeSource, selectedOutput, pumpOn, flowRate, outputLabels, sourceLabels, selected, onSelect, onSelectSource, onSelectOutput, onTogglePump }: SchematicProps) {
+function StackedPipeline({ activeSource, selectedOutput, pumpOn, flowRate, outputLabels, outputZoneColours, sourceLabels, selected, onSelect, onSelectSource, onSelectOutput, onTogglePump }: SchematicProps) {
   const open = hasOpenPath(activeSource, selectedOutput);
   const flowing = pumpOn && open;
   const routeSelected = activeSource !== "" || selectedOutput > 0;
@@ -166,8 +170,9 @@ function StackedPipeline({ activeSource, selectedOutput, pumpOn, flowRate, outpu
     <div className="grid grid-cols-2 gap-[6px]">
       {outputChannels.map((channel) => {
         const on = selectedOutput === channel;
-        return <button key={channel} type="button" aria-pressed={on} onClick={() => { onSelectOutput(on ? 0 : channel); onSelect(`output_${channel}`); }} className={`${s.stackCell} ${on ? s.boxOn : s.boxOff} ${selected === `output_${channel}` ? s.stackSelected : ""}`}>
-          <span className={s.stackLabel}>{outputLabels[channel] ?? `Output ${channel}`}</span>
+        const colour = outputZoneColours?.[channel];
+        return <button key={channel} type="button" aria-pressed={on} style={colour ? { ...zoneTintStyle(colour), borderColor: "var(--zone-stroke)" } : undefined} onClick={() => { onSelectOutput(on ? 0 : channel); onSelect(`output_${channel}`); }} className={`${s.stackCell} ${colour ? "zone-tint" : ""} ${on ? s.boxOn : s.boxOff} ${selected === `output_${channel}` ? s.stackSelected : ""}`}>
+          <span className="flex min-w-0 items-center gap-[5px]">{colour ? <ZoneMarker colour={colour}/> : null}<span className={s.stackLabel}>{outputLabels[channel] ?? `Output ${channel}`}</span></span>
           <b className={s.boxState}>{on ? "OPEN" : "SHUT"}</b>
         </button>;
       })}
@@ -176,7 +181,7 @@ function StackedPipeline({ activeSource, selectedOutput, pumpOn, flowRate, outpu
 }
 
 export function Schematic(props: SchematicProps) {
-  const { activeSource, selectedOutput, pumpOn, flowRate, outputLabels, sourceLabels, selected, onSelect, onSelectSource, onSelectOutput, onTogglePump, blockedReason } = props;
+  const { activeSource, selectedOutput, pumpOn, flowRate, outputLabels, outputZoneColours, sourceLabels, selected, onSelect, onSelectSource, onSelectOutput, onTogglePump, blockedReason } = props;
   const narrow = useNarrow();
   const open = hasOpenPath(activeSource, selectedOutput);
   const flowing = pumpOn && open;
@@ -237,8 +242,9 @@ export function Schematic(props: SchematicProps) {
         <div className="flex flex-col shrink-0" style={{ width: COL_W, gap: GAP }}>
           {outputChannels.map((channel) => {
             const on = selectedOutput === channel;
-            return <button key={channel} type="button" style={{ height: OUT_H }} aria-pressed={on} onClick={() => { onSelectOutput(on ? 0 : channel); onSelect(`output_${channel}`); }} className={`${s.box} ${on ? s.boxOn : s.boxOff}`}>
-              <span className={s.boxLabel}>{outputLabels[channel] ?? `Output ${channel}`}</span>
+            const colour = outputZoneColours?.[channel];
+            return <button key={channel} type="button" style={{ height: OUT_H, ...(colour ? { ...zoneTintStyle(colour), borderColor: "var(--zone-stroke)" } : {}) }} aria-pressed={on} onClick={() => { onSelectOutput(on ? 0 : channel); onSelect(`output_${channel}`); }} className={`${s.box} ${colour ? "zone-tint" : ""} ${on ? s.boxOn : s.boxOff}`}>
+              <span className="flex min-w-0 items-center gap-[5px]">{colour ? <ZoneMarker colour={colour}/> : null}<span className={s.boxLabel}>{outputLabels[channel] ?? `Output ${channel}`}</span></span>
               <b className={s.boxState}>{on ? "OPEN" : "SHUT"}</b>
             </button>;
           })}

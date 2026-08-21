@@ -39,6 +39,36 @@ A watering-volume heatmap may use the following solid blue shades as its only qu
 
 The scale reads volume as *ink density*, and density runs the other way on dark paper — so Dark mirrors the ramp rather than reusing it: `#12303F`, `#194A63`, `#22637F`, `#7FB6D9`, `#CDE6F6`, climbing from the substrate toward light blue. Same five fixed litre bands, same rules. Because the ramp mirrors along with the substrate, the loudest bands are always the ones furthest from the page and take `paper` for their text — the top band in Light, the top two in Dark.
 
+### Zone identity colour
+
+A **Zone colour** is a disposable, browser-local aid used only to tell one live Zone from another. It is a controlled exception to the closed semantic palette: it carries no meaning beyond distinctness, never stands in for `danger`, `warning`, `connected`, `action` or `water`, and lives only in `localStorage` — nothing about it reaches the server (web ADR-0019).
+
+Rules:
+
+- **An aid, never state.** A Zone keeps its colour whether its output is open or shut. `OPEN`/`SHUT`, the `water` route, `danger` rows and archive labels carry state; Zone colour never does. On a non-completed watering event, `danger` owns the row and the Zone marker sits alongside it unchanged.
+- **Picked per Zone, freely.** Each Zone is coloured from its row in the Zones card, from a palette shown with operator-facing names. Colours may repeat across Zones and be changed at any time; nothing is reserved and creation never involves colour.
+- **Editable and disposable.** The choice is kept per browser only, so it differs between devices and is not guaranteed distinct. “No colour” returns a Zone to gray.
+- **Archived Zones have no colour.** Archiving drops the colour outright; an archived Zone renders gray, and restoring it starts uncoloured.
+- **Equal visual weight.** Borders, stripes and bands use the stronger stroke; the marker square uses the quieter fill. No Zone should read louder than another.
+- **Spread the hue wheel for distinctness.** The palette is Terracotta, Ochre, Olive, Teal, Petrol, Indigo, Purple and Magenta, spaced around the wheel so picks read apart at a glance. They skirt the exact state hues (`danger` red, `warning` amber, `connected`/`action` green, `water` cyan); the earth tones sit off the `warning` amber and the teal off the `water` cyan by saturation and lightness. Because a Zone tint is always a fill behind the Zone name and never the sole signal, this proximity is acceptable.
+- **A supporting cue, never the identifier alone.** Each entry is distinguishable from the others in both substrates for typical colour vision, but the palette is not guaranteed colour-blind-safe. The Zone name therefore remains present wherever its colour is used.
+- **Only a coloured live Zone shows a marker.** An uncoloured Zone, an unassigned output channel, and a run recorded against no Zone get no colour and no marker.
+- **The marker square keeps an `ink` border** on both substrates, so a faint hue stays visible and holds its shape in greyscale.
+- **Each key owns Light and Dark fill and stroke values**, so the same pick renders legibly on either substrate.
+
+| Key | Light fill | Light stroke | Dark fill | Dark stroke |
+| :--- | :--- | :--- | :--- | :--- |
+| `terracotta` | `hsl(18 45% 74%)` | `hsl(18 62% 38%)` | `hsl(18 35% 30%)` | `hsl(18 60% 66%)` |
+| `ochre` | `hsl(32 40% 69%)` | `hsl(32 55% 32%)` | `hsl(32 32% 27%)` | `hsl(32 46% 60%)` |
+| `olive` | `hsl(70 34% 66%)` | `hsl(70 48% 28%)` | `hsl(70 30% 25%)` | `hsl(70 40% 57%)` |
+| `teal` | `hsl(175 34% 66%)` | `hsl(175 55% 26%)` | `hsl(175 34% 24%)` | `hsl(175 44% 56%)` |
+| `petrol` | `hsl(205 24% 72%)` | `hsl(205 58% 32%)` | `hsl(205 30% 28%)` | `hsl(205 50% 66%)` |
+| `indigo` | `hsl(252 50% 80%)` | `hsl(252 55% 43%)` | `hsl(252 32% 30%)` | `hsl(252 58% 72%)` |
+| `purple` | `hsl(288 46% 80%)` | `hsl(288 52% 40%)` | `hsl(288 30% 29%)` | `hsl(288 55% 70%)` |
+| `magenta` | `hsl(322 50% 79%)` | `hsl(322 58% 39%)` | `hsl(322 32% 28%)` | `hsl(322 60% 69%)` |
+
+Not used in the year heatmap or the month calendar, which stay volume-only. Zone colour appears wherever a Zone is named — the schematic's assigned outputs, schedules, the Zones card, the assignment editor, the irrigation picker, and the Daily Inspector.
+
 ### Danger semantics
 
 `#B00020` may be used only for errors, offline states, destructive controls/actions, danger-dialog messages, and danger event rows. Pair it with a clear text label and an appropriate border or fill; colour alone must never convey the state. White text is permitted on a filled danger control for contrast. Do not use red decoratively.

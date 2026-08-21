@@ -31,7 +31,8 @@ export const wateringEvents = sqliteTable(
  * A place that gets watered (web ADR-0014). Identified by `id`, so renaming and
  * re-plumbing both leave identity intact. `name` is current-only: a rename
  * relabels this zone's whole history, because it is the same place under a new
- * name (web ADR-0015). Archiving takes a zone out of the selectable list and
+ * name (web ADR-0015). Color is not stored: it is a browser-local presentational
+ * aid (web ADR-0019). Archiving takes a zone out of the selectable list and
  * clears its assignment, but preserves everything it ever watered.
  */
 export const zones = sqliteTable("zones", {

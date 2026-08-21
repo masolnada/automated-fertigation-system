@@ -30,18 +30,21 @@ beforeEach(() => {
 
 const ingest = (seq: number, outputChannel: number | null, endedAt: string) =>
   events.ingest([{ deviceId: "kc868-a8", seq, startedAt: at(endedAt), endedAt: at(endedAt), litresDelivered: 10, outcome: "completed", trigger: "sequence", outputChannel }]);
+const createZone = (name: string) => zones.create(name);
+const zoneBody = (name: string) => ({ name });
 
 describe("zone registry", () => {
   test("a created zone is live, unassigned and identified by id, not name", () => {
-    const first = zones.create("Olive terrace");
-    const second = zones.create("Olive terrace");
+    const first = createZone("Olive terrace");
+    const second = createZone("Olive terrace");
     expect(first.id).not.toBe(second.id);
+    expect(zones.all().map((zone) => zone.name)).toEqual(["Olive terrace", "Olive terrace"]);
     expect(zones.all().map((zone) => zone.archived)).toEqual([false, false]);
     expect(zones.currentAssignments()).toEqual({});
   });
 
   test("renaming keeps identity, so history reads under the new name", () => {
-    const zone = zones.create("Tomato patch");
+    const zone = createZone("Tomato patch");
     zones.setAssignments({ 1: zone.id }, at("2026-01-01T00:00:00Z"));
     ingest(1, 1, "2026-02-01T00:00:00Z");
     zones.rename(zone.id, "Vegetable beds");
@@ -51,7 +54,7 @@ describe("zone registry", () => {
   });
 
   test("archiving clears the assignment but preserves what it watered", () => {
-    const zone = zones.create("Vegetable beds");
+    const zone = createZone("Vegetable beds");
     zones.setAssignments({ 1: zone.id }, at("2026-01-01T00:00:00Z"));
     ingest(1, 1, "2026-02-01T00:00:00Z");
     zones.archive(zone.id, at("2026-03-01T00:00:00Z"));
@@ -64,11 +67,11 @@ describe("zone registry", () => {
   });
 
   test("unarchiving restores the zone but not its assignment", () => {
-    const zone = zones.create("Herb strip");
+    const zone = createZone("Herb strip");
     zones.setAssignments({ 2: zone.id });
     zones.archive(zone.id);
     zones.unarchive(zone.id);
-    expect(zones.all()[0]!.archived).toBe(false);
+    expect(zones.all()[0]).toMatchObject({ archived: false });
     expect(zones.currentAssignments()).toEqual({});
   });
 });
@@ -77,8 +80,8 @@ describe("temporal assignment", () => {
   // The whole reason the table is append-only (web ADR-0014): the controller is
   // offline for weeks, so events are ingested long after they ran.
   test("an event resolves to the zone on its channel when it ran, not now", () => {
-    const olive = zones.create("Olive terrace");
-    const almond = zones.create("Almond row");
+    const olive = createZone("Olive terrace");
+    const almond = createZone("Almond row");
     zones.setAssignments({ 2: olive.id }, at("2026-01-01T00:00:00Z"));
     // Two months of watering, ingested only after the pipe was moved.
     zones.setAssignments({ 2: almond.id }, at("2026-05-01T00:00:00Z"));
@@ -91,7 +94,7 @@ describe("temporal assignment", () => {
   });
 
   test("an event with no clock falls back to the current assignment", () => {
-    const zone = zones.create("Young trees");
+    const zone = createZone("Young trees");
     zones.setAssignments({ 3: zone.id });
     events.ingest([{ deviceId: "kc868-a8", seq: 9, startedAt: null, endedAt: null, litresDelivered: 4, outcome: "completed", trigger: "manual", outputChannel: 3 }]);
     expect(events.recent(10)[0]!.zoneName).toBe("Young trees");
@@ -108,8 +111,8 @@ describe("temporal assignment", () => {
   });
 
   test("only changed channels are written, under one shared valid_from", () => {
-    const olive = zones.create("Olive terrace");
-    const almond = zones.create("Almond row");
+    const olive = createZone("Olive terrace");
+    const almond = createZone("Almond row");
     zones.setAssignments({ 1: olive.id, 2: almond.id }, at("2026-01-01T00:00:00Z"));
     zones.setAssignments({ 1: olive.id, 2: null }, at("2026-02-01T00:00:00Z"));
     // Channel 1 was unchanged, so it kept its original row.
@@ -124,26 +127,26 @@ describe("assignment commands", () => {
   const live = () => ctx.controller.getSnapshot();
 
   test("saving the table publishes zones and assignments into the snapshot", () => {
-    const zone = dispatch("create-zone", { name: "Olive terrace" }) as { id: string };
+    const zone = dispatch("create-zone", zoneBody("Olive terrace")) as { id: string };
     dispatch("set-assignments", { assignments: { 1: zone.id, 2: null, 3: null, 4: null } });
     expect(live().zones.map((z) => z.name)).toEqual(["Olive terrace"]);
     expect(live().assignments).toEqual({ 1: zone.id });
   });
 
   test("one zone on two channels is refused as a whole", () => {
-    const zone = dispatch("create-zone", { name: "Olive terrace" }) as { id: string };
+    const zone = dispatch("create-zone", zoneBody("Olive terrace")) as { id: string };
     expect(() => dispatch("set-assignments", { assignments: { 1: zone.id, 2: zone.id } })).toThrow(CommandError);
     expect(zones.currentAssignments()).toEqual({});
   });
 
   test("an archived zone cannot be assigned", () => {
-    const zone = dispatch("create-zone", { name: "Tomato patch" }) as { id: string };
+    const zone = dispatch("create-zone", zoneBody("Tomato patch")) as { id: string };
     dispatch("archive-zone", { id: zone.id });
     expect(() => dispatch("set-assignments", { assignments: { 1: zone.id } })).toThrow(CommandError);
   });
 
   test("editing is refused while the pump runs", () => {
-    const zone = dispatch("create-zone", { name: "Olive terrace" }) as { id: string };
+    const zone = dispatch("create-zone", zoneBody("Olive terrace")) as { id: string };
     ctx.controller.message("kc868-a8", "kc868-a8/switch/pump/state", "ON");
     expect(() => dispatch("set-assignments", { assignments: { 1: zone.id } })).toThrow("Stop the pump to edit assignments");
     expect(zones.currentAssignments()).toEqual({});
@@ -165,7 +168,7 @@ describe("assignment commands", () => {
   });
 
   test("a blank or oversized name is rejected", () => {
-    expect(() => dispatch("create-zone", { name: "  " })).toThrow(CommandError);
-    expect(() => dispatch("create-zone", { name: "x".repeat(41) })).toThrow(CommandError);
+    expect(() => dispatch("create-zone", zoneBody("  "))).toThrow(CommandError);
+    expect(() => dispatch("create-zone", zoneBody("x".repeat(41)))).toThrow(CommandError);
   });
 });

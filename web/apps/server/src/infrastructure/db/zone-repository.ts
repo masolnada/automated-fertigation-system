@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, lte } from "drizzle-orm";
 import type { Zone } from "@hort/contracts";
 import type { ZoneRepository } from "../../domain/ports";
 import type { Db } from "./database";

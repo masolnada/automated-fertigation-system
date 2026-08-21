@@ -19,7 +19,7 @@ function setWidth(px: number) {
 afterEach(() => { window.matchMedia = realMatchMedia; });
 const props = {
   activeSource: "" as const, selectedOutput: 0, pumpOn: false, flowRate: "0.0",
-  outputLabels: { 1: "Olive terrace" }, sourceLabels: { clean_water_valve: "Clean water", fertigation_valve: "Fertigation", microbiology_valve: "Microbiology" },
+  outputLabels: { 1: "Olive terrace" }, outputZoneColours: { 1: "petrol" as const }, sourceLabels: { clean_water_valve: "Clean water", fertigation_valve: "Fertigation", microbiology_valve: "Microbiology" },
   selected: "flow" as const, onSelect() {}, onSelectSource() {}, onSelectOutput() {}, onTogglePump() {},
   blockedReason: "Open one source and one output.",
 };

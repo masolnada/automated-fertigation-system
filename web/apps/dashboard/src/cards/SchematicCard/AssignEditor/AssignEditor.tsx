@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Button, Modal, Select, variants } from "@hort/ui";
+import { Button, Modal, Select, ZoneMarker, variants } from "@hort/ui";
 import { outputChannels, type ScheduleEntry, type Zone } from "@hort/contracts";
 import { channelLabel } from "../../../display";
+import { useColourOf } from "../../../zoneColours";
 
 export type Assignments = Record<number, string | null>;
 
@@ -51,6 +52,7 @@ function redirected(current: Record<number, string>, draft: Assignments, schedul
  */
 export function AssignEditor({ open, zones, assignments, schedules, onSave, onClose }: { open: boolean; zones: Zone[]; assignments: Record<number, string>; schedules: ScheduleEntry[]; onSave(next: Assignments): void; onClose(): void }) {
   const [draft, setDraft] = useState<Assignments>({});
+  const colourOf = useColourOf();
   // Seeded with every channel, absent ones included: the command carries the
   // whole table, so an unassigned channel must say so rather than be omitted.
   useEffect(() => {
@@ -75,7 +77,10 @@ export function AssignEditor({ open, zones, assignments, schedules, onSave, onCl
         {outputChannels.map((channel) => <tr key={channel}>
           <td className="border-b-[2px] border-dashed border-gray py-3 pr-4 text-[0.9rem] font-bold whitespace-nowrap">{channelLabel(channel)}</td>
           <td className="w-full border-b-[2px] border-dashed border-gray py-3">
-            <Select label={`Zone for ${channelLabel(channel)}`} className="w-full" value={draft[channel] ?? ""} options={optionsFor(draft, channel, liveZones)} onChange={(value) => setDraft((current) => ({ ...current, [channel]: value || null }))}/>
+            <div className="flex items-center gap-2">
+              {(() => { const zone = draft[channel] ? zones.find((z) => z.id === draft[channel]) : undefined; const colour = zone ? colourOf(zone) : undefined; return colour ? <ZoneMarker colour={colour}/> : null; })()}
+              <Select label={`Zone for ${channelLabel(channel)}`} className="w-full min-w-0 flex-1" value={draft[channel] ?? ""} options={optionsFor(draft, channel, liveZones)} onChange={(value) => setDraft((current) => ({ ...current, [channel]: value || null }))}/>
+            </div>
           </td>
         </tr>)}
       </tbody>

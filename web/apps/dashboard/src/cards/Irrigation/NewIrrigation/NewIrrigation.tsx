@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react";
-import { Button, Modal, variants } from "@hort/ui";
+import { Button, Modal, ZoneMarker, variants } from "@hort/ui";
 import { type CycleMode, type CycleRecipe, type OutputChannel, type ScheduleEntry, type Zone } from "@hort/contracts";
 import { slotTakenBy } from "../../../guards";
+import { useColourOf } from "../../../zoneColours";
 import { WEEKDAYS, channelName, draftBlocked, draftFrom, frequencyText, nextDates, recipeUnit, todayISO, waterableChannels, type Draft } from "../schedule";
 
 const heading = "m-0 mb-3 text-[0.72rem] font-extrabold uppercase tracking-[0.14em]";
@@ -67,15 +68,21 @@ function StepRecipe({ recipe, onChange }: { recipe: CycleRecipe; onChange(next: 
  * of those zones is assigned yet, this step explains the missing prerequisite.
  */
 function StepZone({ draft, zones, assignments, onChange }: { draft: Draft; zones: Zone[]; assignments: Record<number, string>; onChange(next: Partial<Draft>): void }) {
+  const colourOf = useColourOf();
   const channels = waterableChannels(assignments);
   return <section className={section}>
     <h3 className={heading}>Zone</h3>
     {channels.length === 0
       ? <p className="m-0 text-[0.85rem] font-bold leading-snug">No zone is assigned to an output yet. Assign one on the System card before starting an irrigation.</p>
       : <div className="grid grid-cols-2 gap-[6px] min-[720px]:grid-cols-4">
-          {channels.map((channel) => <button key={channel} type="button" aria-pressed={channel === draft.channel} onClick={() => onChange({ channel: channel as OutputChannel })} className={`flex min-h-[52px] flex-col justify-center px-2 py-1 text-left ${toggle(channel === draft.channel)}`}>
-            <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[0.8rem]">{channelName(zones, assignments, channel)}</span>
-          </button>)}
+          {channels.map((channel) => {
+            const zone = zones.find((candidate) => candidate.id === assignments[channel]);
+            const colour = zone ? colourOf(zone) : undefined;
+            return <button key={channel} type="button" aria-pressed={channel === draft.channel} onClick={() => onChange({ channel: channel as OutputChannel })} className={`flex min-h-[52px] items-center gap-[6px] px-2 py-1 text-left ${toggle(channel === draft.channel)}`}>
+              {colour ? <ZoneMarker colour={colour}/> : null}
+              <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[0.8rem]">{channelName(zones, assignments, channel)}</span>
+            </button>;
+          })}
         </div>}
   </section>;
 }

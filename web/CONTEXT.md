@@ -79,6 +79,14 @@ that zone's whole history, because it is the same place under a new name
 (ADR-0015). When the *place* changed rather than the name, the act is
 archive-and-create, not rename.
 
+**Zone colour**:
+A disposable, browser-local visual aid that tells one live Zone from another on
+the dashboard. Picked per Zone from a small shared palette, freely repeatable and
+editable at any time; it carries no meaning beyond distinctness and is never
+operational state. It lives only in the browser, never on the server, and an
+archived Zone has no colour (ADR-0019 supersedes ADR-0018).
+_Avoid_: output colour, channel colour, zone identity colour.
+
 **Assignation table**:
 Which zone each output channel feeds. One-to-one in both directions, and
 append-only with a `valid_from`, so a watering event resolves to the zone that
