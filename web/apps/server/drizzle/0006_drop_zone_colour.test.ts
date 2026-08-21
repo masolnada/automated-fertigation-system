@@ -26,7 +26,7 @@ describe("Zone colour drop migration", () => {
         ('z-2', 'Two', 'ochre', 1, 200);
     `);
 
-    const migration = readFileSync(join(import.meta.dir, "../drizzle/0006_drop_zone_colour.sql"), "utf8").replaceAll("--> statement-breakpoint", "");
+    const migration = readFileSync(join(import.meta.dir, "0006_drop_zone_colour.sql"), "utf8").replaceAll("--> statement-breakpoint", "");
     sqlite.exec(migration);
 
     const columns = (sqlite.query("PRAGMA table_info(zones)").all() as Array<{ name: string }>).map((row) => row.name);

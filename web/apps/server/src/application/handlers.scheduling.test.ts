@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { openDatabase, type Db } from "../src/infrastructure/db/database";
-import { DrizzleScheduleRepository } from "../src/modules/scheduling/infrastructure/drizzle-schedule-repository";
-import { DrizzleZoneRepository } from "../src/modules/zones/infrastructure/drizzle-zone-repository";
-import { DrizzleWateringEventRepository } from "../src/modules/watering/infrastructure/drizzle-watering-event-repository";
-import { dispatchCommand } from "../src/application/dispatch";
-import { ControllerSnapshotProjection } from "../src/infrastructure/projections/controller-snapshot-projection";
-import { SystemClock } from "../src/shared-kernel/clock";
-import { UuidGenerator } from "../src/shared-kernel/id-generator";
-import { CommandError, SCHEDULE_MAX, type Context } from "../src/application/handlers";
+import { openDatabase, type Db } from "../infrastructure/db/database";
+import { DrizzleScheduleRepository } from "../modules/scheduling/infrastructure/drizzle-schedule-repository";
+import { DrizzleZoneRepository } from "../modules/zones/infrastructure/drizzle-zone-repository";
+import { DrizzleWateringEventRepository } from "../modules/watering/infrastructure/drizzle-watering-event-repository";
+import { dispatchCommand } from "./dispatch";
+import { ControllerSnapshotProjection } from "../infrastructure/projections/controller-snapshot-projection";
+import { SystemClock } from "../shared-kernel/clock";
+import { UuidGenerator } from "../shared-kernel/id-generator";
+import { CommandError, SCHEDULE_MAX, type Context } from "./handlers";
 
 let db: Db;
 let schedules: DrizzleScheduleRepository;
