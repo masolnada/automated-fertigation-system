@@ -13,5 +13,6 @@ credentials to the client and scattered domain rules there. The server is built
 hexagonal (domain / application / infrastructure, deps pointing inward; MQTT and
 Express are adapters behind ports) with **light** CQRS only — intent-named
 command/query handlers and a thin dispatch function, no bus, no event sourcing,
-no second datastore. The whole system is one physical device, modelled as one
-aggregate.
+no second datastore. It remains one Web bounded context and deployment, with
+capability-local domain models; the MQTT-fed controller Snapshot is a projection,
+not an aggregate that owns Zones or Schedule entries.

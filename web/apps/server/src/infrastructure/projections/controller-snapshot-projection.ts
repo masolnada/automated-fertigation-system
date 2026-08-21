@@ -1,41 +1,28 @@
 import { sourceIds, type EntityValue, type LogEntry, type ScheduleEntry, type Severity, type Snapshot, type SourceId, type Zone } from "@hort/contracts";
-import { parseStateTopic } from "./topics";
+import { parseStateTopic } from "../mqtt/topics";
 
 const shutValves = (): Record<SourceId, boolean> => ({ clean_water_valve: false, fertigation_valve: false, microbiology_valve: false });
 const empty = (): Snapshot => ({ brokerConnected: false, deviceOnline: false, entities: {}, valves: shutValves(), selectedOutput: 0, zones: [], assignments: {}, resetPending: false, schedules: [], log: [] });
 const isSourceId = (id: string): id is SourceId => (sourceIds as string[]).includes(id);
 const outputOf = (objectId: string): number | null => { const match = /^output_([1-4])$/.exec(objectId); return match ? Number(match[1]) : null; };
 
-/**
- * The fertigation controller aggregate: current device snapshot plus the rolling
- * event log. Folds raw MQTT topics into the read model. Notifications to
- * subscribers are coalesced to one snapshot per tick so retained-message bursts
- * produce a single downstream push.
- */
-export class Controller {
+/** MQTT-fed observable read model. It is a projection, not a domain aggregate. */
+export class ControllerSnapshotProjection {
   private snapshot = empty();
   private listeners = new Set<() => void>();
   private notifyScheduled = false;
 
   subscribe = (listener: () => void): (() => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   getSnapshot = (): Snapshot => this.snapshot;
-
   private update(change: Partial<Snapshot>): void {
     this.snapshot = { ...this.snapshot, ...change };
     if (this.notifyScheduled) return;
     this.notifyScheduled = true;
     setTimeout(() => { this.notifyScheduled = false; this.listeners.forEach((listener) => listener()); }, 0);
   }
-
-  log(message: string, severity: Severity = "normal"): void {
-    const entry: LogEntry = { message, severity, time: new Date().toISOString() };
-    this.update({ log: [entry, ...this.snapshot.log].slice(0, 50) });
-  }
-  /** Fresh retained state is required after every connection/device transition. */
+  log(message: string, severity: Severity = "normal"): void { const entry: LogEntry = { message, severity, time: new Date().toISOString() }; this.update({ log: [entry, ...this.snapshot.log].slice(0, 50) }); }
   invalidateAll(): void { this.update({ deviceOnline: false, entities: {}, valves: shutValves(), selectedOutput: 0 }); }
-  /** Zones and assignments are server-owned, not device state (web ADR-0014). */
   setZones(zones: Zone[], assignments: Record<number, string>): void { this.update({ zones, assignments }); }
-  /** Schedule entries are server-owned too; the device holds a copy it fires from (web ADR-0017). */
   setSchedules(schedules: ScheduleEntry[]): void { this.update({ schedules }); }
   connected(): void { this.invalidateAll(); this.update({ brokerConnected: true }); this.log("connected to broker"); }
   closed(): void { this.update({ brokerConnected: false }); this.invalidateAll(); this.log("broker disconnected", "danger"); }
@@ -51,12 +38,7 @@ export class Controller {
     if (parsed.type !== "state") return;
     if (parsed.kind === "switch" && isSourceId(parsed.objectId)) { this.update({ valves: { ...this.snapshot.valves, [parsed.objectId]: payload === "ON" } }); this.log(`${parsed.objectId} → ${payload}`); return; }
     const output = parsed.kind === "switch" ? outputOf(parsed.objectId) : null;
-    if (output !== null) {
-      const on = payload === "ON";
-      this.update({ entities: { ...this.snapshot.entities, [parsed.objectId]: { value: payload, known: true } }, selectedOutput: on ? output : this.snapshot.selectedOutput === output ? 0 : this.snapshot.selectedOutput });
-      this.log(`${parsed.objectId} → ${payload}`);
-      return;
-    }
+    if (output !== null) { const on = payload === "ON"; this.update({ entities: { ...this.snapshot.entities, [parsed.objectId]: { value: payload, known: true } }, selectedOutput: on ? output : this.snapshot.selectedOutput === output ? 0 : this.snapshot.selectedOutput }); this.log(`${parsed.objectId} → ${payload}`); return; }
     if (parsed.kind === "binary_sensor") { this.update({ entities: { ...this.snapshot.entities, [parsed.objectId]: { value: payload, known: true } } }); if (parsed.objectId === "irrigation_running") this.log(`irrigation ${payload === "ON" ? "started" : "stopped"}`); if (parsed.objectId === "battery_charged" && payload === "ON") this.log("battery charge complete"); return; }
     const value: EntityValue["value"] = parsed.kind === "switch" || parsed.kind === "select" ? payload : Number.parseFloat(payload);
     this.update({ entities: { ...this.snapshot.entities, [parsed.objectId]: { value, known: true } } });
@@ -65,7 +47,6 @@ export class Controller {
   handleResetResult(payload: string): void {
     const mapped: Record<string, [string, Severity]> = { success: ["total water reset", "normal"], already_zero: ["total water already zero", "normal"], rejected_pump_running: ["Device rejected reset: pump is running.", "danger"], rejected_flow_active: ["Device rejected reset: flow is active.", "danger"], rejected_flow_unknown: ["Device rejected reset: flow is unavailable.", "danger"], error_persistence: ["Device could not persist zero. The reset may not survive reboot.", "danger"] };
     const result = mapped[payload] ?? [`Unexpected reset response: ${payload}.`, "danger"];
-    this.log(result[0], result[1]);
-    this.setResetPending(false);
+    this.log(result[0], result[1]); this.setResetPending(false);
   }
 }

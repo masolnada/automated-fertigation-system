@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { openDatabase, type Db } from "../src/infrastructure/db/database";
-import { DrizzleScheduleRepository } from "../src/infrastructure/db/schedule-repository";
-import { DrizzleZoneRepository } from "../src/infrastructure/db/zone-repository";
+import { DrizzleScheduleRepository } from "../src/modules/scheduling/infrastructure/drizzle-schedule-repository";
+import { DrizzleZoneRepository } from "../src/modules/zones/infrastructure/drizzle-zone-repository";
+import { DrizzleWateringEventRepository } from "../src/modules/watering/infrastructure/drizzle-watering-event-repository";
 import { dispatchCommand } from "../src/application/dispatch";
-import { Controller } from "../src/domain/controller";
+import { ControllerSnapshotProjection } from "../src/infrastructure/projections/controller-snapshot-projection";
+import { SystemClock } from "../src/shared-kernel/clock";
+import { UuidGenerator } from "../src/shared-kernel/id-generator";
 import { CommandError, SCHEDULE_MAX, type Context } from "../src/application/handlers";
 
 let db: Db;
@@ -21,9 +24,12 @@ beforeEach(() => {
   zones = new DrizzleZoneRepository(db);
   published = [];
   ctx = {
-    controller: new Controller(),
+    controller: new ControllerSnapshotProjection(),
     zones,
     schedules,
+    wateringEvents: new DrizzleWateringEventRepository(db, zones),
+    clock: new SystemClock(),
+    ids: new UuidGenerator(),
     device: { prefix: "kc868-a8", publish: (topic, payload, options) => { published.push({ topic, payload, retain: options?.retain ?? false }); }, onResetResult: () => () => {}, onWateringLog: () => () => {} },
   };
 });
@@ -203,7 +209,7 @@ describe("deleting a schedule", () => {
 
   test("an unknown id is a no-op rather than an error", () => {
     dispatch("create-schedule", entry());
-    dispatch("delete-schedule", { id: "not-a-real-id" });
+    dispatch("delete-schedule", { id: crypto.randomUUID() });
     expect(ctx.controller.getSnapshot().schedules).toHaveLength(1);
   });
 

@@ -3,7 +3,10 @@ import { Database } from "bun:sqlite";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { openDatabase } from "../src/infrastructure/db/database";
-import { DrizzleZoneRepository } from "../src/infrastructure/db/zone-repository";
+import { DrizzleZoneRepository } from "../src/modules/zones/infrastructure/drizzle-zone-repository";
+import { Zone } from "../src/modules/zones/domain/zone";
+import { ZoneId } from "../src/modules/zones/domain/zone-id";
+import { ZoneName } from "../src/modules/zones/domain/zone-name";
 
 describe("Zone colour drop migration", () => {
   test("0006 drops the colour column while preserving every Zone row", () => {
@@ -37,8 +40,9 @@ describe("Zone colour drop migration", () => {
 
   test("the full migration chain leaves a colourless zones table a repository can write", () => {
     const zones = new DrizzleZoneRepository(openDatabase(":memory:"));
-    const zone = zones.create("Olive terrace");
-    expect(zone).toMatchObject({ name: "Olive terrace", archived: false });
-    expect(Object.keys(zones.all()[0]!).sort()).toEqual(["archived", "createdAt", "id", "name"]);
+    const zone = Zone.create(ZoneId.rehydrate(crypto.randomUUID()), ZoneName.rehydrate("Olive terrace"));
+    zones.add(zone, new Date());
+    expect(zones.all()[0]!.name.toString()).toBe("Olive terrace");
+    expect(zones.all()[0]!.archived).toBe(false);
   });
 });

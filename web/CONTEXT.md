@@ -99,7 +99,9 @@ _Avoid_: mapping, routing.
 **Archived zone**:
 A zone taken out of the selectable list with everything it ever watered
 preserved — archiving is bookkeeping, not deletion. It also clears the zone's
-channel assignment, so a current assignment always points at a live zone.
+channel assignment, so a current assignment always points at a live zone. Since
+that clearing changes the Assignation table, archiving an assigned zone is
+refused while the pump runs under the same guard as any other assignation edit.
 Restoring brings the zone back but not the assignment.
 
 **Schedule entry**:

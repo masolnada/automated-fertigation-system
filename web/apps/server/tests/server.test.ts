@@ -3,9 +3,15 @@ import Aedes from "aedes";
 import { createServer, type Server as NetServer } from "node:net";
 import type { Server as HttpServer } from "node:http";
 import mqtt, { type MqttClient } from "mqtt";
-import { Controller } from "../src/domain/controller";
+import { ControllerSnapshotProjection } from "../src/infrastructure/projections/controller-snapshot-projection";
 import { MqttDevice } from "../src/infrastructure/mqtt/adapter";
 import { createApp } from "../src/infrastructure/http/app";
+import { openDatabase } from "../src/infrastructure/db/database";
+import { DrizzleZoneRepository } from "../src/modules/zones/infrastructure/drizzle-zone-repository";
+import { DrizzleScheduleRepository } from "../src/modules/scheduling/infrastructure/drizzle-schedule-repository";
+import { DrizzleWateringEventRepository } from "../src/modules/watering/infrastructure/drizzle-watering-event-repository";
+import { SystemClock } from "../src/shared-kernel/clock";
+import { UuidGenerator } from "../src/shared-kernel/id-generator";
 import type { Context } from "../src/application/handlers";
 
 const prefix = "test-hort";
@@ -22,15 +28,17 @@ beforeAll(async () => {
 });
 afterAll(async () => { await new Promise<void>((resolve) => brokerServer.close(() => resolve())); await new Promise<void>((resolve) => broker.close(() => resolve())); });
 
-type Harness = { ctx: Context; device: MqttDevice; controller: Controller; url: string; http: HttpServer; extras: MqttClient[] };
+type Harness = { ctx: Context; device: MqttDevice; controller: ControllerSnapshotProjection; url: string; http: HttpServer; extras: MqttClient[] };
 const harnesses: Harness[] = [];
 
 async function waitFor(predicate: () => boolean, timeout = 2000) { const start = Date.now(); while (!predicate()) { if (Date.now() - start > timeout) throw new Error("timeout waiting for condition"); await sleep(10); } }
 
 async function start(resetTimeoutMs = 300): Promise<Harness> {
-  const controller = new Controller();
+  const controller = new ControllerSnapshotProjection();
   const device = new MqttDevice({ brokerUrl, username: "", password: "", prefix, port: 0, dbPath: ":memory:" }, controller);
-  const ctx: Context = { device, controller, resetTimeoutMs };
+  const db = openDatabase(":memory:");
+  const zones = new DrizzleZoneRepository(db);
+  const ctx: Context = { device, controller, resetTimeoutMs, zones, schedules: new DrizzleScheduleRepository(db), wateringEvents: new DrizzleWateringEventRepository(db, zones), clock: new SystemClock(), ids: new UuidGenerator() };
   const app = createApp(ctx);
   const http = app.listen(0);
   await new Promise<void>((resolve) => http.on("listening", () => resolve()));
