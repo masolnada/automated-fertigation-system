@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Badge, Button, Card, CardTitle, ZoneMarker, zoneTintStyle } from "@hort/ui";
-import type { CycleRecipe, OutputChannel, ScheduleEntry, Zone } from "@hort/contracts";
+import type { CycleMode, CycleRecipe, OutputChannel, ScheduleEntry, Zone } from "@hort/contracts";
 import type { Snapshot } from "../../store";
 import { useColourOf } from "../../zoneColours";
 import { NewIrrigation } from "./NewIrrigation/NewIrrigation";
 import { ConfirmDeleteSchedule } from "./ConfirmDeleteSchedule/ConfirmDeleteSchedule";
+import { IrrigationSettings } from "./IrrigationSettings/IrrigationSettings";
 import { channelName, frequencyText, recipeText } from "./schedule";
 
 const icon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 16.3c2.2 0 4-1.8 4-4 0-1.5-.7-2.6-2-3.8-.9-.8-1.7-2-2-3.5-.3 1.5-1.1 2.7-2 3.5-1.3 1.2-2 2.3-2 3.8 0 2.2 1.8 4 4 4z"/><path d="M16.8 20c2.3 0 4.2-1.9 4.2-4.2 0-1.6-.8-2.8-2.1-4-.9-.9-1.8-2.1-2.1-3.8-.3 1.7-1.2 2.9-2.1 3.8-1.3 1.2-2.1 2.4-2.1 4 0 2.3 1.9 4.2 4.2 4.2z"/></svg>;
@@ -55,16 +56,20 @@ type Props = {
   onStop(): void;
   onSchedule(entry: { time: string; frequency: ScheduleEntry["frequency"]; channel: OutputChannel; recipe: CycleRecipe }): void;
   onDeleteSchedule(id: string): void;
+  onCycleMode(mode: CycleMode): void;
+  onCycleTarget(value: number): void;
+  onPreWet(value: number): void;
+  onFlush(value: number): void;
 };
 
 /**
- * Standing irrigations and the one way to make another. The card lists what will
- * happen; everything that *decides* what happens lives in the wizard, so the
- * card holds no cycle controls — a run's recipe is an input to that run, not a
- * setting on this surface (controller ADR-0018).
+ * Standing irrigations, creation, and the device's irrigation defaults. A run's
+ * recipe still lives in the wizard and travels with that run; settings only edit
+ * what the physical button uses and what a new irrigation starts from.
  */
-export function Irrigation({ snapshot, onStart, onStop, onSchedule, onDeleteSchedule }: Props) {
+export function Irrigation({ snapshot, onStart, onStop, onSchedule, onDeleteSchedule, onCycleMode, onCycleTarget, onPreWet, onFlush }: Props) {
   const [creating, setCreating] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // Remounted per opening, so an abandoned draft never resurfaces.
   const [run, setRun] = useState(0);
   const [deleting, setDeleting] = useState<ScheduleEntry | null>(null);
@@ -79,9 +84,13 @@ export function Irrigation({ snapshot, onStart, onStop, onSchedule, onDeleteSche
 
   return <Card className="card-irrigation">
     <CardTitle icon={icon}>Irrigation <Badge state={running ? "on" : "off"}>{running ? "running" : "idle"}</Badge>
-      <span>{running
+      <span className="flex gap-[6px] max-[640px]:basis-full max-[640px]:justify-end">{running
         ? <Button variant="danger" className="h-[38px] px-4 text-[0.68rem]" onClick={onStop}>Stop irrigation</Button>
-        : <Button variant="relay" disabled={noZones} onClick={() => { setRun((n) => n + 1); setCreating(true); }}>New irrigation</Button>}</span>
+        : <Button variant="relay" className="ml-0" disabled={noZones} onClick={() => { setRun((n) => n + 1); setCreating(true); }}>New irrigation</Button>}
+        <Button variant="relay" className="ml-0 grid w-[38px] place-items-center !px-0 [&>svg]:h-[18px] [&>svg]:w-[18px] [&>svg]:stroke-[2.25]" aria-label="Settings" title="Settings" onClick={() => setSettingsOpen(true)}>
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.09a2 2 0 0 1 1 1.74v.5a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg>
+        </Button>
+      </span>
     </CardTitle>
     <ScheduleList entries={snapshot.schedules} zones={snapshot.zones} assignments={snapshot.assignments} noZones={noZones} onDelete={setDeleting}/>
     <NewIrrigation
@@ -95,6 +104,15 @@ export function Irrigation({ snapshot, onStart, onStop, onSchedule, onDeleteSche
       onStart={onStart}
       onSchedule={onSchedule}
       onClose={() => setCreating(false)}
+    />
+    <IrrigationSettings
+      open={settingsOpen}
+      snapshot={snapshot}
+      onCycleMode={onCycleMode}
+      onCycleTarget={onCycleTarget}
+      onPreWet={onPreWet}
+      onFlush={onFlush}
+      onClose={() => setSettingsOpen(false)}
     />
     <ConfirmDeleteSchedule
       entry={deleting}

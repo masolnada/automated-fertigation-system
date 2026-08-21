@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button, Card, CardTitle, Schematic, useSchematicSelection, type ZoneColour } from "@hort/ui";
-import { outputChannels, sourceIds, type CycleMode, type SourceId, type Zone } from "@hort/contracts";
+import { outputChannels, sourceIds, type SourceId, type Zone } from "@hort/contracts";
 import type { Snapshot } from "../../store";
 import { useColourOf } from "../../zoneColours";
 import { channelLabel, displayNumber } from "../../display";
@@ -21,10 +21,6 @@ type Props = {
   onTogglePump(): void;
   onSetAssignments(next: Assignments): void;
   onMinFlow(value: number): void;
-  onCycleMode(mode: CycleMode): void;
-  onCycleTarget(value: number): void;
-  onPreWet(value: number): void;
-  onFlush(value: number): void;
 };
 
 /**
@@ -36,7 +32,7 @@ type Props = {
  * the bare channel when nothing is (web ADR-0014) — an unassigned channel still
  * waters, its events simply record no zone.
  */
-export function SchematicCard({ snapshot, onSelectValve, onSelectOutput, onTogglePump, onSetAssignments, onMinFlow, onCycleMode, onCycleTarget, onPreWet, onFlush }: Props) {
+export function SchematicCard({ snapshot, onSelectValve, onSelectOutput, onTogglePump, onSetAssignments, onMinFlow }: Props) {
   const [selected, setSelected] = useSchematicSelection();
   const [confirming, setConfirming] = useState<"" | "pump" | "reset">("");
   const [editing, setEditing] = useState(false);
@@ -75,7 +71,7 @@ export function SchematicCard({ snapshot, onSelectValve, onSelectOutput, onToggl
       blockedReason={blockedReason}
     />
     <AssignEditor open={editing} zones={snapshot.zones} assignments={snapshot.assignments} schedules={snapshot.schedules} onSave={(next) => { onSetAssignments(next); setEditing(false); }} onClose={() => setEditing(false)}/>
-    <FlowSettings open={flowOpen} snapshot={snapshot} onMinFlow={onMinFlow} onCycleMode={onCycleMode} onCycleTarget={onCycleTarget} onPreWet={onPreWet} onFlush={onFlush} onResetRequest={() => { setFlowOpen(false); setConfirming("reset"); }} onClose={() => setFlowOpen(false)}/>
+    <FlowSettings open={flowOpen} snapshot={snapshot} onMinFlow={onMinFlow} onResetRequest={() => { setFlowOpen(false); setConfirming("reset"); }} onClose={() => setFlowOpen(false)}/>
     <ConfirmPumpStart open={confirming === "pump"} onConfirm={() => { onTogglePump(); setConfirming(""); }} onCancel={() => setConfirming("")}/>
     <ConfirmTotalWaterReset open={confirming === "reset"} snapshot={snapshot} onClose={() => setConfirming("")}/>
   </Card>;

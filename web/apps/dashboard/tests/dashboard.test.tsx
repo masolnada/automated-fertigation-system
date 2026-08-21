@@ -266,27 +266,33 @@ describe("commands", () => {
     renderApp(seeded());
     expect(screen.getAllByText("no path").length).toBeGreaterThan(0);
   });
-  // The device's default recipe is what the offline button waters with, so it
-  // is edited among the device's own settings rather than on the Irrigation
-  // card, where every run carries its own (controller ADR-0018).
+  // The default recipe belongs to irrigation, not to flow-sensor configuration.
+  test("places irrigation settings after the new-irrigation button", () => {
+    renderApp(seeded());
+    const buttons = within(document.querySelector(".card-irrigation") as HTMLElement).getAllByRole("button");
+    expect(buttons.slice(0, 2).map((button) => button.getAttribute("aria-label") ?? button.textContent)).toEqual(["New irrigation", "Settings"]);
+    selectFlow();
+    expect(within(screen.getByRole("dialog")).queryByLabelText("Default cycle mode")).toBeNull();
+  });
   test("the default recipe's cycle mode posts immediately", async () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), default_cycle_mode: entity("Time") } }));
-    selectFlow();
+    fireEvent.click(within(document.querySelector(".card-irrigation") as HTMLElement).getByRole("button", { name: "Settings" }));
     fireEvent.change(screen.getByLabelText("Default cycle mode"), { target: { value: "Volume" } });
     await waitFor(() => expect(calls.at(-1)).toEqual({ name: "set-cycle-mode", body: { mode: "Volume" } }));
   });
   test("a default-recipe number debounces into a single command", async () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), default_flush_minutes: entity(5) } }));
-    selectFlow();
+    fireEvent.click(within(document.querySelector(".card-irrigation") as HTMLElement).getByRole("button", { name: "Settings" }));
     const input = screen.getByLabelText("default_flush_minutes");
     fireEvent.change(input, { target: { value: "6" } });
     fireEvent.change(input, { target: { value: "7" } });
     expect(calls).toHaveLength(0);
     await waitFor(() => expect(calls).toEqual([{ name: "set-flush-duration", body: { value: 7 } }]));
   });
-  test("only offers Stop while irrigation is running", () => {
+  test("offers Stop and irrigation settings while irrigation is running", () => {
     renderApp(seeded({ entities: { ...eligibleEntities(), irrigation_running: entity("ON") } }));
     expect(screen.getByRole("button", { name: "Stop irrigation" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "New irrigation" })).toBeNull();
   });
 });

@@ -69,7 +69,7 @@ describe("schematic layouts", () => {
 describe("schematic card on a phone", () => {
   test("renders every control with no fixed-width element", () => {
     setWidth(390);
-    const { container } = render(<QueryClientProvider client={new QueryClient()}><SchematicCard snapshot={snap()} onSelectValve={noop} onSelectOutput={noop} onTogglePump={noop} onSetAssignments={noop} onMinFlow={noop} onCycleMode={noop} onCycleTarget={noop} onPreWet={noop} onFlush={noop}/></QueryClientProvider>);
+    const { container } = render(<QueryClientProvider client={new QueryClient()}><SchematicCard snapshot={snap()} onSelectValve={noop} onSelectOutput={noop} onTogglePump={noop} onSetAssignments={noop} onMinFlow={noop}/></QueryClientProvider>);
     // The assignation editor lists the same names, so scope to the diagram.
     const diagram = within(container.querySelector(".card-schematic > div") as HTMLElement);
     for (const label of ["Clean water", "Fertigation", "Microbiology", "Olive terrace", "Output 2", "Output 3", "Output 4"]) expect(diagram.getByText(label)).toBeTruthy();
@@ -80,7 +80,7 @@ describe("schematic card on a phone", () => {
   // The diagram carries no info panel, so the flow node's settings are a modal.
   test("selecting the flow node opens the flow settings", () => {
     setWidth(390);
-    render(<QueryClientProvider client={new QueryClient()}><SchematicCard snapshot={snap()} onSelectValve={noop} onSelectOutput={noop} onTogglePump={noop} onSetAssignments={noop} onMinFlow={noop} onCycleMode={noop} onCycleTarget={noop} onPreWet={noop} onFlush={noop}/></QueryClientProvider>);
+    render(<QueryClientProvider client={new QueryClient()}><SchematicCard snapshot={snap()} onSelectValve={noop} onSelectOutput={noop} onTogglePump={noop} onSetAssignments={noop} onMinFlow={noop}/></QueryClientProvider>);
     expect(screen.getByLabelText("Min Flow").closest("dialog")?.open).toBeFalsy();
     fireEvent.click(screen.getByRole("button", { name: /Flow/ }));
     expect(screen.getByLabelText("Min Flow").closest("dialog")?.open).toBe(true);
