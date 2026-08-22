@@ -1,6 +1,8 @@
 import express, { type Express } from "express";
-import { dispatchCommand, getSnapshot, getWateringEvents, getWateringHistory } from "../../application/dispatch";
+import { dispatchCommand } from "../../application/command-dispatcher";
 import { CommandError, type Context, type ResetOutcome } from "../../application/handlers";
+import { getSnapshot } from "../../application/queries";
+import { getWateringEvents, getWateringHistory } from "../../modules/watering/application/queries";
 
 const resetStatus: Record<string, number> = { success: 200, already_zero: 200, rejected_pump_running: 409, rejected_flow_active: 409, rejected_flow_unknown: 409, error_persistence: 500, timeout: 504, unexpected_response: 500 };
 

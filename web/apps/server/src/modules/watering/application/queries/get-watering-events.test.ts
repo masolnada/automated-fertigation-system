@@ -1,40 +1,28 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { openDatabase, type Db } from "../infrastructure/db/database";
-import { ControllerSnapshotProjection } from "../infrastructure/projections/controller-snapshot-projection";
-import { DrizzleScheduleRepository } from "../modules/scheduling/infrastructure/drizzle-schedule-repository";
-import { WateringEvent } from "../modules/watering/domain/watering-event";
-import { DrizzleWateringEventRepository } from "../modules/watering/infrastructure/drizzle-watering-event-repository";
-import { AssignmentTable } from "../modules/zones/domain/assignment-table";
-import { Zone } from "../modules/zones/domain/zone";
-import { ZoneId } from "../modules/zones/domain/zone-id";
-import { ZoneName } from "../modules/zones/domain/zone-name";
-import { DrizzleZoneRepository } from "../modules/zones/infrastructure/drizzle-zone-repository";
-import { SystemClock } from "../shared-kernel/clock";
-import { UuidGenerator } from "../shared-kernel/id-generator";
-import { getWateringEvents } from "./dispatch";
-import type { Context } from "./handlers";
+import { openDatabase, type Db } from "../../../../infrastructure/db/database";
+import { AssignmentTable } from "../../../zones/domain/assignment-table";
+import { Zone } from "../../../zones/domain/zone";
+import { ZoneId } from "../../../zones/domain/zone-id";
+import { ZoneName } from "../../../zones/domain/zone-name";
+import { DrizzleZoneRepository } from "../../../zones/infrastructure/drizzle-zone-repository";
+import { WateringEvent } from "../../domain/watering-event";
+import { DrizzleWateringEventRepository } from "../../infrastructure/drizzle-watering-event-repository";
+import type { WateringQueryContext } from "./context";
+import { getWateringEvents } from "./get-watering-events";
 
 const at = (iso: string) => new Date(iso);
 
-describe("watering event dispatch", () => {
+describe("get-watering-events", () => {
   let db: Db;
   let zones: DrizzleZoneRepository;
   let events: DrizzleWateringEventRepository;
-  let ctx: Context;
+  let ctx: WateringQueryContext;
 
   beforeEach(() => {
     db = openDatabase(":memory:");
     zones = new DrizzleZoneRepository(db);
     events = new DrizzleWateringEventRepository(db, zones);
-    ctx = {
-      controller: new ControllerSnapshotProjection(),
-      zones,
-      wateringEvents: events,
-      schedules: new DrizzleScheduleRepository(db),
-      clock: new SystemClock(),
-      ids: new UuidGenerator(),
-      device: { prefix: "kc868-a8", publish: () => {}, onResetResult: () => () => {}, onWateringLog: () => () => {} },
-    };
+    ctx = { zones, wateringEvents: events };
   });
 
   const createZone = (name: string) => {

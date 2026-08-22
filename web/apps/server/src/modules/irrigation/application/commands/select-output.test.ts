@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { ControllerSnapshotProjection } from "../../../infrastructure/projections/controller-snapshot-projection";
-import { irrigationHandlers, type IrrigationContext } from "./handlers";
+import { ControllerSnapshotProjection } from "../../../../infrastructure/projections/controller-snapshot-projection";
+import type { IrrigationContext } from "../context";
+import { selectOutput } from "./select-output";
 
-describe("irrigation command handlers", () => {
+describe("select-output", () => {
   test("selects one output channel after shutting the others", () => {
     const published: Array<{ topic: string; payload: string }> = [];
     const ctx: IrrigationContext = {
@@ -15,7 +16,7 @@ describe("irrigation command handlers", () => {
       },
     };
 
-    irrigationHandlers["select-output"](ctx, { channel: 2 });
+    selectOutput(ctx, { channel: 2 });
 
     expect(published).toEqual([
       { topic: "kc868-a8/switch/output_1/command", payload: "OFF" },

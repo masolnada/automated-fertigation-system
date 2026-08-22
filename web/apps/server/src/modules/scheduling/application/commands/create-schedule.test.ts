@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { openDatabase, type Db } from "../../../infrastructure/db/database";
-import { ControllerSnapshotProjection } from "../../../infrastructure/projections/controller-snapshot-projection";
-import { DrizzleWateringEventRepository } from "../../watering/infrastructure/drizzle-watering-event-repository";
-import { DrizzleZoneRepository } from "../../zones/infrastructure/drizzle-zone-repository";
-import { SystemClock } from "../../../shared-kernel/clock";
-import { UuidGenerator } from "../../../shared-kernel/id-generator";
-import { dispatchCommand } from "../../../application/dispatch";
-import { CommandError, type Context } from "../../../application/handlers";
-import { SCHEDULE_MAX } from "../domain/schedule-book";
-import { DrizzleScheduleRepository } from "../infrastructure/drizzle-schedule-repository";
+import { openDatabase, type Db } from "../../../../infrastructure/db/database";
+import { ControllerSnapshotProjection } from "../../../../infrastructure/projections/controller-snapshot-projection";
+import { DrizzleWateringEventRepository } from "../../../watering/infrastructure/drizzle-watering-event-repository";
+import { DrizzleZoneRepository } from "../../../zones/infrastructure/drizzle-zone-repository";
+import { SystemClock } from "../../../../shared-kernel/clock";
+import { UuidGenerator } from "../../../../shared-kernel/id-generator";
+import { dispatchCommand } from "../../../../application/command-dispatcher";
+import { CommandError, type Context } from "../../../../application/handlers";
+import { SCHEDULE_MAX } from "../../domain/schedule-book";
+import { DrizzleScheduleRepository } from "../../infrastructure/drizzle-schedule-repository";
 
 let db: Db;
 let schedules: DrizzleScheduleRepository;
@@ -196,53 +196,6 @@ describe("a time slot can only be taken once", () => {
     rejects(entry({ channel: 2 }));
     dispatch("delete-schedule", { id: first.id });
     dispatch("create-schedule", entry({ channel: 2 }));
-    expect(ctx.controller.getSnapshot().schedules).toHaveLength(1);
-  });
-});
-
-describe("deleting a schedule", () => {
-  test("the entry goes and the new set is published", () => {
-    const created = dispatch("create-schedule", entry()) as { id: string };
-    dispatch("delete-schedule", { id: created.id });
-    expect(ctx.controller.getSnapshot().schedules).toHaveLength(0);
-    expect(lastSet().entries).toHaveLength(0);
-  });
-
-  test("an unknown id is a no-op rather than an error", () => {
-    dispatch("create-schedule", entry());
-    dispatch("delete-schedule", { id: crypto.randomUUID() });
-    expect(ctx.controller.getSnapshot().schedules).toHaveLength(1);
-  });
-
-  test("a missing id is refused", () => {
-    expect(() => dispatch("delete-schedule", {})).toThrow(CommandError);
-  });
-});
-
-/**
- * Archiving takes a zone out of service, so the entries standing on its channel
- * go with it: left behind they would keep watering, with nothing on screen
- * naming them.
- */
-describe("archiving a zone takes its schedules", () => {
-  test("entries on the archived zone's channel are deleted", () => {
-    const zone = dispatch("create-zone", { name: "Olive terrace" }) as { id: string };
-    dispatch("set-assignments", { assignments: { 1: zone.id, 2: null, 3: null, 4: null } });
-    dispatch("create-schedule", entry({ channel: 1, time: "06:00" }));
-    dispatch("create-schedule", entry({ channel: 2, time: "07:00" }));
-
-    dispatch("archive-zone", { id: zone.id });
-
-    const remaining = ctx.controller.getSnapshot().schedules;
-    expect(remaining).toHaveLength(1);
-    expect(remaining[0]!.channel).toBe(2);
-    expect(lastSet().entries).toHaveLength(1);
-  });
-
-  test("archiving an unassigned zone leaves every schedule alone", () => {
-    const zone = dispatch("create-zone", { name: "Tomato patch" }) as { id: string };
-    dispatch("create-schedule", entry({ channel: 1 }));
-    dispatch("archive-zone", { id: zone.id });
     expect(ctx.controller.getSnapshot().schedules).toHaveLength(1);
   });
 });
