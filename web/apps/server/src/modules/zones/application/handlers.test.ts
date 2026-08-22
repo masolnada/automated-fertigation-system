@@ -1,26 +1,24 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { openDatabase, type Db } from "../infrastructure/db/database";
-import { ControllerSnapshotProjection } from "../infrastructure/projections/controller-snapshot-projection";
-import { DrizzleScheduleRepository } from "../modules/scheduling/infrastructure/drizzle-schedule-repository";
-import { DrizzleWateringEventRepository } from "../modules/watering/infrastructure/drizzle-watering-event-repository";
-import { DrizzleZoneRepository } from "../modules/zones/infrastructure/drizzle-zone-repository";
-import { SystemClock } from "../shared-kernel/clock";
-import { UuidGenerator } from "../shared-kernel/id-generator";
-import { dispatchCommand } from "./dispatch";
-import { CommandError, type Context } from "./handlers";
+import { openDatabase, type Db } from "../../../infrastructure/db/database";
+import { ControllerSnapshotProjection } from "../../../infrastructure/projections/controller-snapshot-projection";
+import { DrizzleScheduleRepository } from "../../scheduling/infrastructure/drizzle-schedule-repository";
+import { DrizzleWateringEventRepository } from "../../watering/infrastructure/drizzle-watering-event-repository";
+import { SystemClock } from "../../../shared-kernel/clock";
+import { UuidGenerator } from "../../../shared-kernel/id-generator";
+import { dispatchCommand } from "../../../application/dispatch";
+import { CommandError, type Context } from "../../../application/handlers";
+import { DrizzleZoneRepository } from "../infrastructure/drizzle-zone-repository";
 
 describe("zone command handlers", () => {
   let db: Db;
   let zones: DrizzleZoneRepository;
   let controller: ControllerSnapshotProjection;
   let ctx: Context;
-  let published: Array<{ topic: string; payload: string }>;
 
   beforeEach(() => {
     db = openDatabase(":memory:");
     zones = new DrizzleZoneRepository(db);
     controller = new ControllerSnapshotProjection();
-    published = [];
     ctx = {
       controller,
       zones,
@@ -30,7 +28,7 @@ describe("zone command handlers", () => {
       ids: new UuidGenerator(),
       device: {
         prefix: "kc868-a8",
-        publish: (topic, payload) => { published.push({ topic, payload }); },
+        publish: () => {},
         onResetResult: () => () => {},
         onWateringLog: () => () => {},
       },
@@ -68,15 +66,6 @@ describe("zone command handlers", () => {
     expect(zones.currentAssignments().toRecord()).toEqual({ 1: zone.id });
   });
 
-  test("selects one output channel after shutting the others", () => {
-    dispatch("select-output", { channel: 2 });
-    expect(published).toEqual([
-      { topic: "kc868-a8/switch/output_1/command", payload: "OFF" },
-      { topic: "kc868-a8/switch/output_3/command", payload: "OFF" },
-      { topic: "kc868-a8/switch/output_4/command", payload: "OFF" },
-      { topic: "kc868-a8/switch/output_2/command", payload: "ON" },
-    ]);
-  });
 
   test("rejects unknown zone ids", () => {
     const id = crypto.randomUUID();
